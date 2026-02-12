@@ -1,6 +1,6 @@
 # KnowZero Agent 架构设计 (统一版本)
 
-> 基于 LangGraph 的多 Agent 协作系统 - v2 架构统一版
+> 基于 LangGraph 的多 Agent 协作系统 - v2.1 架构统一版（含闲聊支持）
 
 ---
 
@@ -53,6 +53,43 @@
 │  Content      │  │  Navigator    │  │  Planner      │
 │  Agent        │  │  Agent        │  │  Agent        │
 └───────────────┘  └───────────────┘  └───────────────┘
+```
+
+---
+
+### 6. Chitchat Agent（闲聊处理）
+
+**职责：** 处理闲聊对话，不生成文档
+
+```python
+class ChitchatAgent:
+    """闲聊处理器"""
+
+    async def chat(self, message: str, context: Context) -> str:
+        """处理闲聊消息，生成友好回复"""
+
+        prompt = """
+        你是 KnowZero 智能学习助手，专注于帮助用户进行知识管理和学习。
+
+        你的特点：
+        - 友好、热情、专业
+        - 回复简洁（1-2句话）
+        - 可以进行自然的对话
+        - 适时引导用户提出学习相关的问题
+
+        当用户闲聊时，自然地回应，并可以引导他们了解你擅长的学习领域。
+        不要生成任何学习文档内容。
+        """
+
+        response = await self.fast_llm.ainvoke([
+            SystemMessage(content=prompt),
+            HumanMessage(content=message)
+        ])
+
+        return {
+            "type": "chitchat",
+            "content": response.content
+        }
 ```
 
 ---
@@ -147,10 +184,16 @@ class IntentClassifier:
     def __init__(self):
         # 强规则模式 - 置信度 1.0 直接通过，跳过 LLM
         self.strong_patterns = {
+            # 知识/学习类
             r"我想学|我想了解|教教我|什么是": ("new_topic", 1.0),
             r"详细说说|深入讲讲|再详细点": ("follow_up", 1.0),
             r"和.*的区别|和.*不同|对比": ("comparison", 1.0),
             r"怎么办|怎么做|如何实现": ("question_practical", 1.0),
+            # 闲聊类
+            r"^(你好|嗨|hello|hi)": ("chitchat", 1.0),
+            r"^(谢谢|感谢|不客气)": ("chitchat", 1.0),
+            r"^(再见|拜拜)": ("chitchat", 1.0),
+            r"你是谁|你叫什么|你能做什么": ("chitchat", 1.0),
         }
 
         # 模糊模式 - 需要进一步确认
@@ -616,6 +659,7 @@ def create_knowzero_graph():
     graph.add_node("content_agent", content_agent_node)
     graph.add_node("planner_agent", planner_agent_node)
     graph.add_node("navigator_node", navigator_node)
+    graph.add_node("chitchat_agent", chitchat_agent_node)
 
     # 设置入口
     graph.set_entry_point("input_normalizer")
@@ -625,7 +669,7 @@ def create_knowzero_graph():
         "intent_agent",
         route_by_intent,
         {
-            # 移除 "simple" 快速通路，所有意图都经过 Route Agent
+            "chitchat": "chitchat_agent",
             "generate": "route_agent",
             "follow_up": "route_agent",
             "optimize": "route_agent",
@@ -650,6 +694,7 @@ def create_knowzero_graph():
     # 终结节点
     graph.add_edge("content_agent", END)
     graph.add_edge("navigator_node", END)
+    graph.add_edge("chitchat_agent", END)
     graph.add_edge("planner_agent", "content_agent")
 
     return graph.compile()
@@ -729,6 +774,17 @@ def route_by_decision(state: AgentState) -> str:
 ┌─────────────────────────────────────────────┐
 │              返回结果给用户               │
 └─────────────────────────────────────────────┘
+
+                    [闲聊分支]
+                            │
+                            ▼
+                ┌─────────────────────┐
+                │   Chitchat Agent    │
+                │   (闲聊直接回复)     │
+                └─────────┬───────────┘
+                          │
+                          ▼
+                    直接返回 → END
 ```
 
 ---
@@ -879,6 +935,39 @@ def route_by_decision(state: AgentState) -> str:
 走「流程 1: 聊天消息」的后续流程
 ```
 
+### 流程 5：闲聊对话
+
+```
+用户: "你好"
+       ↓
+┌─────────────────────────────────────────────────────────────┐
+│  Input Normalizer                                        │
+│  source = CHAT                                          │
+│  raw_message = "你好"                                     │
+└─────────────────────────────────────────────────────────────┘
+       ↓
+┌─────────────────────────────────────────────────────────────┐
+│  Fast-Track Intent Router                                │
+│  强规则匹配: "你好" → chitchat (confidence: 1.0)         │
+│  跳过 LLM，直接返回                                    │
+└─────────────────────────────────────────────────────────────┘
+       ↓
+┌─────────────────────────────────────────────────────────────┐
+│  Intent Agent (已通过 Fast-Track 确认)                 │
+│  intent_type = "chitchat"                                 │
+└─────────────────────────────────────────────────────────────┘
+       ↓
+┌─────────────────────────────────────────────────────────────┐
+│  Chitchat Agent                                           │
+│  使用快速 LLM 生成友好回复:                              │
+│  - 不进入文档生成流程                                    │
+│  - 简洁自然回复                                          │
+│  - 可引导用户回到学习主题                                │
+└─────────────────────────────────────────────────────────────┘
+       ↓
+返回: {type: "chitchat", content: "你好！我是 KnowZero 智能学习助手..."}
+```
+
 ---
 
 ## 技术栈
@@ -895,7 +984,7 @@ def route_by_decision(state: AgentState) -> str:
 
 ## 与 v1 架构的主要变化
 
-| 方面 | v1 | v2 (统一版) |
+| 方面 | v1 | v2.1 (统一版 + 闲聊支持) |
 |------|----|--------------|
 | 输入处理 | 只处理聊天消息 | 统一处理 5 种输入来源 |
 | 意图分类 | 总是调用 LLM | Fast-Track 三层匹配 |
@@ -903,7 +992,8 @@ def route_by_decision(state: AgentState) -> str:
 | 实体词处理 | 嵌在文档中 | 独立的 EntityIndex |
 | 评论锚点 | 字符偏移 | 内容指纹锚点 |
 | 状态管理 | 简单 State | 带 Reducer 的 AgentState |
+| 闲聊处理 | 无 | Chitchat Agent 独立处理 |
 
 ---
 
-*Agent 架构设计 (统一版本) | KnowZero 项目*
+*Agent 架构设计 v2.1 | KnowZero 项目*

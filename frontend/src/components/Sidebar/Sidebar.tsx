@@ -1,4 +1,5 @@
 import { BookOpen, FolderTree, Plus } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -10,6 +11,11 @@ interface SidebarProps {
 }
 
 export function Sidebar({ className }: SidebarProps) {
+  const navigate = useNavigate();
+
+  const handleNewSession = () => {
+    navigate("/");
+  };
   return (
     <aside
       className={cn(
@@ -25,7 +31,11 @@ export function Sidebar({ className }: SidebarProps) {
 
       {/* New Session Button */}
       <div className="p-4">
-        <Button className="w-full" variant="outline">
+        <Button
+          className="w-full"
+          variant="outline"
+          onClick={handleNewSession}
+        >
           <Plus className="mr-2 h-4 w-4" />
           新会话
         </Button>

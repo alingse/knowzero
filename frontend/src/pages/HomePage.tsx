@@ -13,8 +13,11 @@ export function HomePage() {
 
   const createSession = useMutation({
     mutationFn: sessionsApi.create,
-    onSuccess: (session) => {
-      navigate(`/session/${session.id}`);
+    onSuccess: (session, variables) => {
+      // Pass initial query via navigate state
+      navigate(`/session/${session.id}`, {
+        state: { initialQuery: variables.title },
+      });
     },
   });
 

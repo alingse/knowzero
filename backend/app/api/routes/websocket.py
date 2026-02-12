@@ -44,9 +44,13 @@ async def stream_agent_response(
     websocket: WebSocket,
     state: AgentState,
 ) -> None:
-    """Run the LangGraph, persist results, and stream to client."""
+    """Run LangGraph with streaming events, persist results, and stream to client."""
     session_id = state["session_id"]
     user_id = state["user_id"]
+
+    # Collect final results for persistence
+    final_result = {}
+    accumulated_content = ""
 
     try:
         graph = get_graph()
@@ -67,21 +71,111 @@ async def stream_agent_response(
                 message_type=state["input_source"],
             )
 
-        # Run graph with thread_id for checkpointer
+        # Run graph with streaming events
         config = {"configurable": {"thread_id": session_id}}
-        result = await graph.ainvoke(state, config)
+
+        async for event in graph.astream_events(state, config, version="v1"):
+            event_type = event["event"]
+            event_name = event.get("name", "")
+            event_data = event.get("data", {})
+
+            # Node/Chain start events
+            if event_type == "on_chain_start":
+                # Extract node name from event name
+                node_name = event_name.split(".")[-1] if "." in event_name else event_name
+                await websocket.send_json({
+                    "type": "node_start",
+                    "data": {"name": node_name},
+                })
+                logger.debug("Node started", node=node_name)
+
+            # Node/Chain end events
+            elif event_type == "on_chain_end":
+                node_name = event_name.split(".")[-1] if "." in event_name else event_name
+                await websocket.send_json({
+                    "type": "node_end",
+                    "data": {"name": node_name},
+                })
+                logger.debug("Node ended", node=node_name)
+
+                # Capture final state updates
+                if "output" in event_data:
+                    final_result.update(event_data["output"])
+
+            # LLM start
+            elif event_type == "on_chat_model_start":
+                await websocket.send_json({
+                    "type": "node_start",
+                    "data": {"name": "LLM", "model": event_data.get("model")},
+                })
+
+            # LLM token streaming
+            elif event_type == "on_chat_model_stream":
+                content = event_data.get("chunk", "")
+                if content:
+                    accumulated_content += content
+                    await websocket.send_json({
+                        "type": "token",
+                        "data": {"content": content},
+                    })
+
+            # LLM end
+            elif event_type == "on_chat_model_end":
+                await websocket.send_json({
+                    "type": "node_end",
+                    "data": {"name": "LLM"},
+                })
+
+            # Tool call start
+            elif event_type == "on_tool_start":
+                tool_name = event_name.split(".")[-1] if "." in event_name else event_name
+                tool_input = event_data.get("input", {})
+                await websocket.send_json({
+                    "type": "tool_start",
+                    "data": {
+                        "tool": tool_name,
+                        "input": str(tool_input)[:200],  # Truncate for display
+                    },
+                })
+                logger.info("Tool started", tool=tool_name)
+
+            # Tool call end
+            elif event_type == "on_tool_end":
+                tool_name = event_name.split(".")[-1] if "." in event_name else event_name
+                tool_output = event_data.get("output", "")
+                await websocket.send_json({
+                    "type": "tool_end",
+                    "data": {
+                        "tool": tool_name,
+                        "output": str(tool_output)[:200] if tool_output else "",
+                    },
+                })
+                logger.info("Tool ended", tool=tool_name)
+
+            # Tool error
+            elif event_type == "on_tool_error":
+                tool_name = event_name.split(".")[-1] if "." in event_name else event_name
+                error_msg = event_data.get("error", "Unknown error")
+                await websocket.send_json({
+                    "type": "error",
+                    "message": f"工具 {tool_name} 执行失败: {error_msg}",
+                })
+                logger.error("Tool error", tool=tool_name, error=error_msg)
+
+        # Get final state after stream completes
+        result_state = await graph.ainvoke(state, config)
 
         # Handle errors
-        if result.get("error"):
+        if result_state.get("error"):
             await websocket.send_json({
                 "type": "error",
-                "message": result["error"],
+                "message": result_state["error"],
             })
             return
 
         # Persist and stream document
-        if result.get("document"):
-            doc_data = result["document"]
+        if result_state.get("document"):
+            doc_data = result_state["document"]
             async with get_db_session() as db:
                 if doc_data.get("id"):
                     # Update existing document
@@ -89,7 +183,7 @@ async def stream_agent_response(
                         db,
                         document_id=doc_data["id"],
                         content=doc_data["content"],
-                        change_summary=result.get("change_summary", "更新"),
+                        change_summary=result_state.get("change_summary", "更新"),
                     )
                 else:
                     # Create new document
@@ -102,8 +196,8 @@ async def stream_agent_response(
                         category_path=doc_data.get("category_path"),
                         entities=doc_data.get("entities", []),
                         generation_metadata={
-                            "intent": result.get("intent"),
-                            "routing": result.get("routing_decision"),
+                            "intent": result_state.get("intent"),
+                            "routing": result_state.get("routing_decision"),
                         },
                     )
 
@@ -117,7 +211,7 @@ async def stream_agent_response(
                     )
 
                 # Persist follow-up questions
-                follow_ups = result.get("follow_up_questions", [])
+                follow_ups = result_state.get("follow_up_questions", [])
                 if follow_ups:
                     await document_service.save_follow_ups(db, doc_id, follow_ups)
 
@@ -126,11 +220,11 @@ async def stream_agent_response(
                     db,
                     session_id=session_id,
                     user_id=user_id,
-                    content=result.get("change_summary", ""),
+                    content=result_state.get("change_summary", ""),
                     message_type="document",
                     related_document_id=doc_id,
-                    agent_intent=result.get("intent"),
-                    agent_routing=result.get("routing_decision"),
+                    agent_intent=result_state.get("intent"),
+                    agent_routing=result_state.get("routing_decision"),
                 )
 
             # Stream document to client
@@ -153,8 +247,8 @@ async def stream_agent_response(
                 })
 
         # Stream navigation info
-        if result.get("navigation_target"):
-            nav = result["navigation_target"]
+        if result_state.get("navigation_target"):
+            nav = result_state["navigation_target"]
             await websocket.send_json({
                 "type": "navigation",
                 "data": nav,
@@ -171,15 +265,31 @@ async def stream_agent_response(
                     related_document_id=nav.get("document_id"),
                 )
 
-        # Stream final AI message
-        messages = result.get("messages", [])
-        if messages:
-            last_message = messages[-1]
-            if hasattr(last_message, "content"):
-                await websocket.send_json({
-                    "type": "content",
-                    "data": {"content": last_message.content},
-                })
+        # Stream direct response (chitchat, etc.)
+        if result_state.get("response"):
+            resp = result_state["response"]
+            await websocket.send_json({
+                "type": "content",
+                "data": {"content": resp.get("content", "")},
+            })
+
+            # Persist assistant message for chitchat
+            async with get_db_session() as db:
+                await message_service.save_assistant_message(
+                    db,
+                    session_id=session_id,
+                    user_id=user_id,
+                    content=resp.get("content", ""),
+                    message_type=resp.get("type", "chat"),
+                    agent_intent=result_state.get("intent"),
+                )
+
+        # Send accumulated content if no other response
+        if accumulated_content and not result_state.get("document") and not result_state.get("response"):
+            await websocket.send_json({
+                "type": "content",
+                "data": {"content": accumulated_content},
+            })
 
         # Done
         await websocket.send_json({"type": "done"})

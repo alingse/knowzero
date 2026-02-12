@@ -4,12 +4,14 @@ import type { Message } from "@/types";
 
 import { ChatInput } from "./ChatInput";
 import { ChatMessage } from "./ChatMessage";
+import { ExecutionProgress, type ExecutionEvent } from "./ExecutionProgress";
 
 interface ChatAreaProps {
   messages: Message[];
   onSendMessage: (message: string) => void;
   isLoading?: boolean;
   className?: string;
+  executionEvents?: ExecutionEvent[];
 }
 
 export function ChatArea({
@@ -17,6 +19,7 @@ export function ChatArea({
   onSendMessage,
   isLoading,
   className,
+  executionEvents = [],
 }: ChatAreaProps) {
   return (
     <div className={cn("flex flex-col border-t bg-card", className)}>
@@ -32,7 +35,13 @@ export function ChatArea({
               <ChatMessage key={message.id} message={message} />
             ))
           )}
-          {isLoading && (
+
+          {/* Execution Progress */}
+          {executionEvents.length > 0 && (
+            <ExecutionProgress events={executionEvents} />
+          )}
+
+          {isLoading && executionEvents.length === 0 && (
             <div className="flex items-center gap-2 py-2 text-sm text-muted-foreground">
               <div className="h-2 w-2 animate-bounce rounded-full bg-primary" />
               <div

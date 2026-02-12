@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import type { ChatRequest, Message, StreamResponse } from "@/types";
+import type { ChatRequest, StreamResponse } from "@/types";
 
 type ConnectionStatus = "connecting" | "connected" | "disconnected" | "error";
 

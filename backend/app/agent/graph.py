@@ -4,6 +4,7 @@ from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, StateGraph
 
 from app.agent.nodes import (
+    chitchat_agent_node,
     content_agent_node,
     input_normalizer_node,
     intent_agent_node,
@@ -39,6 +40,7 @@ def create_knowzero_graph(checkpointer=None):
     workflow.add_node("route_agent", route_agent_node)
     workflow.add_node("content_agent", content_agent_node)
     workflow.add_node("navigator_agent", navigator_agent_node)
+    workflow.add_node("chitchat_agent", chitchat_agent_node)
 
     # Set entry point
     workflow.set_entry_point("input_normalizer")
@@ -50,6 +52,7 @@ def create_knowzero_graph(checkpointer=None):
         "intent_agent",
         route_by_intent,
         {
+            "chitchat_agent": "chitchat_agent",
             "navigator_agent": "navigator_agent",
             "route_agent": "route_agent",
         },
@@ -67,6 +70,7 @@ def create_knowzero_graph(checkpointer=None):
 
     workflow.add_edge("content_agent", END)
     workflow.add_edge("navigator_agent", END)
+    workflow.add_edge("chitchat_agent", END)
 
     return workflow.compile(checkpointer=checkpointer)
 

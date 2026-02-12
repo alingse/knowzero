@@ -105,15 +105,17 @@ def _get_optimization_mode(state: AgentState) -> str:
 
 def route_by_intent(state: AgentState) -> str:
     """Route to next node based on intent.
-    
+
     Returns node name for conditional edge.
     """
     intent = state.get("intent", {})
     intent_type = intent.get("intent_type", "question")
-    
+
+    if intent_type == "chitchat":
+        return "chitchat_agent"
     if intent_type == "navigate":
         return "navigator_agent"
-    
+
     # All other intents go through route agent
     return "route_agent"
 

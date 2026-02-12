@@ -13,11 +13,17 @@ class IntentClassifier:
     
     # Layer 1: Strong patterns (confidence 1.0, skip LLM)
     STRONG_PATTERNS = {
+        # Knowledge/learning intents
         r"我想学|我想了解|教教我|什么是|介绍.*一下": ("new_topic", 1.0),
         r"详细说说|深入讲讲|再详细点|展开讲讲": ("follow_up", 1.0),
         r"和.*的区别|和.*不同|对比一下|比较.*和": ("comparison", 1.0),
         r"怎么办|怎么做|如何实现|给我.*例子": ("question_practical", 1.0),
         r"太抽象|太简单|没看懂|不明白|详细点": ("optimize_content", 1.0),
+        # Chitchat intents
+        r"^(你好|嗨|hello|hi|嗨嗨|早上好|晚上好|下午好|早安|晚安|哈喽|hey)": ("chitchat", 1.0),
+        r"^(谢谢|感谢|多谢|不客气|没关系|好的|行|可以|没问题)": ("chitchat", 1.0),
+        r"^(再见|拜拜|走了|回见|bye|goodbye)": ("chitchat", 1.0),
+        r"你是谁|你叫什么|介绍一下自己|你是什么|你能做什么": ("chitchat", 1.0),
     }
     
     # Layer 2: Fuzzy patterns (confidence 0.8, may need confirmation)

@@ -112,11 +112,15 @@ async def restore_session(
     docs_result = await db.execute(select(Document).where(Document.session_id == session_id))
     documents = list(docs_result.scalars().all())
 
+    # Convert SQLAlchemy models to dicts using model_dump
+    from app.schemas import SessionResponse, MessageResponse
+    from app.schemas.document import DocumentResponse
+
     return {
-        "session": session,
-        "messages": messages[::-1],  # Reverse to chronological order
-        "current_document": current_doc,
-        "documents": documents,
+        "session": SessionResponse.model_validate(session).model_dump(mode="json"),
+        "messages": [MessageResponse.model_validate(m).model_dump(mode="json") for m in messages[::-1]],
+        "current_document": DocumentResponse.model_validate(current_doc).model_dump(mode="json") if current_doc else None,
+        "documents": [DocumentResponse.model_validate(d).model_dump(mode="json") for d in documents],
         "restore_position": "last_message",
     }
 

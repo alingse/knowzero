@@ -84,7 +84,20 @@ export interface ChatRequest {
 }
 
 export interface StreamResponse {
-  type: "thinking" | "content" | "document" | "follow_ups" | "error" | "done";
+  type:
+    | "thinking"
+    | "content"
+    | "document"
+    | "follow_ups"
+    | "error"
+    | "done"
+    // Streaming event types for LangGraph progress
+    | "token"           // LLM token streaming
+    | "node_start"       // Agent node execution started
+    | "node_end"         // Agent node execution ended
+    | "tool_start"       // Tool call started
+    | "tool_end"         // Tool call ended
+    | "progress";        // Custom progress updates
   data?: Record<string, unknown>;
   message?: string;
 }

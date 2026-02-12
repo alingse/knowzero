@@ -41,7 +41,8 @@ class AgentState(TypedDict):
     document: Annotated[dict | None, "Generated/retrieved document"]
     follow_up_questions: Annotated[list, "Generated follow-up questions"]
     change_summary: Annotated[str | None, "Document change summary"]
-    
+    response: Annotated[dict | None, "Direct response for chitchat/etc"]
+
     # === Navigation ===
     navigation_target: Annotated[dict | None, "Navigation target if applicable"]
     
