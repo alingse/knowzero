@@ -1,4 +1,5 @@
 import { Loader2, CheckCircle2 } from "lucide-react";
+import React from "react";
 import { cn } from "@/lib/utils";
 import type { ExecutionEvent } from "./ExecutionProgress";
 
@@ -6,6 +7,8 @@ interface CompactExecutionProgressProps {
   events: ExecutionEvent[];
   className?: string;
 }
+
+export const CompactExecutionProgress = React.memo(CompactExecutionProgressComponent);
 
 // 节点名称的友好显示映射
 const displayNameMap: Record<string, string> = {
@@ -23,7 +26,7 @@ function getDisplayName(name: string): string {
   return displayNameMap[name] || name;
 }
 
-export function CompactExecutionProgress({ events, className }: CompactExecutionProgressProps) {
+function CompactExecutionProgressComponent({ events, className }: CompactExecutionProgressProps) {
   // Get current and completed items
   const getStatus = () => {
     const active: ExecutionEvent[] = [];
@@ -82,7 +85,7 @@ export function CompactExecutionProgress({ events, className }: CompactExecution
   }
 
   return (
-    <div className={cn("flex items-center gap-1.5 text-xs text-muted-foreground/70 mt-1.5 ml-0.5", className)}>
+    <div className={cn("flex items-center gap-1.5 text-xs text-muted-foreground/70 mt-1.5 ml-0.5 will-change-contents", className)}>
       {currentItem ? (
         <Loader2 className="h-3 w-3 animate-spin text-primary/70" />
       ) : (

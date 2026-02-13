@@ -15,7 +15,7 @@ export function Layout({ children, className }: LayoutProps) {
 
 export function MainContent({ children, className }: LayoutProps) {
   return (
-    <main className={cn("flex flex-1 flex-col overflow-hidden", className)}>
+    <main className={cn("flex flex-1 flex-col overflow-y-auto", className)}>
       {children}
     </main>
   );

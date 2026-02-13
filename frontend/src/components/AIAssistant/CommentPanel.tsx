@@ -6,7 +6,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { X, Sparkles, MessageSquare, BookOpen, Lightbulb } from "lucide-react";
+import { X, Sparkles, MessageSquare, BookOpen, Lightbulb, Copy, Check } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -95,6 +95,18 @@ export function CommentPanel({
     onSend(fullPrompt);
   };
 
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(selectedText);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error("Failed to copy:", err);
+    }
+  };
+
   const handleSubmit = () => {
     if (!comment.trim() || isLoading) return;
     const fullPrompt = `关于这段内容"${selectedText.slice(0, 50)}${selectedText.length > 50 ? '...' : ''}"，${comment}`;
@@ -107,12 +119,14 @@ export function CommentPanel({
     }
   };
 
-  // Calculate position - default to center if not provided
+  // Calculate position - ensure panel stays within viewport bounds
   const style: React.CSSProperties = position
     ? {
         position: "fixed",
-        left: Math.min(position.x, window.innerWidth - 320),
-        top: Math.min(position.y + 20, window.innerHeight - 300),
+        // Ensure panel doesn't go off the right edge
+        left: Math.min(Math.max(position.x, 16), window.innerWidth - 336),
+        // Ensure panel doesn't go off the bottom edge
+        top: Math.min(Math.max(position.y, 16), window.innerHeight - 400),
         zIndex: 50,
       }
     : {
@@ -148,7 +162,30 @@ export function CommentPanel({
 
       {/* Selected text preview */}
       <div className="border-b bg-muted/30 px-3 py-2">
-        <div className="text-xs text-muted-foreground mb-1">选中的内容：</div>
+        <div className="flex items-center justify-between mb-1">
+          <div className="text-xs text-muted-foreground">选中的内容：</div>
+          <button
+            onClick={handleCopy}
+            className={cn(
+              "flex items-center gap-1 rounded px-1.5 py-0.5 text-xs transition-colors",
+              copied 
+                ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" 
+                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            )}
+          >
+            {copied ? (
+              <>
+                <Check className="h-3 w-3" />
+                已复制
+              </>
+            ) : (
+              <>
+                <Copy className="h-3 w-3" />
+                复制
+              </>
+            )}
+          </button>
+        </div>
         <div className="text-sm line-clamp-3 text-foreground/80">
           "{selectedText}"
         </div>

@@ -16,6 +16,28 @@ class InputSource(str, Enum):
     ENTRY = "entry"
 
 
+class MessageRole(str, Enum):
+    """Who sent the message (determines avatar + alignment)."""
+
+    USER = "user"
+    ASSISTANT = "assistant"
+    SYSTEM = "system"
+
+
+class MessageType(str, Enum):
+    """What kind of message (determines rendering style)."""
+
+    CHAT = "chat"  # Normal chat (includes former chitchat)
+    COMMENT = "comment"  # Document annotation
+    ENTITY = "entity"  # Entity click
+    FOLLOW_UP = "follow_up"  # Follow-up click
+    ENTRY = "entry"  # Entry input
+    DOCUMENT_CARD = "document_card"  # Document generation status card (visible)
+    DOCUMENT_REF = "document_ref"  # Internal document tracking (hidden)
+    NAVIGATION = "navigation"  # Navigate to existing document
+    NOTIFICATION = "notification"  # System notification
+
+
 class SessionCreate(BaseModel):
     """Create session request."""
 
@@ -33,6 +55,8 @@ class SessionResponse(BaseModel):
     learning_goal: str | None
     current_document_id: int | None
     progress: dict
+    agent_status: str = "idle"
+    agent_started_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
     is_archived: bool
@@ -45,9 +69,9 @@ class MessageResponse(BaseModel):
     """Message response."""
 
     id: int
-    role: str
+    role: MessageRole
     content: str
-    message_type: str
+    message_type: MessageType
     related_document_id: int | None
     timestamp: datetime
 
@@ -60,6 +84,8 @@ class CommentData(BaseModel):
 
     comment: str
     selected_text: str
+    context_before: str | None = None  # Text before selection for better context
+    context_after: str | None = None   # Text after selection for better context
     position: dict | None = None  # {start, end}
     document_id: int
     section_id: str | None = None

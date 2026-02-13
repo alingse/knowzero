@@ -5,16 +5,32 @@ export interface Session {
   learning_goal?: string;
   current_document_id?: number;
   progress: Record<string, unknown>;
+  agent_status: "idle" | "running" | "error";
+  agent_started_at?: string;
   created_at: string;
   updated_at: string;
   is_archived: boolean;
 }
 
+export const MessageType = {
+  CHAT: "chat",
+  COMMENT: "comment",
+  ENTITY: "entity",
+  FOLLOW_UP: "follow_up",
+  ENTRY: "entry",
+  DOCUMENT_CARD: "document_card",
+  DOCUMENT_REF: "document_ref",
+  NAVIGATION: "navigation",
+  NOTIFICATION: "notification",
+} as const;
+
+export type MessageTypeValue = (typeof MessageType)[keyof typeof MessageType];
+
 export interface Message {
   id: number;
   role: "user" | "assistant" | "system";
   content: string;
-  message_type: string;
+  message_type: MessageTypeValue;
   related_document_id?: number;
   timestamp: string;
   // Placeholder message fields for UI state
@@ -75,6 +91,8 @@ export interface ChatRequest {
   comment_data?: {
     comment: string;
     selected_text: string;
+    context_before?: string;  // Text before selection for better context
+    context_after?: string;   // Text after selection for better context
     position?: { start: number; end: number };
     document_id: number;
     section_id?: string;
@@ -92,6 +110,9 @@ export interface StreamResponse {
     | "thinking"
     | "content"
     | "document"
+    | "document_start"  // Document generation started, with topic
+    | "document_token"   // Document content streaming token
+    | "entities"
     | "follow_ups"
     | "error"
     | "done"

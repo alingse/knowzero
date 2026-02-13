@@ -33,7 +33,14 @@ export const sessionsApi = {
     fetchJson<Message[]>(`/sessions/${id}/messages`),
 
   restore: (id: string) =>
-    fetchJson<{ session: Session; messages: Message[]; current_document?: Document }>(
+    fetchJson<{
+      session: Session;
+      messages: Message[];
+      current_document?: Document;
+      documents?: Document[];
+      agent_status?: Session["agent_status"];
+      agent_started_at?: string | null;
+    }>(
       `/sessions/${id}/restore`
     ),
 

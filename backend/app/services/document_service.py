@@ -114,6 +114,23 @@ async def list_session_documents(
     return list(result.scalars().all())
 
 
+async def update_document_entities(
+    db: AsyncSession,
+    *,
+    document_id: int,
+    entities: list[str],
+) -> Document | None:
+    """Update a document's entities list (used by background tasks)."""
+    doc = await db.get(Document, document_id)
+    if not doc:
+        logger.warning("Document not found for entity update", doc_id=document_id)
+        return None
+    doc.entities = entities
+    await db.flush()
+    logger.info("Document entities updated", doc_id=document_id, count=len(entities))
+    return doc
+
+
 async def save_follow_ups(
     db: AsyncSession,
     document_id: int,

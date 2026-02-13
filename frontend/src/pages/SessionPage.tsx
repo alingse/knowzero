@@ -1,5 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
-import { useEffect, useState, useCallback } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useLocation } from "react-router-dom";
 
 import { AIAssistant, useAIAssistant, type AIInteractionContext } from "@/components/AIAssistant";
@@ -11,11 +11,13 @@ import { sessionsApi } from "@/api/client";
 import { useSessionStore } from "@/stores/sessionStore";
 import type { ExecutionEvent } from "@/components/Chat/ExecutionProgress";
 import type { DisplayMessage } from "@/components/Chat/MessagesList";
-import type { Document, StreamResponse, Message } from "@/types";
+import type { Document, FollowUpQuestion, StreamResponse, Message } from "@/types";
+import { MessageType } from "@/types";
 
 export function SessionPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const location = useLocation();
+  const queryClient = useQueryClient();
   const initialQuery = location.state?.initialQuery as string | undefined;
 
   // AI Assistant state management
@@ -32,6 +34,9 @@ export function SessionPage() {
   const [streamingContent, setStreamingContent] = useState("");
   // Track streaming document title for preview
   const [streamingTitle, setStreamingTitle] = useState("");
+  // Buffer for batching tokens to reduce render frequency
+  const tokenBufferRef = useRef<string>("");
+  const tokenBatchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Text selection for comment mode
   const [selectedText, setSelectedText] = useState("");
@@ -43,6 +48,8 @@ export function SessionPage() {
   const {
     currentDocument,
     messages,
+    followUpQuestions,
+    agentStatus,
     setCurrentSession,
     setCurrentDocument,
     setMessages,
@@ -50,6 +57,9 @@ export function SessionPage() {
     updateMessage,
     setLoading,
     setStreaming,
+    setFollowUpQuestions,
+    updateDocumentEntities,
+    setAgentStatus,
   } = useSessionStore();
 
   // Restore session on load
@@ -62,6 +72,11 @@ export function SessionPage() {
       setCurrentDocument(data.current_document || null);
       setMessages(data.messages);
 
+      // Restore agent status from backend
+      if (data.agent_status) {
+        setAgentStatus(data.agent_status, data.agent_started_at || undefined);
+      }
+
       // Restore last document topic for streaming title (faster UX)
       if (data.current_document?.topic) {
         setStreamingTitle(data.current_document.topic);
@@ -72,14 +87,27 @@ export function SessionPage() {
     enabled: !!sessionId,
   });
 
+  // Separate query for messages to support refreshing
+  useQuery({
+    queryKey: ["session", sessionId, "messages"],
+    queryFn: async () => {
+      if (!sessionId) return [];
+      const messages = await sessionsApi.getMessages(sessionId);
+      setMessages(messages);
+      return messages;
+    },
+    enabled: !!sessionId,
+    staleTime: 0, // Always fetch fresh data when invalidated
+  });
+
   // Helper to add placeholder message
   const addPlaceholder = useCallback((type: 'generating' | 'complete' | 'error', title?: string) => {
-    const id = Date.now();
+    const id = -Date.now();
     const placeholderMsg: DisplayMessage = {
       id,
       role: "assistant",
       content: type === 'generating' ? "正在生成学习文档..." : type === 'complete' ? `已为你生成《${title || '学习文档'}》📄` : "生成失败",
-      message_type: "placeholder",
+      message_type: MessageType.DOCUMENT_CARD,
       timestamp: new Date().toISOString(),
       isPlaceholder: true,
       placeholderType: type,
@@ -126,6 +154,7 @@ export function SessionPage() {
         setExecutionEvents([]);
         setStreamingContent("");
         setStreamingTitle("正在生成文档...");
+        setFollowUpQuestions([]);
         addPlaceholder('generating');
         break;
 
@@ -138,6 +167,14 @@ export function SessionPage() {
           setStreamingContent((prev) => prev + tokenContent);
         }
         setStreaming(true);
+        break;
+
+      case "document_start":
+        const docTopic = response.data?.topic as string;
+        if (docTopic) {
+          setStreamingTitle(docTopic);
+          setCurrentDocument(null);
+        }
         break;
 
       case "node_start":
@@ -194,7 +231,7 @@ export function SessionPage() {
             id: Date.now(),
             role: "assistant",
             content: response.data.content as string,
-            message_type: "chat",
+            message_type: MessageType.CHAT,
             timestamp: new Date().toISOString(),
           };
           addMessage(assistantMessage);
@@ -203,21 +240,85 @@ export function SessionPage() {
         setStreamingTitle("");
         break;
 
+      case "document_token":
+        const docTokenContent = response.data?.content as string;
+        if (docTokenContent) {
+          // Batch tokens to reduce render frequency (every 100ms)
+          tokenBufferRef.current += docTokenContent;
+          
+          // Flush immediately if buffer gets large
+          const shouldFlushNow = tokenBufferRef.current.length > 100;
+          
+          if (!tokenBatchTimeoutRef.current || shouldFlushNow) {
+            if (tokenBatchTimeoutRef.current) {
+              clearTimeout(tokenBatchTimeoutRef.current);
+            }
+            
+            if (shouldFlushNow) {
+              // Immediate flush for large buffers
+              setStreamingContent((prev) => prev + tokenBufferRef.current);
+              tokenBufferRef.current = "";
+              tokenBatchTimeoutRef.current = null;
+            } else {
+              // Debounced update for small buffers
+              tokenBatchTimeoutRef.current = setTimeout(() => {
+                setStreamingContent((prev) => prev + tokenBufferRef.current);
+                tokenBufferRef.current = "";
+                tokenBatchTimeoutRef.current = null;
+              }, 100);
+            }
+          }
+        }
+        setStreaming(true);
+        break;
+
       case "document":
+        // Flush any remaining buffered tokens
+        if (tokenBufferRef.current) {
+          setStreamingContent((prev) => prev + tokenBufferRef.current);
+          tokenBufferRef.current = "";
+        }
+        if (tokenBatchTimeoutRef.current) {
+          clearTimeout(tokenBatchTimeoutRef.current);
+          tokenBatchTimeoutRef.current = null;
+        }
         if (response.data) {
           const doc = response.data as unknown as Document;
           setCurrentDocument(doc);
+
+          // Update placeholder to completion state (instead of removing)
           if (placeholderId) {
             updatePlaceholder(placeholderId, 'complete', doc.topic);
+          }
+
+          // Refresh messages list to get the latest assistant message with document reference
+          if (sessionId) {
+            queryClient.invalidateQueries({ queryKey: ["session", sessionId, "messages"] });
           }
         }
         setStreamingContent("");
         setStreamingTitle("");
         break;
 
-      case "follow_ups":
-        console.log("Follow-up questions:", response.data);
+      case "entities": {
+        const entitiesData = response.data as { document_id?: number; entities?: string[] } | undefined;
+        if (entitiesData?.entities && currentDocument && entitiesData.document_id === currentDocument.id) {
+          updateDocumentEntities(entitiesData.entities);
+        }
         break;
+      }
+
+      case "follow_ups": {
+        const fuData = response.data as { document_id?: number; questions?: FollowUpQuestion[] } | undefined;
+        if (fuData?.questions && (!fuData.document_id || fuData.document_id === currentDocument?.id)) {
+          setFollowUpQuestions(fuData.questions.map((q, i) => ({
+            ...q,
+            id: q.id ?? i,
+            is_clicked: q.is_clicked ?? false,
+          })));
+        }
+        break;
+      }
 
       case "error":
         setLoading(false);
@@ -228,6 +329,15 @@ export function SessionPage() {
         break;
 
       case "done":
+        // Flush any remaining buffered tokens
+        if (tokenBufferRef.current) {
+          setStreamingContent((prev) => prev + tokenBufferRef.current);
+          tokenBufferRef.current = "";
+        }
+        if (tokenBatchTimeoutRef.current) {
+          clearTimeout(tokenBatchTimeoutRef.current);
+          tokenBatchTimeoutRef.current = null;
+        }
         setLoading(false);
         setStreaming(false);
         setStreamingContent("");
@@ -251,18 +361,37 @@ export function SessionPage() {
       id: Date.now(),
       role: "user",
       content: message,
-      message_type: context?.type || "chat",
+      message_type: (context?.type || MessageType.CHAT) as import("@/types").MessageTypeValue,
       timestamp: new Date().toISOString(),
     };
     addMessage(userMessage);
 
-    // Send to WebSocket with context
-    sendMessage({
+    // Build request data with context
+    const requestData: import("@/types").ChatRequest = {
       session_id: sessionId,
       message,
       source: (context?.type || "chat") as import("@/types").InputSource,
-    });
+    };
+
+    // Add comment data with context if applicable
+    if (context?.type === "comment") {
+      requestData.comment_data = {
+        comment: message,
+        selected_text: context.sourceText || "",
+        context_before: context.contextBefore,
+        context_after: context.contextAfter,
+        document_id: currentDocument?.id || 0,
+      };
+    }
+
+    // Send to WebSocket
+    sendMessage(requestData);
   };
+
+  // Handle follow-up question click
+  const handleFollowUpClick = useCallback((question: FollowUpQuestion) => {
+    handleSendMessage(question.question, { type: "follow_up" });
+  }, [handleSendMessage]);
 
   // Handle text selection for comment mode
   const handleTextSelection = useCallback(() => {
@@ -271,15 +400,42 @@ export function SessionPage() {
       const text = selection.toString().trim();
       const range = selection.getRangeAt(0);
       const rect = range.getBoundingClientRect();
-      
+
+      // Extract context around the selected text
+      // Get the full document content
+      const fullContent = currentDocument?.content || "";
+
+      // Find the selected text position in the document
+      const selectedIndex = fullContent.indexOf(text);
+      let contextBefore = "";
+      let contextAfter = "";
+
+      if (selectedIndex >= 0) {
+        // Get 200 characters before and after for context
+        const contextLength = 200;
+        const beforeStart = Math.max(0, selectedIndex - contextLength);
+        const afterEnd = Math.min(fullContent.length, selectedIndex + text.length + contextLength);
+
+        contextBefore = fullContent.slice(beforeStart, selectedIndex);
+        contextAfter = fullContent.slice(selectedIndex + text.length, afterEnd);
+      }
+
       setSelectedText(text);
+      // Position near the start of selection (left side) for better UX
+      // Add small offsets to position the panel just below and to the right of the selection start
       setSelectionPosition({
-        x: rect.left + rect.width / 2,
-        y: rect.bottom,
+        x: rect.left + 20, // Slightly offset from the left edge of selection
+        y: rect.bottom + 8, // Just below the selection with small gap
       });
-      setAIContext({ type: "comment", sourceText: text });
+      // Include context in the AI context
+      setAIContext({
+        type: "comment",
+        sourceText: text,
+        contextBefore,
+        contextAfter,
+      });
     }
-  }, [setAIContext]);
+  }, [setAIContext, currentDocument?.content]);
 
   // Listen for text selection
   useEffect(() => {
@@ -308,7 +464,7 @@ export function SessionPage() {
 
   // Convert messages to DisplayMessages for display
   const displayMessages: DisplayMessage[] = messages
-    .filter((msg) => msg.message_type !== "document")
+    .filter((msg) => msg.message_type !== MessageType.DOCUMENT_REF)
     .map((msg) => msg as DisplayMessage);
 
   if (isLoading) {
@@ -326,7 +482,7 @@ export function SessionPage() {
     <Layout>
       <Sidebar />
       <MainContent>
-        <div className="flex flex-1 flex-col overflow-hidden">
+        <div className="flex flex-1 flex-col">
           {/* Document View */}
           {streamingContent && !currentDocument ? (
             <DocumentView
@@ -342,9 +498,15 @@ export function SessionPage() {
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString(),
               }}
+              isStreaming={true}
             />
           ) : (
-            <DocumentView document={currentDocument || undefined} />
+            <DocumentView
+              document={currentDocument || undefined}
+              followUpQuestions={followUpQuestions}
+              onFollowUpClick={handleFollowUpClick}
+              isStreaming={false}
+            />
           )}
 
           {/* Bottom Chat Area - Embedded Mode */}
@@ -353,6 +515,7 @@ export function SessionPage() {
             messages={displayMessages}
             executionEvents={executionEvents}
             isLoading={isAgentLoading}
+            disabled={agentStatus === "running"}
             onSendMessage={handleSendMessage}
             className="h-80 border-t"
           />
@@ -368,6 +531,7 @@ export function SessionPage() {
           messages={displayMessages}
           executionEvents={executionEvents}
           isLoading={isAgentLoading}
+          disabled={agentStatus === "running"}
           onSendMessage={handleSendMessage}
         />
       )}
@@ -380,6 +544,7 @@ export function SessionPage() {
           selectionPosition={selectionPosition}
           messages={displayMessages}
           isLoading={isAgentLoading}
+          disabled={agentStatus === "running"}
           onSendMessage={(msg) => {
             handleSendMessage(msg, aiContext);
             setSelectedText(""); // Close after sending

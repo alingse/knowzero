@@ -34,6 +34,10 @@ class Session(Base):
     current_document_id: Mapped[int | None] = mapped_column(ForeignKey("documents.id"))
     progress: Mapped[dict] = mapped_column(JSON, default=dict)
 
+    # Agent status tracking
+    agent_status: Mapped[str] = mapped_column(String, default="idle")  # idle | running | error
+    agent_started_at: Mapped[datetime | None] = mapped_column(DateTime)
+
     # Metadata
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(

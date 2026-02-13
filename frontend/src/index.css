@@ -125,3 +125,34 @@
 .entity-highlight {
   @apply font-semibold text-primary cursor-pointer hover:underline;
 }
+
+/* Prevent layout shift during streaming */
+.scroll-area-viewport {
+  overflow-anchor: none;
+}
+
+/* Ensure stable scrollbar to prevent layout shift */
+[data-radix-scroll-area-viewport] {
+  scrollbar-gutter: stable;
+}
+
+/* Smooth streaming cursor animation */
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+.streaming-cursor {
+  animation: blink 1s infinite;
+}
+
+/* Prevent content jumping during markdown rendering */
+.prose {
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+}
+
+/* Stable layout for document view */
+.document-content {
+  contain: layout style;
+}

@@ -20,15 +20,15 @@ async def intent_agent_node(state: AgentState) -> AgentState:
     """
     source = state.get("input_source", "chat")
     message = state.get("raw_message", "")
-    
+
     logger.info(
         "Intent Agent analyzing",
         source=source,
         message_preview=message[:50],
     )
-    
+
     classifier = get_classifier(llm=get_fast_llm())
-    
+
     # Handle different input sources
     if source == "entity":
         intent = await _analyze_entity_intent(state)
@@ -49,22 +49,22 @@ async def intent_agent_node(state: AgentState) -> AgentState:
         intent = await classifier.classify(message, {})
         intent["complexity"] = _estimate_complexity(message)
         intent["ambiguity"] = _estimate_ambiguity(message)
-    
+
     state["intent"] = intent
-    
+
     logger.info(
         "Intent analysis complete",
         intent_type=intent.get("intent_type"),
         confidence=intent.get("confidence"),
         method=intent.get("method"),
     )
-    
+
     return state
 
 
 async def _analyze_entity_intent(state: AgentState) -> dict:
     """Analyze entity click intent."""
-    entity_data = state.get("entity_data", {})
+    entity_data = state.get("entity_data") or {}
     entity_name = entity_data.get("entity_name", "")
     session_id = state.get("session_id", "")
 
@@ -100,10 +100,15 @@ async def _analyze_entity_intent(state: AgentState) -> dict:
 
 
 async def _analyze_comment_intent(state: AgentState) -> dict:
-    """Analyze comment optimization intent."""
-    comment_data = state.get("comment_data", {})
+    """Analyze comment optimization intent.
+
+    When user comments on selected text, generate a NEW document to explain it,
+    not modify the existing document.
+    """
+    comment_data = state.get("comment_data") or {}
     comment = comment_data.get("comment", "")
-    
+    selected_text = comment_data.get("selected_text", "")
+
     # Analyze feedback keywords
     feedback_map = {
         "more_examples": ["太抽象", "太理论", "举例", "具体点", "实例"],
@@ -111,24 +116,31 @@ async def _analyze_comment_intent(state: AgentState) -> dict:
         "more_clarity": ["看不懂", "不清楚", "太乱", "太复杂", "重新说"],
         "different_angle": ["换个说法", "另外的角度", "通俗点"],
     }
-    
+
     user_need = None
     for need, keywords in feedback_map.items():
         if any(kw in comment for kw in keywords):
             user_need = need
             break
-    
+
     if not user_need:
         user_need = "more_examples"  # Default
-    
+
+    # Use selected text as target for new document title
+    # If no selected text, use a generic target
+    target = selected_text[:50] if selected_text else "选中的内容"
+    if len(selected_text) > 50:
+        target += "..."
+
     return {
         "intent_type": "optimize_content",
+        "target": target,  # Set target for new document
         "user_need": user_need,
         "target_section": comment_data.get("section_id"),
         "complexity": "moderate",
         "ambiguity": "medium",
         "confidence": 0.85,
-        "reasoning": f"Comment indicates need for {user_need}",
+        "reasoning": f"Comment indicates need for {user_need}, will generate new document",
     }
 
 
@@ -136,7 +148,7 @@ async def _analyze_followup_intent(state: AgentState) -> dict:
     """Analyze follow-up question intent."""
     intent_hint = state.get("intent_hint", "follow_up")
     message = state.get("raw_message", "")
-    
+
     return {
         "intent_type": intent_hint,
         "target": message,
@@ -150,7 +162,7 @@ async def _analyze_followup_intent(state: AgentState) -> dict:
 def _estimate_complexity(message: str) -> str:
     """Estimate query complexity."""
     length = len(message)
-    
+
     if length < 20:
         return "simple"
     elif length < 100:
@@ -164,8 +176,8 @@ def _estimate_ambiguity(message: str) -> str:
     # Simple heuristics
     if "?" in message or "什么" in message or "怎么" in message:
         return "medium"
-    
+
     if len(message) < 10:
         return "high"
-    
+
     return "low"

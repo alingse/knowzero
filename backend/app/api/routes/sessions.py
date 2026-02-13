@@ -91,7 +91,8 @@ async def restore_session(
             detail="Session not found",
         )
 
-    # Get recent messages
+    # Get recent messages (include completed document_card messages for history)
+    from app.schemas import MessageType
     msg_result = await db.execute(
         select(Message)
         .where(Message.session_id == session_id)
@@ -99,6 +100,16 @@ async def restore_session(
         .limit(50)
     )
     messages = list(msg_result.scalars().all())
+
+    # Clean up incomplete document_card placeholder messages (stale "generating" status)
+    from sqlalchemy import delete
+    await db.execute(
+        delete(Message)
+        .where(Message.session_id == session_id)
+        .where(Message.message_type == MessageType.DOCUMENT_CARD)
+        .where(Message.content.like("%正在生成%"))
+    )
+    await db.commit()
 
     # Get current document
     current_doc = None
@@ -113,7 +124,7 @@ async def restore_session(
     documents = list(docs_result.scalars().all())
 
     # Convert SQLAlchemy models to dicts using model_dump
-    from app.schemas import SessionResponse, MessageResponse
+    from app.schemas import MessageResponse, SessionResponse
     from app.schemas.document import DocumentResponse
 
     return {
@@ -121,6 +132,8 @@ async def restore_session(
         "messages": [MessageResponse.model_validate(m).model_dump(mode="json") for m in messages[::-1]],
         "current_document": DocumentResponse.model_validate(current_doc).model_dump(mode="json") if current_doc else None,
         "documents": [DocumentResponse.model_validate(d).model_dump(mode="json") for d in documents],
+        "agent_status": session.agent_status,
+        "agent_started_at": session.agent_started_at.isoformat() if session.agent_started_at else None,
         "restore_position": "last_message",
     }
 

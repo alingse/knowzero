@@ -1,6 +1,6 @@
 """Chitchat Agent Node - handles casual conversation."""
 
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langchain_core.messages import HumanMessage, SystemMessage
 
 from app.agent.llm import get_fast_llm
 from app.agent.state import AgentState
@@ -56,7 +56,7 @@ async def chitchat_agent_node(state: AgentState) -> AgentState:
         reply_content = "你好！我是 KnowZero 智能学习助手，有什么可以帮你的吗？"
 
     state["response"] = {
-        "type": "chitchat",
+        "type": "chat",
         "content": reply_content,
         "metadata": {
             "intent_type": "chitchat",

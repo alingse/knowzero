@@ -18,29 +18,29 @@ async def route_agent_node(state: AgentState) -> AgentState:
     intent = state.get("intent", {})
     intent_type = intent.get("intent_type", "question")
     current_doc_id = state.get("current_doc_id")
-    
+
     logger.info(
         "Route Agent deciding",
         intent_type=intent_type,
         current_doc_id=current_doc_id,
     )
-    
+
     # Make routing decision
     decision = _make_decision(intent_type, current_doc_id, state)
     state["routing_decision"] = decision
-    
+
     logger.info(
         "Routing decision made",
         action=decision.get("action"),
         mode=decision.get("mode"),
     )
-    
+
     return state
 
 
 def _make_decision(intent_type: str, current_doc_id: int | None, state: AgentState) -> dict:
     """Make routing decision based on intent type."""
-    
+
     decision_map = {
         "new_topic": {
             "action": "generate_new",
@@ -53,9 +53,9 @@ def _make_decision(intent_type: str, current_doc_id: int | None, state: AgentSta
             "reasoning": "Follow-up - expand current document" if current_doc_id else "No current doc - create new",
         },
         "optimize_content": {
-            "action": "update_doc" if current_doc_id else "generate_new",
-            "mode": _get_optimization_mode(state),
-            "reasoning": "Optimize based on user feedback",
+            "action": "generate_new",  # Always create new doc for comment/explanation
+            "mode": "explain_selection",  # New mode for explaining selected text
+            "reasoning": "Generate new document to explain selected content",
         },
         "navigate": {
             "action": "navigate",
@@ -73,18 +73,18 @@ def _make_decision(intent_type: str, current_doc_id: int | None, state: AgentSta
             "reasoning": "Generate learning path",
         },
     }
-    
+
     decision = decision_map.get(intent_type, {
         "action": "generate_new",
         "mode": "standard",
         "reasoning": f"Default routing for intent type: {intent_type}",
     })
-    
+
     # Add target if available
     intent = state.get("intent", {})
     if intent.get("target"):
         decision["target"] = intent["target"]
-    
+
     return decision
 
 
@@ -92,14 +92,14 @@ def _get_optimization_mode(state: AgentState) -> str:
     """Get optimization mode based on user need."""
     intent = state.get("intent", {})
     user_need = intent.get("user_need", "")
-    
+
     mode_map = {
         "more_examples": "add_examples",
         "more_depth": "add_depth",
         "more_clarity": "rewrite",
         "different_angle": "rephrase",
     }
-    
+
     return mode_map.get(user_need, "add_examples")
 
 
@@ -127,7 +127,7 @@ def route_by_decision(state: AgentState) -> str:
     """
     decision = state.get("routing_decision", {})
     action = decision.get("action", "generate_new")
-    
+
     if action == "navigate":
         return "navigator_agent"
     elif action == "plan":

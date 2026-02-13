@@ -11,6 +11,8 @@ from app.schemas.session import (
     ChatRequest,
     ChatResponse,
     MessageResponse,
+    MessageRole,
+    MessageType,
     SessionCreate,
     SessionResponse,
 )
@@ -19,6 +21,8 @@ __all__ = [
     "SessionCreate",
     "SessionResponse",
     "MessageResponse",
+    "MessageRole",
+    "MessageType",
     "ChatRequest",
     "ChatResponse",
     "DocumentCreate",

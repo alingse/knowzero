@@ -21,6 +21,26 @@ GENERATE_SYSTEM_PROMPT = """\
 输出格式要求：
 直接输出 Markdown 文档内容，不要包含额外的说明。"""
 
+EXPLAIN_SELECTION_SYSTEM_PROMPT = """\
+你是 KnowZero 学习平台的内容解释引擎。用户在文档中选中了一段内容，需要你生成一个新的学习文档来详细解释它。
+
+用户需求分析:
+- more_examples: 用户觉得太抽象，需要更多实例
+- more_depth: 用户想了解更深的原理
+- more_clarity: 用户觉得不够清楚，需要更通俗的解释
+- different_angle: 用户希望换个角度理解
+
+要求：
+1. 使用 Markdown 格式
+2. 标题应该反映选中内容的核心主题
+3. 结合选中文本的上下文来理解用户困惑
+4. 内容准确、易懂，适合 {level} 水平的学习者
+5. 在文档中自然地提到相关概念（这些会成为实体词）
+6. 保持内容聚焦，直接解决用户的问题
+
+输出格式要求：
+直接输出 Markdown 文档内容，不要包含额外的说明。"""
+
 UPDATE_SYSTEM_PROMPT = """\
 你是 KnowZero 学习平台的内容优化引擎。根据用户反馈优化已有文档。
 
@@ -80,8 +100,20 @@ async def content_agent_node(state: AgentState) -> AgentState:
             AIMessage(content=f"已生成文档: {doc.get('topic', '新文档')}")
         ]
 
+    except GeneratorExit as e:
+        # GeneratorExit is raised when a generator is closed prematurely
+        # This is NOT an error - LangGraph uses it for control flow
+        logger.warning(
+            "Content agent interrupted by GeneratorExit",
+            action=action,
+            mode=mode,
+            error=str(e),
+        )
+        # Re-raise to let LangGraph handle it properly
+        state["error"] = f"Content generation interrupted: {str(e)}"
+        raise
     except Exception as e:
-        logger.error("Content generation failed", error=str(e))
+        logger.error("Content generation failed", error=str(e), exc_info=True)
         state["error"] = str(e)
         state["messages"] = state.get("messages", []) + [
             AIMessage(content=f"抱歉，生成内容时出错: {str(e)}")
@@ -92,52 +124,133 @@ async def content_agent_node(state: AgentState) -> AgentState:
 
 async def _generate_document(state: AgentState, mode: str) -> dict:
     """Generate new document using LLM."""
+    import time
+
     decision = state.get("routing_decision", {})
+    intent = state.get("intent", {})
     target = decision.get("target", "新主题")
     user_level = state.get("user_level", "beginner")
     llm = get_llm()
 
-    # Generate document content
-    system = GENERATE_SYSTEM_PROMPT.format(level=user_level)
-    user_prompt = f"请生成关于「{target}」的学习文档。"
-    if mode == "comparison":
+    logger.info("_generate_document started", target=target, mode=mode)
+
+    # Handle explain_selection mode - user commented on selected text
+    if mode == "explain_selection":
+        comment_data = state.get("comment_data") or {}
+        selected_text = comment_data.get("selected_text", "")
+        context_before = comment_data.get("context_before", "")
+        context_after = comment_data.get("context_after", "")
+        user_comment = state.get("raw_message", "")
+        user_need = intent.get("user_need", "more_examples")
+
+        # Build context snippet
+        context_parts = []
+        if context_before:
+            context_parts.append(f"...{context_before}")
+        context_parts.append(f"**[{selected_text}]**")  # Mark selected text
+        if context_after:
+            context_parts.append(f"{context_after}...")
+        context_snippet = "".join(context_parts)
+
+        # User need description for the prompt
+        need_descriptions = {
+            "more_examples": "用户觉得这部分太抽象，需要更多具体例子",
+            "more_depth": "用户想深入了解这部分的原理和底层机制",
+            "more_clarity": "用户觉得这部分不够清楚，需要更通俗的解释",
+            "different_angle": "用户希望换个角度来理解这部分内容",
+        }
+
+        system = EXPLAIN_SELECTION_SYSTEM_PROMPT.format(level=user_level)
+        user_prompt = (
+            f"用户在文档中选中了这段内容：\n\n{context_snippet}\n\n"
+            f"用户评论：{user_comment}\n\n"
+            f"需求分析：{need_descriptions.get(user_need, '需要进一步解释')}\n\n"
+            f"请生成一个新的学习文档来详细解释选中内容，直接解决用户的问题。"
+        )
+    elif mode == "comparison":
+        system = GENERATE_SYSTEM_PROMPT.format(level=user_level)
         user_prompt = f"请生成一篇对比分析文档：{target}"
+    else:
+        # Standard generation
+        system = GENERATE_SYSTEM_PROMPT.format(level=user_level)
+        user_prompt = f"请生成关于「{target}」的学习文档。"
 
-    resp = await llm.ainvoke([
-        SystemMessage(content=system),
-        HumanMessage(content=user_prompt),
-    ])
-    content = resp.content
+    try:
+        start_time = time.monotonic()
+        logger.info(
+            "LLM stream started",
+            target=target,
+            mode=mode,
+            model=str(type(llm)),
+            timeout=getattr(llm, 'timeout', 'not set'),
+        )
 
-    # Extract entities
-    entities = await _extract_entities_llm(content)
+        # Use astream for streaming tokens
+        content = ""
+        async for chunk in llm.astream([
+            SystemMessage(content=system),
+            HumanMessage(content=user_prompt),
+        ]):
+            content += chunk.content
 
-    # Generate follow-up questions
-    follow_ups = await _generate_follow_ups(content)
+        elapsed = time.monotonic() - start_time
+        logger.info(
+            "LLM stream completed",
+            target=target,
+            mode=mode,
+            elapsed_seconds=f"{elapsed:.2f}",
+            content_length=len(content),
+        )
+
+    except GeneratorExit as e:
+        # GeneratorExit is a special exception - should NOT be caught normally
+        elapsed = time.monotonic() - start_time
+        logger.error(
+            "LLM stream failed with GeneratorExit",
+            target=target,
+            mode=mode,
+            elapsed_seconds=f"{elapsed:.2f}",
+            exc_info=True,
+        )
+        # Re-raise to let LangGraph handle it
+        raise
+    except Exception as e:
+        elapsed = time.monotonic() - start_time
+        logger.error(
+            "LLM stream failed",
+            target=target,
+            mode=mode,
+            error=str(e),
+            error_type=type(e).__name__,
+            elapsed_seconds=f"{elapsed:.2f}",
+            exc_info=True,
+        )
+        raise
 
     # Generate category path
     category_path = _generate_category_path(target)
 
+    # Entities and follow-ups are extracted asynchronously after document
+    # is sent to client (see websocket.py background tasks)
     document = {
         "id": None,
         "topic": target,
         "content": content,
         "category_path": category_path,
-        "entities": entities,
+        "entities": [],
         "version": 1,
     }
 
     return {
         "document": document,
-        "follow_up_questions": follow_ups,
+        "follow_up_questions": [],
         "change_summary": f"创建了关于 {target} 的新文档",
     }
 
 
 async def _update_document(state: AgentState, mode: str) -> dict:
     """Update existing document using LLM."""
-    current_doc = state.get("document", {})
-    decision = state.get("routing_decision", {})
+    current_doc = state.get("document") or {}
     raw_message = state.get("raw_message", "")
     llm = get_llm()
 
@@ -149,10 +262,13 @@ async def _update_document(state: AgentState, mode: str) -> dict:
         f"请按照 {mode} 模式优化文档。"
     )
 
-    resp = await llm.ainvoke([
+    # Use astream for streaming tokens
+    content = ""
+    async for chunk in llm.astream([
         SystemMessage(content=system),
         HumanMessage(content=user_prompt),
-    ])
+    ]):
+        content += chunk.content
 
     mode_descriptions = {
         "add_examples": "添加了更多示例",
@@ -164,7 +280,7 @@ async def _update_document(state: AgentState, mode: str) -> dict:
 
     updated_doc = {
         **current_doc,
-        "content": resp.content,
+        "content": content,
         "version": current_doc.get("version", 1) + 1,
     }
 

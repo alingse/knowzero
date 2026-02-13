@@ -24,6 +24,7 @@ interface ChatPanelProps {
   messages: DisplayMessage[];
   executionEvents?: ExecutionEvent[];
   isLoading?: boolean;
+  disabled?: boolean;  // External disabled state (e.g., from agent status)
   onSend: (message: string) => void;
   className?: string;
 }
@@ -35,6 +36,7 @@ export function ChatPanel({
   messages,
   executionEvents = [],
   isLoading = false,
+  disabled = false,
   onSend,
   className,
 }: ChatPanelProps) {
@@ -89,13 +91,13 @@ export function ChatPanel({
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyPress}
-              placeholder="输入你的问题..."
-              disabled={isLoading}
+              placeholder={disabled ? "正在生成文档，请稍候..." : "输入你的问题..."}
+              disabled={isLoading || disabled}
               className="flex-1"
             />
             <Button
               onClick={handleSend}
-              disabled={!input.trim() || isLoading}
+              disabled={!input.trim() || isLoading || disabled}
               size="icon"
               className="h-10 w-10 shrink-0"
             >
@@ -189,13 +191,13 @@ export function ChatPanel({
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyPress}
-            placeholder="输入你的问题... (Shift+Enter 换行)"
-            disabled={isLoading}
+            placeholder={disabled ? "正在生成文档，请稍候..." : "输入你的问题... (Shift+Enter 换行)"}
+            disabled={isLoading || disabled}
             className="flex-1"
           />
           <Button
             onClick={handleSend}
-            disabled={!input.trim() || isLoading}
+            disabled={!input.trim() || isLoading || disabled}
             size="icon"
             className="h-10 w-10 shrink-0"
           >

@@ -26,24 +26,25 @@ export type AIAssistantMode = "chat" | "dialog" | "comment" | "entity";
 interface AIAssistantProps {
   // Current interaction mode
   mode: AIAssistantMode;
-  
+
   // Common props
   messages: DisplayMessage[];
   executionEvents?: ExecutionEvent[];
   isLoading?: boolean;
+  disabled?: boolean;  // External disabled state (e.g., from agent status)
   onSendMessage: (message: string, context?: AIInteractionContext) => void;
-  
+
   // Mode-specific props
   isOpen?: boolean;           // For dialog mode
   onClose?: () => void;       // For dialog/comment/entity mode
-  
+
   // Context data for specific interactions
   context?: AIInteractionContext;
-  
+
   // For comment mode - selected text
   selectedText?: string;
   selectionPosition?: { x: number; y: number };
-  
+
   className?: string;
 }
 
@@ -51,6 +52,8 @@ interface AIAssistantProps {
 export interface AIInteractionContext {
   type: "chat" | "comment" | "entity" | "follow_up" | "context_menu";
   sourceText?: string;        // For comment: selected text
+  contextBefore?: string;     // For comment: text before selection
+  contextAfter?: string;      // For comment: text after selection
   entityName?: string;        // For entity click
   entityType?: string;
   documentId?: number;
@@ -63,6 +66,7 @@ export function AIAssistant({
   messages,
   executionEvents = [],
   isLoading = false,
+  disabled = false,
   onSendMessage,
   isOpen = false,
   onClose,
@@ -115,6 +119,7 @@ export function AIAssistant({
           messages={messages}
           executionEvents={executionEvents}
           isLoading={isLoading}
+          disabled={disabled}
           onSend={handleSend}
           className={className}
         />
@@ -135,6 +140,7 @@ export function AIAssistant({
             messages={messages}
             executionEvents={executionEvents}
             isLoading={isLoading}
+            disabled={disabled}
             onSend={handleSend}
             className={className}
           />

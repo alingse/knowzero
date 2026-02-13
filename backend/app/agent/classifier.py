@@ -10,7 +10,7 @@ logger = get_logger(__name__)
 
 class IntentClassifier:
     """Layered intent classifier with fast-track optimization."""
-    
+
     # Layer 1: Strong patterns (confidence 1.0, skip LLM)
     STRONG_PATTERNS = {
         # Knowledge/learning intents
@@ -25,7 +25,7 @@ class IntentClassifier:
         r"^(再见|拜拜|走了|回见|bye|goodbye)": ("chitchat", 1.0),
         r"你是谁|你叫什么|介绍一下自己|你是什么|你能做什么": ("chitchat", 1.0),
     }
-    
+
     # Layer 2: Fuzzy patterns (confidence 0.8, may need confirmation)
     FUZZY_PATTERNS = {
         "讲详细": "follow_up",
@@ -34,10 +34,10 @@ class IntentClassifier:
         "更深入": "follow_up",
         "补充": "optimize_content",
     }
-    
+
     def __init__(self, llm=None):
         self.llm = llm
-    
+
     async def classify(self, message: str, context: dict[str, Any]) -> dict[str, Any]:
         """Classify user intent with layered strategy.
         
@@ -60,7 +60,7 @@ class IntentClassifier:
                     "processing_time_ms": 5,
                     "target": self._extract_target(message),
                 }
-        
+
         # Layer 2: Fuzzy patterns
         fuzzy_match = self._fuzzy_match(message)
         if fuzzy_match:
@@ -71,11 +71,11 @@ class IntentClassifier:
                 "processing_time_ms": 10,
                 "target": self._extract_target(message),
             }
-        
+
         # Layer 3: LLM classification (if LLM available)
         if self.llm and context.get("use_llm", True):
             return await self._llm_classify(message, context)
-        
+
         # Fallback
         return {
             "intent_type": "question",
@@ -84,18 +84,18 @@ class IntentClassifier:
             "processing_time_ms": 1,
             "target": message[:50],
         }
-    
+
     def _fuzzy_match(self, message: str) -> str | None:
         """Match message against fuzzy patterns."""
         message_lower = message.lower()
         words = message_lower.split()
-        
+
         for keyword, intent in self.FUZZY_PATTERNS.items():
             if keyword in message_lower or keyword in words:
                 return intent
-        
+
         return None
-    
+
     def _extract_target(self, message: str) -> str:
         """Extract target topic from message."""
         # Simple extraction - can be improved with NLP
@@ -105,9 +105,9 @@ class IntentClassifier:
         for prefix in prefixes:
             if result.startswith(prefix):
                 result = result[len(prefix):].strip()
-        
+
         return result[:100] if result else message[:100]
-    
+
     async def _llm_classify(self, message: str, context: dict) -> dict[str, Any]:
         """Use LLM for intent classification."""
         import time

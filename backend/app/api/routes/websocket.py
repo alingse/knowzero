@@ -1,16 +1,18 @@
 """WebSocket routes for real-time chat with DB persistence."""
 
+import asyncio
 import json
-from typing import Any
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from app.agent.graph import get_graph
+from app.agent.nodes.content import _extract_entities_llm, _generate_follow_ups
 from app.agent.state import AgentState
 from app.core.database import get_db_session
 from app.core.logging import get_logger
 from app.schemas import ChatRequest
 from app.services import document_service, entity_service, message_service, session_service
+from app.services.session_service import update_agent_status
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/ws", tags=["websocket"])
@@ -40,6 +42,58 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 
+async def _background_extract_entities(
+    websocket: WebSocket,
+    session_id: str,
+    doc_id: int,
+    content: str,
+) -> None:
+    """Background: extract entities via LLM, persist, and push to client."""
+    try:
+        entities = await _extract_entities_llm(content)
+        if not entities:
+            return
+
+        async with get_db_session() as db:
+            await entity_service.upsert_entities(db, session_id, entities, doc_id)
+            await document_service.update_document_entities(
+                db, document_id=doc_id, entities=entities
+            )
+
+        await websocket.send_json({
+            "type": "entities",
+            "data": {"document_id": doc_id, "entities": entities},
+        })
+        logger.info("Background entities pushed", doc_id=doc_id, count=len(entities))
+    except Exception as e:
+        logger.warning("Background entity extraction failed", error=str(e), doc_id=doc_id)
+
+
+async def _background_generate_follow_ups(
+    websocket: WebSocket,
+    session_id: str,
+    user_id: int,
+    doc_id: int,
+    content: str,
+) -> None:
+    """Background: generate follow-up questions via LLM, persist, and push to client."""
+    try:
+        follow_ups = await _generate_follow_ups(content)
+        if not follow_ups:
+            return
+
+        async with get_db_session() as db:
+            await document_service.save_follow_ups(db, doc_id, follow_ups)
+
+        await websocket.send_json({
+            "type": "follow_ups",
+            "data": {"document_id": doc_id, "questions": follow_ups},
+        })
+        logger.info("Background follow-ups pushed", doc_id=doc_id, count=len(follow_ups))
+    except Exception as e:
+        logger.warning("Background follow-up generation failed", error=str(e), doc_id=doc_id)
+
+
 async def stream_agent_response(
     websocket: WebSocket,
     state: AgentState,
@@ -48,9 +102,24 @@ async def stream_agent_response(
     session_id = state["session_id"]
     user_id = state["user_id"]
 
+    # Set agent status to running at the start
+    try:
+        async with get_db_session() as db:
+            await update_agent_status(db, session_id, "running")
+            await db.commit()
+    except Exception as e:
+        logger.warning("Failed to set agent status to running", error=str(e))
+
     # Collect final results for persistence
     final_result = {}
     accumulated_content = ""
+
+    # Track placeholder system message ID for updating later
+    placeholder_message_id: int | None = None
+
+    # Track document info for background tasks
+    bg_doc_id: int | None = None
+    bg_doc_content: str | None = None
 
     try:
         graph = get_graph()
@@ -89,6 +158,29 @@ async def stream_agent_response(
                 })
                 logger.debug("Node started", node=node_name)
 
+                # Create persistent placeholder message when document generation starts
+                if node_name == "content_agent" and placeholder_message_id is None:
+                    # Send document start event with title for streaming preview
+                    routing = state.get("routing_decision") or {}
+                    doc_title = routing.get("target") if routing else state.get("raw_message", "新文档")
+                    await websocket.send_json({
+                        "type": "document_start",
+                        "data": {"topic": doc_title},
+                    })
+                    async with get_db_session() as db:
+                        placeholder_msg = await message_service.save_assistant_message(
+                            db,
+                            session_id=session_id,
+                            user_id=user_id,
+                            content="🔄 正在生成学习文档...",
+                            message_type="document_card",
+                        )
+                        placeholder_message_id = placeholder_msg.id
+                        logger.info(
+                            "Placeholder message created",
+                            message_id=placeholder_message_id,
+                        )
+
             # Node/Chain end events
             elif event_type == "on_chain_end":
                 node_name = event_name.split(".")[-1] if "." in event_name else event_name
@@ -114,18 +206,23 @@ async def stream_agent_response(
                     "data": {"name": "LLM", "model": event_data.get("model")},
                 })
 
-            # LLM token streaming - only stream content_agent tokens
+            # LLM token streaming
             elif event_type == "on_chat_model_stream":
                 chunk = event_data.get("chunk")
                 if chunk:
                     # Extract string content from AIMessageChunk
                     chunk_str = chunk.content if hasattr(chunk, "content") else str(chunk)
-                    accumulated_content += chunk_str
-                    # Only stream tokens from content_agent node to avoid showing
-                    # internal processing (intent analysis, etc.) to users
-                    if "content_agent" in event_name:
+
+                    # Only stream tokens from content_agent node to DocumentView
+                    # Check metadata.langgraph_node to identify which node produced this stream
+                    # Other nodes (intent_agent, chitchat_agent, etc.) produce
+                    # internal outputs (JSON, reasoning) that should NOT be shown to users
+                    metadata = event.get("metadata", {})
+                    node_name = metadata.get("langgraph_node", "")
+                    if node_name == "content_agent":
+                        accumulated_content += chunk_str
                         await websocket.send_json({
-                            "type": "token",
+                            "type": "document_token",
                             "data": {"content": chunk_str},
                         })
 
@@ -177,6 +274,17 @@ async def stream_agent_response(
 
         # Handle errors
         if result_state.get("error"):
+            # Delete placeholder message on error (don't show stale status)
+            if placeholder_message_id:
+                async with get_db_session() as db:
+                    await message_service.delete_message(
+                        db,
+                        message_id=placeholder_message_id,
+                    )
+                    logger.info(
+                        "Placeholder message deleted due to error",
+                        message_id=placeholder_message_id,
+                    )
             await websocket.send_json({
                 "type": "error",
                 "message": result_state["error"],
@@ -216,31 +324,49 @@ async def stream_agent_response(
                 # Update session's current_document_id to pin this document
                 await session_service.update_current_document(db, session_id, doc_id)
 
-                # Persist entities
-                entities = doc_data.get("entities", [])
-                if entities:
-                    await entity_service.upsert_entities(
-                        db, session_id, entities, doc_id
-                    )
-
-                # Persist follow-up questions
-                follow_ups = result_state.get("follow_up_questions", [])
-                if follow_ups:
-                    await document_service.save_follow_ups(db, doc_id, follow_ups)
-
-                # Persist assistant message
+                # Persist assistant message (for internal tracking)
                 await message_service.save_assistant_message(
                     db,
                     session_id=session_id,
                     user_id=user_id,
                     content=result_state.get("change_summary", ""),
-                    message_type="document",
+                    message_type="document_ref",
                     related_document_id=doc_id,
                     agent_intent=result_state.get("intent"),
                     agent_routing=result_state.get("routing_decision"),
                 )
 
-            # Stream document to client
+                # Update placeholder message with completion info or create new one
+                doc_topic = doc_data.get("topic", "学习文档")
+                if placeholder_message_id:
+                    # Update existing placeholder message
+                    await message_service.update_message_content(
+                        db,
+                        message_id=placeholder_message_id,
+                        content=f"📚 已生成学习文档：{doc_topic}",
+                    )
+                    # Link document to the message
+                    await message_service.update_message_document(
+                        db,
+                        message_id=placeholder_message_id,
+                        related_document_id=doc_id,
+                    )
+                    logger.info(
+                        "Placeholder message updated with completion",
+                        message_id=placeholder_message_id,
+                    )
+                else:
+                    # Fallback: create new message if no placeholder exists
+                    await message_service.save_assistant_message(
+                        db,
+                        session_id=session_id,
+                        user_id=user_id,
+                        content=f"📚 已生成学习文档：{doc_topic}",
+                        message_type="document_card",
+                        related_document_id=doc_id,
+                    )
+
+            # Stream document to client (entities sent later via background task)
             await websocket.send_json({
                 "type": "document",
                 "data": {
@@ -248,16 +374,13 @@ async def stream_agent_response(
                     "topic": doc_data.get("topic"),
                     "content": doc_data.get("content"),
                     "category_path": doc_data.get("category_path"),
-                    "entities": doc_data.get("entities", []),
+                    "entities": [],
                 },
             })
 
-            # Stream follow-ups
-            if follow_ups:
-                await websocket.send_json({
-                    "type": "follow_ups",
-                    "data": {"questions": follow_ups},
-                })
+            # Save for background tasks
+            bg_doc_id = doc_id
+            bg_doc_content = doc_data.get("content", "")
 
         # Stream navigation info
         if result_state.get("navigation_target"):
@@ -307,12 +430,33 @@ async def stream_agent_response(
         # Done
         await websocket.send_json({"type": "done"})
 
+        # Launch background tasks for entity extraction and follow-up generation
+        if bg_doc_id and bg_doc_content:
+            asyncio.create_task(
+                _background_extract_entities(
+                    websocket, session_id, bg_doc_id, bg_doc_content
+                )
+            )
+            asyncio.create_task(
+                _background_generate_follow_ups(
+                    websocket, session_id, user_id, bg_doc_id, bg_doc_content
+                )
+            )
+
     except Exception as e:
-        logger.error("Agent streaming error", error=str(e))
+        logger.error("Agent streaming error", error=str(e), exc_info=True)
         await websocket.send_json({
             "type": "error",
             "message": f"处理请求时出错: {str(e)}",
         })
+    finally:
+        # Always set agent status back to idle when done
+        try:
+            async with get_db_session() as db:
+                await update_agent_status(db, session_id, "idle")
+                await db.commit()
+        except Exception as e:
+            logger.warning("Failed to set agent status to idle", error=str(e))
 
 
 @router.websocket("/{session_id}")
@@ -343,6 +487,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
 
             # Load context from DB
             current_doc_id = None
+            current_doc = None
             recent_docs: list[int] = []
             learned_topics: list[str] = []
 
@@ -355,6 +500,14 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                         current_doc_id = docs[0].id
                         recent_docs = [d.id for d in docs[:10]]
                         learned_topics = [d.topic for d in docs]
+                        # Load full document for content updates
+                        current_doc = {
+                            "id": docs[0].id,
+                            "topic": docs[0].topic,
+                            "content": docs[0].content,
+                            "category_path": docs[0].category_path,
+                            "version": docs[0].version,
+                        }
             except Exception as e:
                 logger.warning("Context loading failed", error=str(e))
 
@@ -382,7 +535,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                 "messages": [],
                 "intent": None,
                 "routing_decision": None,
-                "document": None,
+                "document": current_doc,  # Load current document if exists
                 "follow_up_questions": [],
                 "change_summary": None,
                 "navigation_target": None,
