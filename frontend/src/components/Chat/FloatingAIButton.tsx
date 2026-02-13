@@ -39,13 +39,17 @@ export function FloatingAIButton({
         className={cn(
           "relative h-16 w-16 rounded-full shadow-2xl transition-all duration-300",
           "hover:scale-110 hover:shadow-xl",
-          // White variant
+          // White variant - glass effect
           isWhite && [
-            "bg-white border-2 border-slate-200",
-            "hover:border-slate-300",
-            "before:absolute before:-inset-1 before:rounded-full before:bg-white",
+            "bg-gradient-to-br from-slate-50 to-slate-100",
+            "border-2 border-slate-300/80",
+            "shadow-[0_8px_30px_rgb(0,0,0,0.12),inset_0_1px_0_rgba(255,255,255,0.8)]",
+            "hover:border-slate-400 hover:from-white hover:to-slate-50",
+            "hover:shadow-[0_12px_40px_rgb(0,0,0,0.15),inset_0_1px_0_rgba(255,255,255,0.9)]",
+            "before:absolute before:-inset-1 before:rounded-full before:bg-gradient-to-br",
+            "before:from-blue-100/40 before:to-slate-300/40",
             "before:blur-lg before:opacity-0 before:transition-opacity",
-            "hover:before:opacity-50",
+            "hover:before:opacity-80",
           ],
           // Colored variant
           !isWhite && [
@@ -81,7 +85,7 @@ export function FloatingAIButton({
         {isHovered && (
           <span className={cn(
             "absolute -inset-4 rounded-full border-2 animate-pulse",
-            isWhite ? "border-slate-200/50" : "border-primary/30"
+            isWhite ? "border-slate-400/50" : "border-primary/30"
           )} />
         )}
       </Button>

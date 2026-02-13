@@ -5,14 +5,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import type { Message } from "@/types";
+
+import { MessagesList, type DisplayMessage } from "./MessagesList";
+import type { ExecutionEvent } from "./ExecutionProgress";
 
 interface AIDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onSend: (message: string) => void;
   isLoading?: boolean;
-  messages?: Message[];
+  messages?: DisplayMessage[];
+  executionEvents?: ExecutionEvent[];
   className?: string;
 }
 
@@ -36,11 +39,11 @@ export function AIDialog({
   onSend,
   isLoading = false,
   messages = [],
+  executionEvents = [],
   className,
 }: AIDialogProps) {
   const [message, setMessage] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Focus input when dialog opens
   useEffect(() => {
@@ -48,13 +51,6 @@ export function AIDialog({
       inputRef.current.focus();
     }
   }, [isOpen]);
-
-  // Auto-scroll to bottom when new messages arrive
-  useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [messages]);
 
   const handleSend = () => {
     if (!message.trim() || isLoading) return;
@@ -104,115 +100,16 @@ export function AIDialog({
 
       {/* Messages Area */}
       <ScrollArea className="flex-1 px-4 py-3">
-        <div className="space-y-4">
-          {/* Chat messages */}
-          {messages.length > 0 && (
-            <div>
-              <div className="mb-2 text-xs font-medium text-muted-foreground">
-                对话记录
-              </div>
-              <div className="space-y-3">
-                {messages.map((msg) => (
-                  <div
-                    key={msg.id}
-                    className={cn(
-                      "flex gap-2",
-                      msg.role === "user" ? "flex-row-reverse" : "flex-row"
-                    )}
-                  >
-                    <div
-                      className={cn(
-                        "max-w-[80%] rounded-2xl px-3 py-2 text-sm",
-                        msg.role === "user"
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-muted text-foreground"
-                      )}
-                    >
-                      {msg.content}
-                    </div>
-                  </div>
-                ))}
-                {/* Loading indicator */}
-                {isLoading && (
-                  <div className="flex gap-2">
-                    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary">
-                      <div className="h-2 w-2 animate-bounce rounded-full bg-white" />
-                    </div>
-                    <div className="flex-1 rounded-2xl bg-muted px-3 py-2 text-sm text-muted-foreground">
-                      <span className="inline-flex gap-1">
-                        <span className="animate-pulse">思考</span>
-                        <span className="animate-pulse" style={{ animationDelay: "0.1s" }}>中</span>
-                        <span className="animate-pulse" style={{ animationDelay: "0.2s" }}>...</span>
-                      </span>
-                    </div>
-                  </div>
-                )}
-                <div ref={messagesEndRef} />
-              </div>
-            </div>
-          )}
-
-          {/* Quick actions */}
-          {messages.length === 0 && (
-            <div>
-              <div className="mb-3 text-xs font-medium text-muted-foreground">
-                快捷操作
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                {quickActions.map((action) => (
-                  <button
-                    key={action.id}
-                    onClick={() => handleQuickAction(action)}
-                    disabled={isLoading}
-                    className={cn(
-                      "flex items-center gap-2 rounded-lg border p-3 text-left text-sm transition-all",
-                      "hover:bg-accent hover:border-primary/50",
-                      "disabled:opacity-50 disabled:cursor-not-allowed"
-                    )}
-                  >
-                    <span className="text-lg">{action.icon}</span>
-                    <span>{action.label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Divider */}
-          {messages.length === 0 && (
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t" />
-              </div>
-              <span className="relative bg-background px-2 text-xs text-muted-foreground">
-                自定义提问
-              </span>
-            </div>
-          )}
-
-          {/* Custom question hints */}
-          {messages.length === 0 && (
-            <div className="space-y-2">
-              <div className="text-xs text-muted-foreground">
-                你可以问：
-              </div>
-              <div className="space-y-1 text-xs text-muted-foreground/80">
-                <div className="flex items-start gap-2">
-                  <span>•</span>
-                  <span>"解释一下这个概念"</span>
-                </div>
-                <div className="flex items-start gap-2">
-                  <span>•</span>
-                  <span>"给我更多例子"</span>
-                </div>
-                <div className="flex items-start gap-2">
-                  <span>•</span>
-                  <span>"这和 XXX 有什么区别"</span>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
+        {messages.length > 0 ? (
+          <MessagesList
+            messages={messages}
+            isLoading={isLoading}
+            executionEvents={executionEvents}
+            showAvatars={true}
+          />
+        ) : (
+          <EmptyState onQuickAction={handleQuickAction} isLoading={isLoading} />
+        )}
       </ScrollArea>
 
       {/* Input area */}
@@ -239,6 +136,72 @@ export function AIDialog({
               <Send className="h-4 w-4" />
             )}
           </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface EmptyStateProps {
+  onQuickAction: (action: QuickAction) => void;
+  isLoading: boolean;
+}
+
+function EmptyState({ onQuickAction, isLoading }: EmptyStateProps) {
+  return (
+    <div className="space-y-4">
+      {/* Quick actions */}
+      <div>
+        <div className="mb-3 text-xs font-medium text-muted-foreground">
+          快捷操作
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          {quickActions.map((action) => (
+            <button
+              key={action.id}
+              onClick={() => onQuickAction(action)}
+              disabled={isLoading}
+              className={cn(
+                "flex items-center gap-2 rounded-lg border p-3 text-left text-sm transition-all",
+                "hover:bg-accent hover:border-primary/50",
+                "disabled:opacity-50 disabled:cursor-not-allowed"
+              )}
+            >
+              <span className="text-lg">{action.icon}</span>
+              <span>{action.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Divider */}
+      <div className="relative">
+        <div className="absolute inset-0 flex items-center">
+          <span className="w-full border-t" />
+        </div>
+        <span className="relative bg-background px-2 text-xs text-muted-foreground">
+          自定义提问
+        </span>
+      </div>
+
+      {/* Custom question hints */}
+      <div className="space-y-2">
+        <div className="text-xs text-muted-foreground">
+          你可以问：
+        </div>
+        <div className="space-y-1 text-xs text-muted-foreground/80">
+          <div className="flex items-start gap-2">
+            <span>•</span>
+            <span>"解释一下这个概念"</span>
+          </div>
+          <div className="flex items-start gap-2">
+            <span>•</span>
+            <span>"给我更多例子"</span>
+          </div>
+          <div className="flex items-start gap-2">
+            <span>•</span>
+            <span>"这和 XXX 有什么区别"</span>
+          </div>
         </div>
       </div>
     </div>

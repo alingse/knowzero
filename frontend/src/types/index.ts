@@ -17,6 +17,10 @@ export interface Message {
   message_type: string;
   related_document_id?: number;
   timestamp: string;
+  // Placeholder message fields for UI state
+  isPlaceholder?: boolean;
+  placeholderType?: 'generating' | 'complete' | 'error';
+  documentTitle?: string;
 }
 
 export interface Document {

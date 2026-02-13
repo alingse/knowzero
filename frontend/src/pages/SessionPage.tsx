@@ -1,30 +1,44 @@
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, useLocation } from "react-router-dom";
 
-import { ChatArea } from "@/components/Chat/ChatArea";
+import { AIAssistant, useAIAssistant, type AIInteractionContext } from "@/components/AIAssistant";
 import { DocumentView } from "@/components/DocumentView/DocumentView";
 import { Layout, MainContent } from "@/components/Layout/Layout";
 import { Sidebar } from "@/components/Sidebar/Sidebar";
-import { FloatingAIButton } from "@/components/Chat/FloatingAIButton";
-import { AIDialog } from "@/components/Chat/AIDialog";
 import { useWebSocket } from "@/api/websocket";
 import { sessionsApi } from "@/api/client";
 import { useSessionStore } from "@/stores/sessionStore";
 import type { ExecutionEvent } from "@/components/Chat/ExecutionProgress";
-import type { Document, Message, StreamResponse } from "@/types";
+import type { DisplayMessage } from "@/components/Chat/MessagesList";
+import type { Document, StreamResponse, Message } from "@/types";
 
 export function SessionPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const location = useLocation();
   const initialQuery = location.state?.initialQuery as string | undefined;
-  const initialQuerySent = useRef(false);
+
+  // AI Assistant state management
+  const {
+    isOpen: aiDialogOpen,
+    context: aiContext,
+    closeDialog,
+    setContext: setAIContext,
+  } = useAIAssistant("chat");
 
   // Track execution events for progress display
   const [executionEvents, setExecutionEvents] = useState<ExecutionEvent[]>([]);
+  // Track streaming content for real-time document preview
+  const [streamingContent, setStreamingContent] = useState("");
+  // Track streaming document title for preview
+  const [streamingTitle, setStreamingTitle] = useState("");
 
-  // AI Dialog state
-  const [isAIDialogOpen, setIsAIDialogOpen] = useState(false);
+  // Text selection for comment mode
+  const [selectedText, setSelectedText] = useState("");
+  const [selectionPosition, setSelectionPosition] = useState<{ x: number; y: number } | undefined>();
+
+  // Placeholder message ID for tracking
+  const [placeholderId, setPlaceholderId] = useState<number | null>(null);
 
   const {
     currentDocument,
@@ -33,6 +47,7 @@ export function SessionPage() {
     setCurrentDocument,
     setMessages,
     addMessage,
+    updateMessage,
     setLoading,
     setStreaming,
   } = useSessionStore();
@@ -46,107 +61,136 @@ export function SessionPage() {
       setCurrentSession(data.session);
       setCurrentDocument(data.current_document || null);
       setMessages(data.messages);
+
+      // Restore last document topic for streaming title (faster UX)
+      if (data.current_document?.topic) {
+        setStreamingTitle(data.current_document.topic);
+      }
+
       return data;
     },
     enabled: !!sessionId,
   });
+
+  // Helper to add placeholder message
+  const addPlaceholder = useCallback((type: 'generating' | 'complete' | 'error', title?: string) => {
+    const id = Date.now();
+    const placeholderMsg: DisplayMessage = {
+      id,
+      role: "assistant",
+      content: type === 'generating' ? "正在生成学习文档..." : type === 'complete' ? `已为你生成《${title || '学习文档'}》📄` : "生成失败",
+      message_type: "placeholder",
+      timestamp: new Date().toISOString(),
+      isPlaceholder: true,
+      placeholderType: type,
+      documentTitle: title,
+    };
+    addMessage(placeholderMsg);
+    setPlaceholderId(id);
+    return id;
+  }, [addMessage]);
+
+  // Helper to update placeholder message
+  const updatePlaceholder = useCallback((id: number, type: 'generating' | 'complete' | 'error', title?: string) => {
+    const content = type === 'generating' 
+      ? "正在生成学习文档..." 
+      : type === 'complete' 
+        ? `已为你生成《${title || '学习文档'}》📄` 
+        : "生成失败";
+    
+    updateMessage(id, {
+      content,
+      isPlaceholder: true,
+      placeholderType: type,
+      documentTitle: title,
+    });
+    
+    if (type === 'complete' || type === 'error') {
+      setPlaceholderId(null);
+    }
+  }, [updateMessage]);
+
+  // Helper to remove placeholder
+  const removePlaceholder = useCallback(() => {
+    if (placeholderId) {
+      setMessages((prev: Message[]) => prev.filter(m => m.id !== placeholderId));
+      setPlaceholderId(null);
+    }
+  }, [placeholderId, setMessages]);
 
   // Handle WebSocket messages
   const handleWebSocketMessage = (response: StreamResponse) => {
     switch (response.type) {
       case "thinking":
         setLoading(true);
-        // Clear previous execution events on new request
         setExecutionEvents([]);
+        setStreamingContent("");
+        setStreamingTitle("正在生成文档...");
+        addPlaceholder('generating');
         break;
 
       case "token":
-        // Stream LLM token to existing assistant message
+        const tokenContent = response.data?.content as string;
+        if (tokenContent) {
+          if (!streamingContent) {
+            setCurrentDocument(null);
+          }
+          setStreamingContent((prev) => prev + tokenContent);
+        }
         setStreaming(true);
         break;
 
       case "node_start":
-        // Node execution started
         const nodeName = response.data?.name as string;
         if (nodeName) {
           setExecutionEvents((prev) => [
             ...prev,
-            {
-              id: `node-${Date.now()}`,
-              type: "node_start",
-              name: nodeName,
-              timestamp: Date.now(),
-            },
+            { id: `node-${Date.now()}`, type: "node_start", name: nodeName, timestamp: Date.now() },
           ]);
         }
         break;
 
       case "node_end":
-        // Node execution ended
         const nodeEndName = response.data?.name as string;
         if (nodeEndName) {
           setExecutionEvents((prev) => [
             ...prev,
-            {
-              id: `node-end-${Date.now()}`,
-              type: "node_end",
-              name: nodeEndName,
-              timestamp: Date.now(),
-            },
+            { id: `node-end-${Date.now()}`, type: "node_end", name: nodeEndName, timestamp: Date.now() },
           ]);
         }
         break;
 
       case "tool_start":
-        // Tool execution started
         const toolName = response.data?.tool as string;
         if (toolName) {
           setExecutionEvents((prev) => [
             ...prev,
-            {
-              id: `tool-${Date.now()}`,
-              type: "tool_start",
-              tool: toolName,
-              data: response.data?.input,
-              timestamp: Date.now(),
-            },
+            { id: `tool-${Date.now()}`, type: "tool_start", tool: toolName, data: response.data?.input, timestamp: Date.now() },
           ]);
         }
         break;
 
       case "tool_end":
-        // Tool execution ended
         const toolEndName = response.data?.tool as string;
         if (toolEndName) {
           setExecutionEvents((prev) => [
             ...prev,
-            {
-              id: `tool-end-${Date.now()}`,
-              type: "tool_end",
-              tool: toolEndName,
-              data: response.data?.output,
-              timestamp: Date.now(),
-            },
+            { id: `tool-end-${Date.now()}`, type: "tool_end", tool: toolEndName, data: response.data?.output, timestamp: Date.now() },
           ]);
         }
         break;
 
       case "progress":
-        // Custom progress update
         setExecutionEvents((prev) => [
           ...prev,
-          {
-            id: `progress-${Date.now()}`,
-            type: "progress",
-            data: response.data,
-            timestamp: Date.now(),
-          },
+          { id: `progress-${Date.now()}`, type: "progress", data: response.data, timestamp: Date.now() },
         ]);
         break;
 
       case "content":
         if (response.data?.content) {
-          const assistantMessage: Message = {
+          removePlaceholder();
+          const assistantMessage: DisplayMessage = {
             id: Date.now(),
             role: "assistant",
             content: response.data.content as string,
@@ -155,27 +199,39 @@ export function SessionPage() {
           };
           addMessage(assistantMessage);
         }
+        setStreamingContent("");
+        setStreamingTitle("");
         break;
 
       case "document":
         if (response.data) {
-          setCurrentDocument(response.data as unknown as Document);
+          const doc = response.data as unknown as Document;
+          setCurrentDocument(doc);
+          if (placeholderId) {
+            updatePlaceholder(placeholderId, 'complete', doc.topic);
+          }
         }
+        setStreamingContent("");
+        setStreamingTitle("");
         break;
 
       case "follow_ups":
-        // Handle follow-up questions
         console.log("Follow-up questions:", response.data);
         break;
 
       case "error":
         setLoading(false);
+        if (placeholderId) {
+          updatePlaceholder(placeholderId, 'error');
+        }
         console.error("Agent error:", response.message);
         break;
 
       case "done":
         setLoading(false);
         setStreaming(false);
+        setStreamingContent("");
+        setStreamingTitle("");
         break;
     }
   };
@@ -186,51 +242,74 @@ export function SessionPage() {
     onMessage: handleWebSocketMessage,
   });
 
-  const handleSendMessage = (message: string) => {
+  // Unified message handler
+  const handleSendMessage = (message: string, context?: AIInteractionContext) => {
     if (!sessionId || !isConnected) return;
 
     // Add user message to UI
-    const userMessage: Message = {
+    const userMessage: DisplayMessage = {
       id: Date.now(),
       role: "user",
       content: message,
-      message_type: "chat",
+      message_type: context?.type || "chat",
       timestamp: new Date().toISOString(),
     };
     addMessage(userMessage);
 
-    // Send to WebSocket
+    // Send to WebSocket with context
     sendMessage({
       session_id: sessionId,
       message,
-      source: "chat",
+      source: (context?.type || "chat") as import("@/types").InputSource,
     });
   };
 
-  // Auto-send initial query if provided from HomePage
-  useEffect(() => {
-    if (
-      initialQuery &&
-      isConnected &&
-      !initialQuerySent.current &&
-      !isLoading
-    ) {
-      handleSendMessage(initialQuery);
-      initialQuerySent.current = true;
+  // Handle text selection for comment mode
+  const handleTextSelection = useCallback(() => {
+    const selection = window.getSelection();
+    if (selection && selection.toString().trim()) {
+      const text = selection.toString().trim();
+      const range = selection.getRangeAt(0);
+      const rect = range.getBoundingClientRect();
+      
+      setSelectedText(text);
+      setSelectionPosition({
+        x: rect.left + rect.width / 2,
+        y: rect.bottom,
+      });
+      setAIContext({ type: "comment", sourceText: text });
     }
-  }, [initialQuery, isConnected, isLoading]);
+  }, [setAIContext]);
 
-  // Handle ESC key to close AI dialog
+  // Listen for text selection
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && isAIDialogOpen) {
-        setIsAIDialogOpen(false);
-      }
+    const handleMouseUp = () => {
+      // Small delay to let selection complete
+      setTimeout(handleTextSelection, 10);
     };
 
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isAIDialogOpen]);
+    document.addEventListener("mouseup", handleMouseUp);
+    return () => document.removeEventListener("mouseup", handleMouseUp);
+  }, [handleTextSelection]);
+
+  // Auto-send initial query if provided from HomePage
+  useEffect(() => {
+    if (initialQuery && isConnected && !isLoading && sessionId) {
+      const storageKey = `initialQuerySent_${sessionId}`;
+      const hasSent = sessionStorage.getItem(storageKey);
+      
+      if (!hasSent) {
+        handleSendMessage(initialQuery);
+        sessionStorage.setItem(storageKey, "true");
+        window.history.replaceState({}, document.title);
+      }
+    }
+  }, [initialQuery, isConnected, isLoading, sessionId]);
+
+  // Convert messages to DisplayMessages for display
+  const displayMessages: DisplayMessage[] = messages
+    .filter((msg) => msg.message_type !== "document")
+    .map((msg) => msg as DisplayMessage);
 
   if (isLoading) {
     return (
@@ -248,37 +327,66 @@ export function SessionPage() {
       <Sidebar />
       <MainContent>
         <div className="flex flex-1 flex-col overflow-hidden">
-          <DocumentView document={currentDocument || undefined} />
-          <ChatArea
-            messages={messages}
-            onSendMessage={handleSendMessage}
-            isLoading={isAgentLoading}
+          {/* Document View */}
+          {streamingContent && !currentDocument ? (
+            <DocumentView
+              document={{
+                id: 0,
+                session_id: sessionId || "",
+                topic: streamingTitle || "正在生成文档...",
+                content: streamingContent,
+                version: 1,
+                entities: [],
+                prerequisites: [],
+                related: [],
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              }}
+            />
+          ) : (
+            <DocumentView document={currentDocument || undefined} />
+          )}
+
+          {/* Bottom Chat Area - Embedded Mode */}
+          <AIAssistant
+            mode="chat"
+            messages={displayMessages}
             executionEvents={executionEvents}
+            isLoading={isAgentLoading}
+            onSendMessage={handleSendMessage}
             className="h-80 border-t"
           />
         </div>
       </MainContent>
 
-      {/* Floating AI Button - only show when there's a document */}
+      {/* Floating AI Dialog - for focused interaction */}
       {currentDocument && (
-        <FloatingAIButton
-          isOpen={isAIDialogOpen}
-          onToggle={() => setIsAIDialogOpen(!isAIDialogOpen)}
-          variant="white"
+        <AIAssistant
+          mode="dialog"
+          isOpen={aiDialogOpen}
+          onClose={closeDialog}
+          messages={displayMessages}
+          executionEvents={executionEvents}
+          isLoading={isAgentLoading}
+          onSendMessage={handleSendMessage}
         />
       )}
 
-      {/* AI Dialog - shown when open */}
-      <AIDialog
-        isOpen={isAIDialogOpen}
-        onClose={() => setIsAIDialogOpen(false)}
-        onSend={(msg) => {
-          handleSendMessage(msg);
-          setIsAIDialogOpen(false);
-        }}
-        isLoading={isAgentLoading}
-        messages={messages}
-      />
+      {/* Comment Panel - appears when text is selected */}
+      {selectedText && (
+        <AIAssistant
+          mode="comment"
+          selectedText={selectedText}
+          selectionPosition={selectionPosition}
+          messages={displayMessages}
+          isLoading={isAgentLoading}
+          onSendMessage={(msg) => {
+            handleSendMessage(msg, aiContext);
+            setSelectedText(""); // Close after sending
+          }}
+          onClose={() => setSelectedText("")}
+        />
+      )}
     </Layout>
   );
 }

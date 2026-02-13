@@ -10,6 +10,21 @@ export interface ExecutionEvent {
   timestamp: number;
 }
 
+// 节点名称的友好显示映射
+const displayNameMap: Record<string, string> = {
+  input_normalizer: "理解输入",
+  intent_agent: "分析意图",
+  route_agent: "规划处理",
+  content_agent: "生成内容",
+  planner_agent: "规划学习路径",
+  navigator_node: "跳转文档",
+  chitchat_agent: "闲聊对话",
+};
+
+function getDisplayName(name: string): string {
+  return displayNameMap[name] || name;
+}
+
 interface ExecutionProgressProps {
   events: ExecutionEvent[];
   className?: string;
@@ -50,7 +65,7 @@ export function ExecutionProgress({ events, className }: ExecutionProgressProps)
         {activeItems.length > 0 ? (
           <>
             <Loader2 className="h-3 w-3 animate-spin" />
-            执行中...
+            思考中...
           </>
         ) : (
           <>
@@ -76,7 +91,7 @@ export function ExecutionProgress({ events, className }: ExecutionProgressProps)
               <span className="flex-1 truncate">
                 {item.tool
                   ? `调用工具: ${item.tool}`
-                  : item.name || "处理中..."}
+                  : getDisplayName(item.name || "处理中...")}
               </span>
             </div>
           ))}
@@ -86,14 +101,14 @@ export function ExecutionProgress({ events, className }: ExecutionProgressProps)
       {/* Completed items (show last 3) */}
       {completed.length > 0 && (
         <div className="space-y-1">
-          <div className="mb-1 text-xs text-muted-foreground">已完成步骤:</div>
+          <div className="mb-1 text-xs text-muted-foreground">已完成</div>
           {completed.slice(-3).map((name) => (
             <div
               key={name}
               className="flex items-center gap-2 rounded px-2 py-1 text-xs text-muted-foreground"
             >
               <CheckCircle2 className="h-3 w-3 text-green-500" />
-              <span>{name}</span>
+              <span>{getDisplayName(name)}</span>
             </div>
           ))}
         </div>

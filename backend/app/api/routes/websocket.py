@@ -10,7 +10,7 @@ from app.agent.state import AgentState
 from app.core.database import get_db_session
 from app.core.logging import get_logger
 from app.schemas import ChatRequest
-from app.services import document_service, entity_service, message_service
+from app.services import document_service, entity_service, message_service, session_service
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/ws", tags=["websocket"])
@@ -100,7 +100,12 @@ async def stream_agent_response(
 
                 # Capture final state updates
                 if "output" in event_data:
-                    final_result.update(event_data["output"])
+                    output = event_data["output"]
+                    if isinstance(output, dict):
+                        final_result.update(output)
+                    else:
+                        # Output might be a LangChain message object
+                        logger.debug("Non-dict output in on_chain_end", output_type=type(output).__name__)
 
             # LLM start
             elif event_type == "on_chat_model_start":
@@ -109,15 +114,20 @@ async def stream_agent_response(
                     "data": {"name": "LLM", "model": event_data.get("model")},
                 })
 
-            # LLM token streaming
+            # LLM token streaming - only stream content_agent tokens
             elif event_type == "on_chat_model_stream":
-                content = event_data.get("chunk", "")
-                if content:
-                    accumulated_content += content
-                    await websocket.send_json({
-                        "type": "token",
-                        "data": {"content": content},
-                    })
+                chunk = event_data.get("chunk")
+                if chunk:
+                    # Extract string content from AIMessageChunk
+                    chunk_str = chunk.content if hasattr(chunk, "content") else str(chunk)
+                    accumulated_content += chunk_str
+                    # Only stream tokens from content_agent node to avoid showing
+                    # internal processing (intent analysis, etc.) to users
+                    if "content_agent" in event_name:
+                        await websocket.send_json({
+                            "type": "token",
+                            "data": {"content": chunk_str},
+                        })
 
             # LLM end
             elif event_type == "on_chat_model_end":
@@ -202,6 +212,9 @@ async def stream_agent_response(
                     )
 
                 doc_id = db_doc.id
+
+                # Update session's current_document_id to pin this document
+                await session_service.update_current_document(db, session_id, doc_id)
 
                 # Persist entities
                 entities = doc_data.get("entities", [])

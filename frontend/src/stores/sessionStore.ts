@@ -21,9 +21,9 @@ interface SessionState {
   // Actions
   setCurrentSession: (session: Session | null) => void;
   setCurrentDocument: (document: Document | null) => void;
-  setMessages: (messages: Message[]) => void;
+  setMessages: (messages: Message[] | ((prev: Message[]) => Message[])) => void;
   addMessage: (message: Message) => void;
-  updateMessage: (id: number, content: string) => void;
+  updateMessage: (id: number, updates: Partial<Message>) => void;
   appendStreamingContent: (content: string) => void;
   setStreaming: (streaming: boolean) => void;
   clearStreamingContent: () => void;
@@ -47,13 +47,18 @@ export const useSessionStore = create<SessionState>((set) => ({
   // Actions
   setCurrentSession: (session) => set({ currentSession: session }),
   setCurrentDocument: (document) => set({ currentDocument: document }),
-  setMessages: (messages) => set({ messages }),
+  setMessages: (messages) =>
+    set((state) => ({
+      messages: typeof messages === 'function'
+        ? (messages as (prev: Message[]) => Message[])(state.messages)
+        : messages
+    })),
   addMessage: (message) =>
     set((state) => ({ messages: [...state.messages, message] })),
-  updateMessage: (id, content) =>
+  updateMessage: (id, updates) =>
     set((state) => ({
       messages: state.messages.map((m) =>
-        m.id === id ? { ...m, content } : m
+        m.id === id ? { ...m, ...updates } : m
       ),
     })),
   appendStreamingContent: (content) =>
