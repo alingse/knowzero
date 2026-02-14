@@ -23,7 +23,7 @@ async def save_user_message(
         session_id=session_id,
         user_id=user_id,
         role="user",
-        content=content,
+        content=content or "",
         message_type=message_type,
         related_document_id=related_document_id,
     )
@@ -49,7 +49,7 @@ async def save_assistant_message(
         session_id=session_id,
         user_id=user_id,
         role="assistant",
-        content=content,
+        content=content or "",
         message_type=message_type,
         related_document_id=related_document_id,
         agent_intent=agent_intent,
@@ -75,7 +75,7 @@ async def save_system_message(
         session_id=session_id,
         user_id=user_id,
         role="system",
-        content=content,
+        content=content or "",
         message_type=message_type,
         related_document_id=related_document_id,
     )

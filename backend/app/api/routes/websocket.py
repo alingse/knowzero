@@ -329,7 +329,7 @@ async def stream_agent_response(
                     db,
                     session_id=session_id,
                     user_id=user_id,
-                    content=result_state.get("change_summary", ""),
+                    content=result_state.get("change_summary") or "",
                     message_type="document_ref",
                     related_document_id=doc_id,
                     agent_intent=result_state.get("intent"),
@@ -396,7 +396,7 @@ async def stream_agent_response(
                     db,
                     session_id=session_id,
                     user_id=user_id,
-                    content=nav.get("message", ""),
+                    content=nav.get("message") or "",
                     message_type="navigation",
                     related_document_id=nav.get("document_id"),
                 )
@@ -415,7 +415,7 @@ async def stream_agent_response(
                     db,
                     session_id=session_id,
                     user_id=user_id,
-                    content=resp.get("content", ""),
+                    content=resp.get("content") or "",
                     message_type=resp.get("type", "chat"),
                     agent_intent=result_state.get("intent"),
                 )
