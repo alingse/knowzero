@@ -6,6 +6,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import type { Document, FollowUpQuestion } from "@/types";
 
+import { EmptyState } from "../Chat/EmptyState";
+
 // Memoized DocumentView component to prevent unnecessary re-renders
 
 interface DocumentViewProps {
@@ -106,14 +108,14 @@ function DocumentViewComponent({ document, followUpQuestions, onFollowUpClick, c
     ),
     strong: ({ children }: { children?: React.ReactNode }) => {
       const text = typeof children === "string" ? children : "";
-      const isEntity = text && Array.from(entitySet).some(e => 
+      const isEntity = text && Array.from(entitySet).some(e =>
         text.toLowerCase().includes(e)
       );
       return (
         <strong
           className={cn(
-            "entity-highlight",
-            isEntity && "bg-yellow-100/60 dark:bg-yellow-900/30 rounded px-0.5"
+            "entity-highlight transition-colors hover:bg-accent rounded px-0.5",
+            isEntity && "bg-accent/50 dark:bg-accent/30"
           )}
         >
           {children}
@@ -154,17 +156,7 @@ function DocumentViewComponent({ document, followUpQuestions, onFollowUpClick, c
   }, [streaming, stable, isUserScrolling]);
 
   if (!document) {
-    return (
-      <div
-        className={cn(
-          "flex flex-1 flex-col items-center justify-center text-muted-foreground",
-          className
-        )}
-      >
-        <p>选择一个文档开始阅读</p>
-        <p className="text-sm">或创建一个新的学习会话</p>
-      </div>
-    );
+    return <EmptyState type="document" className={className} />;
   }
 
   const hasStableContent = stable.length > 0;

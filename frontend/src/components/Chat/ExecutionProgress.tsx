@@ -21,8 +21,21 @@ const displayNameMap: Record<string, string> = {
   chitchat_agent: "闲聊对话",
 };
 
+// 工具名称的友好显示映射
+const toolDisplayNameMap: Record<string, string> = {
+  tavily_search: "正在搜索信息",
+  tavily_extracts: "正在提取内容",
+  wikipedia: "正在查阅百科",
+  ddg_search: "正在搜索信息",
+  calculator: "正在计算",
+};
+
 function getDisplayName(name: string): string {
   return displayNameMap[name] || name;
+}
+
+function getToolDisplayName(tool: string): string {
+  return toolDisplayNameMap[tool] || `使用工具: ${tool}`;
 }
 
 interface ExecutionProgressProps {
@@ -90,7 +103,7 @@ export function ExecutionProgress({ events, className }: ExecutionProgressProps)
               )}
               <span className="flex-1 truncate">
                 {item.tool
-                  ? `调用工具: ${item.tool}`
+                  ? getToolDisplayName(item.tool)
                   : getDisplayName(item.name || "处理中...")}
               </span>
             </div>

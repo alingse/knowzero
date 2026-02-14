@@ -2,6 +2,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 
 import { ChatInput } from "./ChatInput";
+import { EmptyState } from "./EmptyState";
 import { ExecutionProgress, type ExecutionEvent } from "./ExecutionProgress";
 import { MessagesList, type DisplayMessage } from "./MessagesList";
 
@@ -30,11 +31,7 @@ export function ChatArea({
             isLoading={isLoading}
             executionEvents={executionEvents}
             showAvatars={true}
-            emptyState={
-              <div className="py-8 text-center text-sm text-muted-foreground">
-                开始一个新的对话
-              </div>
-            }
+            emptyState={<EmptyState type="chat" onQuickAction={onSendMessage} />}
           />
 
           {/* Legacy Execution Progress - only show when no placeholder message */}

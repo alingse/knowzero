@@ -26,7 +26,7 @@ export function FloatingAIButton({
   return (
     <div
       className={cn(
-        "fixed right-8 bottom-8 z-50",
+        "group fixed right-8 bottom-8 z-50",
         className
       )}
     >
