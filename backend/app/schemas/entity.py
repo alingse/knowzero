@@ -39,3 +39,25 @@ class EntityDocumentLinkResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class RelatedDocument(BaseModel):
+    """Related document for entity query response."""
+
+    id: int
+    topic: str
+
+
+class EntityQueryResponse(BaseModel):
+    """Entity query response with details."""
+
+    id: int
+    name: str
+    entity_type: str | None
+    summary: str | None
+    has_main_doc: bool
+    main_doc_id: int | None
+    related_docs: list[RelatedDocument]
+
+    class Config:
+        from_attributes = True

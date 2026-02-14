@@ -1,4 +1,4 @@
-import type { ChatRequest, Document, Message, Session } from "@/types";
+import type { ChatRequest, Document, EntityQueryResponse, Message, Session } from "@/types";
 
 const API_BASE = import.meta.env.VITE_API_URL || "/api";
 
@@ -66,6 +66,14 @@ export const documentsApi = {
       method: "PATCH",
       body: JSON.stringify(data),
     }),
+};
+
+// Entities
+export const entitiesApi = {
+  query: (name: string, sessionId: string) =>
+    fetchJson<EntityQueryResponse>(
+      `/entities/query?name=${encodeURIComponent(name)}&session_id=${encodeURIComponent(sessionId)}`
+    ),
 };
 
 // Health

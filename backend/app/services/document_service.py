@@ -19,6 +19,7 @@ async def create_document(
     category_path: str | None = None,
     entities: list | None = None,
     generation_metadata: dict | None = None,
+    parent_document_id: int | None = None,
 ) -> Document:
     """Create a new document and its initial version."""
     doc = Document(
@@ -30,6 +31,7 @@ async def create_document(
         entities=entities or [],
         version=1,
         generation_metadata=generation_metadata,
+        parent_document_id=parent_document_id,
     )
     db.add(doc)
     await db.flush()

@@ -3,6 +3,7 @@ import React, { useMemo, useRef, useEffect, useState } from "react";
 import remarkGfm from "remark-gfm";
 
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { EntityMention } from "@/components/DocumentView/EntityMention";
 import { cn } from "@/lib/utils";
 import type { Document, FollowUpQuestion } from "@/types";
 
@@ -14,6 +15,8 @@ interface DocumentViewProps {
   document?: Document;
   followUpQuestions?: FollowUpQuestion[];
   onFollowUpClick?: (question: FollowUpQuestion) => void;
+  onEntityClick?: (name: string, sourceDocId: number) => void;
+  onDocumentClick?: (docId: number) => void;
   className?: string;
   isStreaming?: boolean;
 }
@@ -57,7 +60,15 @@ function splitContent(content: string): { stable: string; streaming: string } {
   };
 }
 
-function DocumentViewComponent({ document, followUpQuestions, onFollowUpClick, className, isStreaming = false }: DocumentViewProps) {
+function DocumentViewComponent({
+  document,
+  followUpQuestions,
+  onFollowUpClick,
+  onEntityClick,
+  onDocumentClick,
+  className,
+  isStreaming = false
+}: DocumentViewProps) {
   // Memoize entity set for O(1) lookup and stable reference
   const entitySet = useMemo(() => {
     return new Set(document?.entities.map(e => e.toLowerCase()) || []);
@@ -108,9 +119,20 @@ function DocumentViewComponent({ document, followUpQuestions, onFollowUpClick, c
     ),
     strong: ({ children }: { children?: React.ReactNode }) => {
       const text = typeof children === "string" ? children : "";
-      const isEntity = text && Array.from(entitySet).some(e =>
-        text.toLowerCase().includes(e)
-      );
+      const isEntity = text && entitySet.has(text.toLowerCase());
+
+      if (isEntity && document) {
+        return (
+          <EntityMention
+            name={text}
+            sourceDocId={document.id}
+            sessionId={document.session_id}
+            onEntityClick={onEntityClick}
+            onDocumentClick={onDocumentClick}
+          />
+        );
+      }
+
       return (
         <strong
           className={cn(
@@ -234,7 +256,18 @@ export const DocumentView = React.memo(DocumentViewComponent, (prev, next) => {
   const questionsChanged = prev.followUpQuestions?.length !== next.followUpQuestions?.length;
   const classNameChanged = prev.className !== next.className;
   const isStreamingChanged = prev.isStreaming !== next.isStreaming;
-  
+  const callbacksChanged = prev.onEntityClick !== next.onEntityClick || prev.onDocumentClick !== next.onDocumentClick;
+
+  // Debug logging
+  const shouldRerender = docChanged || questionsChanged || classNameChanged || isStreamingChanged || callbacksChanged;
+  if (questionsChanged) {
+    console.log("[DocumentView] followUpQuestions changed:", {
+      prevLength: prev.followUpQuestions?.length,
+      nextLength: next.followUpQuestions?.length,
+      shouldRerender,
+    });
+  }
+
   // Return true if props are equal (no re-render needed)
-  return !docChanged && !questionsChanged && !classNameChanged && !isStreamingChanged;
+  return !shouldRerender;
 });

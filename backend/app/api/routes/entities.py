@@ -8,8 +8,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_db
 from app.core.logging import get_logger
-from app.models import Entity
-from app.schemas import EntityCreate, EntityResponse
+from app.services import entity_service
+from app.models import Document, Entity, EntityDocumentLink
+from app.schemas import EntityCreate, EntityQueryResponse, EntityResponse, RelatedDocument
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/entities", tags=["entities"])
@@ -74,3 +75,63 @@ async def get_session_entities(
     """Get all entities in a session."""
     result = await db.execute(select(Entity).where(Entity.session_id == session_id))
     return list(result.scalars().all())
+
+
+@router.get("/query", response_model=EntityQueryResponse)
+async def query_entity(
+    name: str,
+    session_id: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> EntityQueryResponse:
+    """Query entity details with related documents."""
+    # Find entity (case-insensitive)
+    result = await db.execute(
+        select(Entity)
+        .where(Entity.session_id == session_id)
+        .where(Entity.name.ilike(name))
+    )
+    entity = result.scalar_one_or_none()
+
+    if not entity:
+        # Return empty response for non-existent entities
+        return EntityQueryResponse(
+            id=0,
+            name=name,
+            entity_type=None,
+            summary=None,
+            has_main_doc=False,
+            main_doc_id=None,
+            related_docs=[],
+        )
+
+    # Check if there's a main document (link_type='explains')
+    link_result = await db.execute(
+        select(EntityDocumentLink).where(
+            (EntityDocumentLink.entity_id == entity.id)
+            & (EntityDocumentLink.link_type == "explains")
+        )
+    )
+    main_link = link_result.scalar_one_or_none()
+    has_main_doc = main_link is not None
+    main_doc_id = main_link.document_id if main_link else None
+
+    # Get related documents (all links)
+    docs_result = await db.execute(
+        select(Document)
+        .join(EntityDocumentLink, Document.id == EntityDocumentLink.document_id)
+        .where(EntityDocumentLink.entity_id == entity.id)
+    )
+    related_docs = [
+        RelatedDocument(id=doc.id, topic=doc.topic)
+        for doc in docs_result.scalars().all()
+    ]
+
+    return EntityQueryResponse(
+        id=entity.id,
+        name=entity.name,
+        entity_type=entity.entity_type,
+        summary=None,  # Could be cached/generated in future
+        has_main_doc=has_main_doc,
+        main_doc_id=main_doc_id,
+        related_docs=related_docs,
+    )

@@ -43,13 +43,14 @@ export function SessionPage() {
   const [selectionPosition, setSelectionPosition] = useState<{ x: number; y: number } | undefined>();
 
   // Placeholder message ID for tracking
-  const [placeholderId, setPlaceholderId] = useState<number | null>(null);
+  const [_placeholderId, setPlaceholderId] = useState<number | null>(null);
 
   const {
     currentDocument,
     messages,
     followUpQuestions,
     agentStatus,
+    documents,
     addDocument,
     setCurrentSession,
     setCurrentDocument,
@@ -78,6 +79,11 @@ export function SessionPage() {
       // Restore agent status from backend
       if (data.agent_status) {
         setAgentStatus(data.agent_status, data.agent_started_at || undefined);
+      }
+
+      // Restore follow-up questions from current document
+      if (data.current_document?.follow_up_questions) {
+        setFollowUpQuestions(data.current_document.follow_up_questions);
       }
 
       // Restore last document topic for streaming title (faster UX)
@@ -329,12 +335,27 @@ export function SessionPage() {
 
       case "follow_ups": {
         const fuData = response.data as { document_id?: number; questions?: FollowUpQuestion[] } | undefined;
-        if (fuData?.questions && (!fuData.document_id || fuData.document_id === currentDocument?.id)) {
-          setFollowUpQuestions(fuData.questions.map((q, i) => ({
+        const shouldUpdate = fuData?.questions && (
+          !fuData.document_id ||  // No document ID specified, allow update
+          !currentDocument ||       // No current document, allow update (new doc)
+          fuData.document_id === currentDocument?.id  // ID matches current document
+        );
+        console.log("[follow_ups] Received:", {
+          hasData: !!fuData,
+          hasQuestions: !!fuData?.questions,
+          questionsCount: fuData?.questions?.length,
+          documentId: fuData?.document_id,
+          currentDocId: currentDocument?.id,
+          shouldUpdate,
+        });
+        if (shouldUpdate) {
+          const mapped = fuData.questions.map((q, i) => ({
             ...q,
             id: q.id ?? i,
             is_clicked: q.is_clicked ?? false,
-          })));
+          }));
+          console.log("[follow_ups] Setting follow-up questions:", mapped.length);
+          setFollowUpQuestions(mapped);
         }
         break;
       }
@@ -415,6 +436,35 @@ export function SessionPage() {
     handleSendMessage(question.question, { type: "follow_up" });
   }, [handleSendMessage]);
 
+  // Handle entity click for deep exploration
+  const handleEntityClick = useCallback((entityName: string, sourceDocId: number) => {
+    if (!sessionId || !isConnected) return;
+
+    // Send entity exploration request through WebSocket
+    const requestData: import("@/types").ChatRequest = {
+      session_id: sessionId,
+      message: "",
+      source: "entity",
+      entity_data: {
+        entity_name: entityName,
+        source_doc_id: sourceDocId,
+      },
+    };
+
+    sendMessage(requestData);
+  }, [sessionId, isConnected, sendMessage]);
+
+  // Handle document click from entity card
+  const handleDocumentClick = useCallback((docId: number) => {
+    // Find the document in the store and navigate to it
+    const targetDoc = documents.find(d => d.id === docId);
+    if (targetDoc) {
+      setCurrentDocument(targetDoc);
+      // Update follow-up questions from the selected document
+      setFollowUpQuestions((targetDoc as any).follow_up_questions || []);
+    }
+  }, [documents, setCurrentDocument, setFollowUpQuestions]);
+
   // Handle text selection for comment mode
   const handleTextSelection = useCallback(() => {
     const selection = window.getSelection();
@@ -484,6 +534,11 @@ export function SessionPage() {
     }
   }, [initialQuery, isConnected, isLoading, sessionId]);
 
+  // Debug: log followUpQuestions changes
+  useEffect(() => {
+    console.log("[SessionPage] followUpQuestions changed:", followUpQuestions?.length, "questions");
+  }, [followUpQuestions]);
+
   // Convert messages to DisplayMessages for display
   const displayMessages: DisplayMessage[] = messages
     .filter((msg) => msg.message_type !== MessageType.DOCUMENT_REF)
@@ -520,6 +575,8 @@ export function SessionPage() {
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString(),
               }}
+              onEntityClick={handleEntityClick}
+              onDocumentClick={handleDocumentClick}
               isStreaming={true}
             />
           ) : (
@@ -527,6 +584,8 @@ export function SessionPage() {
               document={currentDocument || undefined}
               followUpQuestions={followUpQuestions}
               onFollowUpClick={handleFollowUpClick}
+              onEntityClick={handleEntityClick}
+              onDocumentClick={handleDocumentClick}
               isStreaming={false}
             />
           )}

@@ -6,7 +6,12 @@ from app.schemas.document import (
     DocumentUpdate,
     FollowUpQuestionResponse,
 )
-from app.schemas.entity import EntityCreate, EntityResponse
+from app.schemas.entity import (
+    EntityCreate,
+    EntityQueryResponse,
+    EntityResponse,
+    RelatedDocument,
+)
 from app.schemas.session import (
     ChatRequest,
     ChatResponse,
@@ -31,4 +36,6 @@ __all__ = [
     "FollowUpQuestionResponse",
     "EntityCreate",
     "EntityResponse",
+    "EntityQueryResponse",
+    "RelatedDocument",
 ]

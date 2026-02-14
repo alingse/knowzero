@@ -62,6 +62,21 @@ export interface Entity {
   created_at: string;
 }
 
+export interface RelatedDocument {
+  id: number;
+  topic: string;
+}
+
+export interface EntityQueryResponse {
+  id: number;
+  name: string;
+  entity_type?: string;
+  summary?: string;
+  has_main_doc: boolean;
+  main_doc_id?: number;
+  related_docs?: RelatedDocument[];
+}
+
 export interface FollowUpQuestion {
   id: number;
   question: string;

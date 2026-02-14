@@ -82,19 +82,19 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   },
   selectDocument: (documentId) => {
     const { documents } = get();
-    
+
     if (documentId === null) {
       set({ selectedDocumentId: null });
       return;
     }
-    
+
     const selectedDoc = documents.find(d => d.id === documentId);
     if (selectedDoc) {
-      set({ 
+      set({
         selectedDocumentId: documentId,
         currentDocument: selectedDoc,
-        // Clear follow-up questions when switching documents
-        followUpQuestions: [],
+        // Update follow-up questions from the selected document
+        followUpQuestions: (selectedDoc as any).follow_up_questions || [],
       });
     }
   },
@@ -121,7 +121,10 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   clearStreamingContent: () => set({ streamingContent: "" }),
   setLoading: (loading) => set({ isLoading: loading }),
   setError: (error) => set({ error }),
-  setFollowUpQuestions: (questions) => set({ followUpQuestions: questions }),
+  setFollowUpQuestions: (questions) => {
+    console.log("[sessionStore] setFollowUpQuestions called:", questions.length, "questions");
+    set({ followUpQuestions: questions });
+  },
   updateDocumentEntities: (entities) =>
     set((state) => ({
       currentDocument: state.currentDocument

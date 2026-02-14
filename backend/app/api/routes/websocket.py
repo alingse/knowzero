@@ -77,21 +77,28 @@ async def _background_generate_follow_ups(
     content: str,
 ) -> None:
     """Background: generate follow-up questions via LLM, persist, and push to client."""
+    follow_ups = []
+
     try:
         follow_ups = await _generate_follow_ups(content)
-        if not follow_ups:
-            return
 
-        async with get_db_session() as db:
-            await document_service.save_follow_ups(db, doc_id, follow_ups)
+        # Save to database if we got any questions
+        if follow_ups:
+            async with get_db_session() as db:
+                await document_service.save_follow_ups(db, doc_id, follow_ups)
+    except Exception as e:
+        logger.warning("Background follow-up generation failed", error=str(e), doc_id=doc_id)
 
+    # Always send follow_ups message so client knows we're done
+    try:
         await websocket.send_json({
             "type": "follow_ups",
             "data": {"document_id": doc_id, "questions": follow_ups},
         })
-        logger.info("Background follow-ups pushed", doc_id=doc_id, count=len(follow_ups))
-    except Exception as e:
-        logger.warning("Background follow-up generation failed", error=str(e), doc_id=doc_id)
+        count = len(follow_ups)
+        logger.info("Background follow-ups pushed", doc_id=doc_id, count=count)
+    except Exception:
+        pass  # WebSocket might be closed
 
 
 async def stream_agent_response(
@@ -305,6 +312,11 @@ async def stream_agent_response(
                     )
                 else:
                     # Create new document
+                    # Set parent_document_id if this is from a follow-up question
+                    parent_id = None
+                    if state.get("input_source") == "follow_up":
+                        parent_id = state.get("current_doc_id")
+
                     db_doc = await document_service.create_document(
                         db,
                         session_id=session_id,
@@ -317,6 +329,7 @@ async def stream_agent_response(
                             "intent": result_state.get("intent"),
                             "routing": result_state.get("routing_decision"),
                         },
+                        parent_document_id=parent_id,
                     )
 
                 doc_id = db_doc.id
