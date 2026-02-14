@@ -6,7 +6,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { X, Sparkles, MessageSquare, BookOpen, Lightbulb, Copy, Check } from "lucide-react";
+import { X, Sparkles, Search, Wrench, Target, List, Copy, Check } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -24,22 +24,28 @@ interface CommentPanelProps {
 
 const quickActions = [
   {
-    id: "explain",
-    label: "详细解释",
-    icon: Lightbulb,
-    prompt: "请详细解释这段内容",
+    id: "analyze",
+    label: "深入解析",
+    icon: Search,
+    prompt: "请深入解析这段内容的核心概念和原理",
+  },
+  {
+    id: "apply",
+    label: "实际应用",
+    icon: Wrench,
+    prompt: "请说明这段内容的应用场景和实际用法",
+  },
+  {
+    id: "keypoints",
+    label: "关键要点",
+    icon: Target,
+    prompt: "请提炼这段内容的关键要点",
   },
   {
     id: "example",
-    label: "举例子",
-    icon: BookOpen,
-    prompt: "请为这段内容举几个例子",
-  },
-  {
-    id: "expand",
-    label: "展开讲讲",
-    icon: MessageSquare,
-    prompt: "请展开讲讲这部分内容",
+    label: "举例说明",
+    icon: List,
+    prompt: "请举例说明这段内容",
   },
 ];
 
@@ -192,7 +198,7 @@ export function CommentPanel({
       </div>
 
       {/* Quick actions */}
-      <div className="grid grid-cols-3 gap-1 border-b p-2">
+      <div className="grid grid-cols-4 gap-1 border-b p-2">
         {quickActions.map((action) => (
           <button
             key={action.id}

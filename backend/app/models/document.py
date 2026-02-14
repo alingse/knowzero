@@ -11,7 +11,7 @@ from sqlalchemy import (
     String,
     Text,
 )
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 
@@ -44,6 +44,9 @@ class Document(Base):
 
     # AI metadata
     generation_metadata: Mapped[dict | None] = mapped_column(JSON)
+
+    # Relations
+    follow_up_questions = relationship("FollowUpQuestion", back_populates="document", cascade="all, delete-orphan")
 
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
@@ -91,6 +94,9 @@ class FollowUpQuestion(Base):
 
     # Status
     is_clicked: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    # Relations
+    document = relationship("Document", back_populates="follow_up_questions")
 
     # Metadata
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

@@ -5,6 +5,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.api.deps import get_db
 from app.core.logging import get_logger
@@ -65,11 +66,11 @@ async def get_session_messages(
     limit: int = 50,
     offset: int = 0,
 ) -> list[Message]:
-    """Get session messages."""
+    """Get session messages in chronological order (oldest first)."""
     result = await db.execute(
         select(Message)
         .where(Message.session_id == session_id)
-        .order_by(Message.timestamp.desc())
+        .order_by(Message.timestamp.asc())
         .limit(limit)
         .offset(offset)
     )
@@ -115,12 +116,18 @@ async def restore_session(
     current_doc = None
     if session.current_document_id:
         doc_result = await db.execute(
-            select(Document).where(Document.id == session.current_document_id)
+            select(Document)
+            .where(Document.id == session.current_document_id)
+            .options(selectinload(Document.follow_up_questions))
         )
         current_doc = doc_result.scalar_one_or_none()
 
     # Get all session documents
-    docs_result = await db.execute(select(Document).where(Document.session_id == session_id))
+    docs_result = await db.execute(
+        select(Document)
+        .where(Document.session_id == session_id)
+        .options(selectinload(Document.follow_up_questions))
+    )
     documents = list(docs_result.scalars().all())
 
     # Convert SQLAlchemy models to dicts using model_dump

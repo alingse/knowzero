@@ -81,7 +81,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     }));
   },
   selectDocument: (documentId) => {
-    const { documents, currentDocument } = get();
+    const { documents } = get();
     
     if (documentId === null) {
       set({ selectedDocumentId: null });

@@ -38,7 +38,7 @@ export function ChatArea({
           />
 
           {/* Legacy Execution Progress - only show when no placeholder message */}
-          {!messages.some(m => m.isPlaceholder && m.placeholderType === 'generating') && executionEvents.length > 0 && (
+          {!messages.some(m => m.isPlaceholder) && executionEvents.length > 0 && (
             <ExecutionProgress events={executionEvents} className="mt-4" />
           )}
         </div>

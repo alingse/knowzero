@@ -35,8 +35,6 @@ export interface Message {
   timestamp: string;
   // Placeholder message fields for UI state
   isPlaceholder?: boolean;
-  placeholderType?: 'generating' | 'complete' | 'error';
-  documentTitle?: string;
 }
 
 export interface Document {

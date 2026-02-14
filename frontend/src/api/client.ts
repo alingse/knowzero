@@ -36,8 +36,8 @@ export const sessionsApi = {
     fetchJson<{
       session: Session;
       messages: Message[];
-      current_document?: Document;
-      documents?: Document[];
+      current_document?: Document & { follow_up_questions?: import("@/types").FollowUpQuestion[] };
+      documents?: (Document & { follow_up_questions?: import("@/types").FollowUpQuestion[] })[];
       agent_status?: Session["agent_status"];
       agent_started_at?: string | null;
     }>(

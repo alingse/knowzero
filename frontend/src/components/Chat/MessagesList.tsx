@@ -1,4 +1,4 @@
-import { Bot, User, FileText, Loader2 } from "lucide-react";
+import { Bot, User, Loader2 } from "lucide-react";
 import React, { useEffect, useRef, memo } from "react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -27,8 +27,7 @@ interface MessageItemProps {
 }
 
 interface PlaceholderMessageProps {
-  type: 'generating' | 'complete' | 'error';
-  documentTitle?: string;
+  content: string;
   executionEvents?: ExecutionEvent[];
   showAvatar?: boolean;
 }
@@ -68,74 +67,29 @@ const LoadingIndicator = memo(function LoadingIndicator({ showAvatar = true, exe
 });
 
 // Placeholder Message Component
-const PlaceholderMessage = memo(function PlaceholderMessage({ 
-  type, 
-  documentTitle, 
-  executionEvents = [], 
-  showAvatar = true 
+const PlaceholderMessage = memo(function PlaceholderMessage({
+  content,
+  executionEvents = [],
+  showAvatar = true
 }: PlaceholderMessageProps) {
-  if (type === 'generating') {
-    return (
-      <div className="flex gap-3 py-2">
-        {showAvatar && (
-          <Avatar className="h-8 w-8 shrink-0 bg-muted">
-            <AvatarFallback>
-              <Bot className="h-4 w-4" />
-            </AvatarFallback>
-          </Avatar>
-        )}
-        <div className="max-w-[85%]">
-          <div className="rounded-lg bg-muted px-4 py-2.5 text-sm text-muted-foreground">
-            <span className="inline-flex items-center gap-2">
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              正在生成学习文档...
-            </span>
-          </div>
-          {/* Show compact execution progress below the placeholder */}
-          <CompactExecutionProgress events={executionEvents} />
-        </div>
-      </div>
-    );
-  }
-
-  if (type === 'complete') {
-    return (
-      <div className="flex gap-3 py-2">
-        {showAvatar && (
-          <Avatar className="h-8 w-8 shrink-0 bg-muted">
-            <AvatarFallback>
-              <Bot className="h-4 w-4" />
-            </AvatarFallback>
-          </Avatar>
-        )}
-        <div className="max-w-[85%] rounded-lg bg-muted px-4 py-2.5 text-sm">
-          <span className="inline-flex items-center gap-2">
-            <FileText className="h-4 w-4 text-primary" />
-            已为你生成
-            {documentTitle ? (
-              <span className="font-medium">《{documentTitle}》</span>
-            ) : (
-              "学习文档"
-            )}
-            📄
-          </span>
-        </div>
-      </div>
-    );
-  }
-
-  // Error state
   return (
     <div className="flex gap-3 py-2">
       {showAvatar && (
-        <Avatar className="h-8 w-8 shrink-0 bg-destructive/10">
+        <Avatar className="h-8 w-8 shrink-0 bg-muted">
           <AvatarFallback>
-            <Bot className="h-4 w-4 text-destructive" />
+            <Bot className="h-4 w-4" />
           </AvatarFallback>
         </Avatar>
       )}
-      <div className="max-w-[85%] rounded-lg bg-destructive/10 px-4 py-2.5 text-sm text-destructive">
-        抱歉，生成文档时出现了问题，请重试。
+      <div className="max-w-[85%]">
+        <div className="rounded-lg bg-muted px-4 py-2.5 text-sm text-muted-foreground">
+          <span className="inline-flex items-center gap-2">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            {content}
+          </span>
+        </div>
+        {/* Show compact execution progress below the placeholder */}
+        <CompactExecutionProgress events={executionEvents} />
       </div>
     </div>
   );
@@ -173,8 +127,7 @@ const MessageItem = memo(function MessageItem({ message, executionEvents = [], s
   if (message.isPlaceholder) {
     return (
       <PlaceholderMessage
-        type={message.placeholderType || 'generating'}
-        documentTitle={message.documentTitle}
+        content={message.content}
         executionEvents={executionEvents}
         showAvatar={showAvatar}
       />
@@ -259,7 +212,7 @@ function MessagesListComponent({
       ))}
 
       {/* Loading indicator - only show when loading and no placeholder message */}
-      {isLoading && !messages.some(m => m.isPlaceholder && m.placeholderType === 'generating') && (
+      {isLoading && !messages.some(m => m.isPlaceholder) && (
         <LoadingIndicator showAvatar={showAvatars} executionEvents={executionEvents} />
       )}
 

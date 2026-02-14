@@ -50,8 +50,10 @@ export function SessionPage() {
     messages,
     followUpQuestions,
     agentStatus,
+    addDocument,
     setCurrentSession,
     setCurrentDocument,
+    setDocuments,
     setMessages,
     addMessage,
     updateMessage,
@@ -71,6 +73,7 @@ export function SessionPage() {
       setCurrentSession(data.session);
       setCurrentDocument(data.current_document || null);
       setMessages(data.messages);
+      setDocuments(data.documents || []); // Fix: set documents list from backend
 
       // Restore agent status from backend
       if (data.agent_status) {
@@ -101,17 +104,15 @@ export function SessionPage() {
   });
 
   // Helper to add placeholder message
-  const addPlaceholder = useCallback((type: 'generating' | 'complete' | 'error', title?: string) => {
+  const addPlaceholder = useCallback((content: string) => {
     const id = -Date.now();
     const placeholderMsg: DisplayMessage = {
       id,
       role: "assistant",
-      content: type === 'generating' ? "正在生成学习文档..." : type === 'complete' ? `已为你生成《${title || '学习文档'}》📄` : "生成失败",
+      content,
       message_type: MessageType.DOCUMENT_CARD,
       timestamp: new Date().toISOString(),
       isPlaceholder: true,
-      placeholderType: type,
-      documentTitle: title,
     };
     addMessage(placeholderMsg);
     setPlaceholderId(id);
@@ -119,32 +120,19 @@ export function SessionPage() {
   }, [addMessage]);
 
   // Helper to update placeholder message
-  const updatePlaceholder = useCallback((id: number, type: 'generating' | 'complete' | 'error', title?: string) => {
-    const content = type === 'generating' 
-      ? "正在生成学习文档..." 
-      : type === 'complete' 
-        ? `已为你生成《${title || '学习文档'}》📄` 
-        : "生成失败";
-    
-    updateMessage(id, {
-      content,
-      isPlaceholder: true,
-      placeholderType: type,
-      documentTitle: title,
-    });
-    
-    if (type === 'complete' || type === 'error') {
-      setPlaceholderId(null);
-    }
+  const updatePlaceholder = useCallback((id: number, content: string) => {
+    updateMessage(id, { content });
   }, [updateMessage]);
 
   // Helper to remove placeholder
   const removePlaceholder = useCallback(() => {
-    if (placeholderId) {
-      setMessages((prev: Message[]) => prev.filter(m => m.id !== placeholderId));
-      setPlaceholderId(null);
-    }
-  }, [placeholderId, setMessages]);
+    setPlaceholderId((id) => {
+      if (id) {
+        setMessages((prev: Message[]) => prev.filter(m => m.id !== id));
+      }
+      return null;
+    });
+  }, [setMessages]);
 
   // Handle WebSocket messages
   const handleWebSocketMessage = (response: StreamResponse) => {
@@ -155,7 +143,9 @@ export function SessionPage() {
         setStreamingContent("");
         setStreamingTitle("正在生成文档...");
         setFollowUpQuestions([]);
-        addPlaceholder('generating');
+        // Save placeholder id synchronously for immediate use
+        const newPlaceholderId = addPlaceholder("...");
+        setPlaceholderId(newPlaceholderId);
         break;
 
       case "token":
@@ -174,16 +164,41 @@ export function SessionPage() {
         if (docTopic) {
           setStreamingTitle(docTopic);
           setCurrentDocument(null);
+          // Update placeholder to show document generation
+          setPlaceholderId((id) => {
+            if (id) {
+              updatePlaceholder(id, `正在生成《${docTopic}》...`);
+            }
+            return id;
+          });
         }
         break;
 
       case "node_start":
         const nodeName = response.data?.name as string;
+        console.log("node_start event:", nodeName, response.data);
         if (nodeName) {
           setExecutionEvents((prev) => [
             ...prev,
             { id: `node-${Date.now()}`, type: "node_start", name: nodeName, timestamp: Date.now() },
           ]);
+          // Update placeholder based on node name (use existing display name mapping)
+          setPlaceholderId((id) => {
+            if (id) {
+              const displayNameMap: Record<string, string> = {
+                input_normalizer: "正在理解输入...",
+                intent_agent: "正在分析意图...",
+                route_agent: "正在规划处理...",
+                content_agent: "正在生成内容...",
+                planner_agent: "正在规划学习路径...",
+                navigator_agent: "正在跳转文档...",
+                chitchat_agent: "正在回复...",
+              };
+              const displayName = displayNameMap[nodeName] || `正在执行 ${nodeName}...`;
+              updatePlaceholder(id, displayName);
+            }
+            return id;
+          });
         }
         break;
 
@@ -285,11 +300,15 @@ export function SessionPage() {
         if (response.data) {
           const doc = response.data as unknown as Document;
           setCurrentDocument(doc);
+          addDocument(doc); // Fix: add document to store list
 
-          // Update placeholder to completion state (instead of removing)
-          if (placeholderId) {
-            updatePlaceholder(placeholderId, 'complete', doc.topic);
-          }
+          // Update placeholder to completion state
+          setPlaceholderId((id) => {
+            if (id) {
+              updatePlaceholder(id, `已为你生成《${doc.topic}》📄`);
+            }
+            return null; // Clear after updating
+          });
 
           // Refresh messages list to get the latest assistant message with document reference
           if (sessionId) {
@@ -322,9 +341,12 @@ export function SessionPage() {
 
       case "error":
         setLoading(false);
-        if (placeholderId) {
-          updatePlaceholder(placeholderId, 'error');
-        }
+        setPlaceholderId((id) => {
+          if (id) {
+            updatePlaceholder(id, "抱歉，出现了问题，请重试。");
+          }
+          return null; // Clear after updating
+        });
         console.error("Agent error:", response.message);
         break;
 

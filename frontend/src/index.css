@@ -156,3 +156,27 @@
 .document-content {
   contain: layout style;
 }
+
+/* Document list item hover effect */
+.document-list-item {
+  transition: all 0.15s ease;
+}
+
+.document-list-item:hover {
+  background-color: hsl(var(--secondary));
+}
+
+.document-list-item.active {
+  background-color: hsl(var(--primary) / 0.1);
+  border-left-color: hsl(var(--primary));
+}
+
+/* Document icon animation */
+@keyframes document-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.document-icon-new {
+  animation: document-pulse 2s infinite;
+}

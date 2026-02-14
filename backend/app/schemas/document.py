@@ -5,6 +5,19 @@ from datetime import datetime
 from pydantic import BaseModel
 
 
+class FollowUpQuestionResponse(BaseModel):
+    """Follow-up question response."""
+
+    id: int
+    question: str
+    question_type: str | None
+    entity_tag: str | None
+    is_clicked: bool
+
+    class Config:
+        from_attributes = True
+
+
 class DocumentCreate(BaseModel):
     """Create document request."""
 
@@ -36,19 +49,7 @@ class DocumentResponse(BaseModel):
     parent_document_id: int | None
     created_at: datetime
     updated_at: datetime
-
-    class Config:
-        from_attributes = True
-
-
-class FollowUpQuestionResponse(BaseModel):
-    """Follow-up question response."""
-
-    id: int
-    question: str
-    question_type: str | None
-    entity_tag: str | None
-    is_clicked: bool
+    follow_up_questions: list[FollowUpQuestionResponse] = []
 
     class Config:
         from_attributes = True
