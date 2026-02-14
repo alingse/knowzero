@@ -327,7 +327,12 @@ export function SessionPage() {
 
       case "entities": {
         const entitiesData = response.data as { document_id?: number; entities?: string[] } | undefined;
-        if (entitiesData?.entities && currentDocument && entitiesData.document_id === currentDocument.id) {
+        const shouldUpdate = entitiesData?.entities && (
+          !entitiesData.document_id ||  // No document ID specified, allow update
+          !currentDocument ||       // No current document, allow update (new doc)
+          entitiesData.document_id === currentDocument?.id  // ID matches current document
+        );
+        if (shouldUpdate) {
           updateDocumentEntities(entitiesData.entities);
         }
         break;

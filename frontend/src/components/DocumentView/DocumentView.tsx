@@ -74,6 +74,55 @@ function DocumentViewComponent({
     return new Set(document?.entities.map(e => e.toLowerCase()) || []);
   }, [document?.entities]);
 
+  // Split text into entity/non-entity fragments for individual highlighting
+  function splitTextByEntities(text: string): Array<{type: 'entity' | 'text', content: string}> {
+    if (!text || !entitySet.size) {
+      return [{ type: 'text', content: text }];
+    }
+
+    const fragments: Array<{type: 'entity' | 'text', content: string}> = [];
+    let lastIndex = 0;
+    const lowerText = text.toLowerCase();
+
+    // Find all entity matches
+    const matches: Array<{start: number, end: number, entity: string}> = [];
+    for (const ent of entitySet) {
+      const entity = ent as string; // Type assertion
+      let pos = lowerText.indexOf(entity, lastIndex);
+      while (pos !== -1) {
+        matches.push({ start: pos, end: pos + entity.length, entity });
+        pos = lowerText.indexOf(entity, pos + entity.length);
+      }
+    }
+
+    // Sort by start position and remove overlaps (keep longest match at each position)
+    matches.sort((a, b) => a.start - b.start || b.end - a.end);
+    const nonOverlappingMatches: typeof matches = [typeof matches];
+    for (const match of matches) {
+      const overlaps = nonOverlappingMatches.some(m =>
+        match.start < m.end && match.end > m.start
+      );
+      if (!overlaps) {
+        nonOverlappingMatches.push(match);
+      }
+    }
+
+    // Build fragments from non-overlapping matches
+    for (const match of nonOverlappingMatches) {
+      if (match.start > lastIndex) {
+        fragments.push({ type: 'text', content: text.slice(lastIndex, match.start) });
+      }
+      fragments.push({ type: 'entity', content: text.slice(match.start, match.end) });
+      lastIndex = match.end;
+    }
+
+    if (lastIndex < text.length) {
+      fragments.push({ type: 'text', content: text.slice(lastIndex) });
+    }
+
+    return fragments;
+  }
+
   // Split content into stable (rendered as markdown) and streaming (raw text)
   const { stable, streaming } = useMemo(() => {
     return splitContent(document?.content || "");
@@ -119,12 +168,19 @@ function DocumentViewComponent({
     ),
     strong: ({ children }: { children?: React.ReactNode }) => {
       const text = typeof children === "string" ? children : "";
-      const isEntity = text && entitySet.has(text.toLowerCase());
 
-      if (isEntity && document) {
+      if (!text || !document) {
+        return <strong>{children}</strong>;
+      }
+
+      // Split text into entity/non-entity fragments
+      const fragments = splitTextByEntities(text);
+
+      // If single fragment and it's an entity, use EntityMention component
+      if (fragments.length === 1 && fragments[0].type === 'entity') {
         return (
           <EntityMention
-            name={text}
+            name={fragments[0].content}
             sourceDocId={document.id}
             sessionId={document.session_id}
             onEntityClick={onEntityClick}
@@ -133,14 +189,28 @@ function DocumentViewComponent({
         );
       }
 
+      // Render mixed fragments (entity and text)
       return (
         <strong
           className={cn(
-            "entity-highlight transition-colors hover:bg-accent rounded px-0.5",
-            isEntity && "bg-accent/50 dark:bg-accent/30"
+            "entity-highlight transition-colors hover:bg-accent rounded px-0.5"
           )}
         >
-          {children}
+          {fragments.map((frag, i) => {
+            if (frag.type === 'entity') {
+              return (
+                <EntityMention
+                  key={i}
+                  name={frag.content}
+                  sourceDocId={document.id}
+                  sessionId={document.session_id}
+                  onEntityClick={onEntityClick}
+                  onDocumentClick={onDocumentClick}
+                />
+              );
+            }
+            return <span key={i}>{frag.content}</span>;
+          })}
         </strong>
       );
     },
