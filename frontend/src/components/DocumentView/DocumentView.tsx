@@ -97,7 +97,7 @@ function DocumentViewComponent({
 
     // Sort by start position and remove overlaps (keep longest match at each position)
     matches.sort((a, b) => a.start - b.start || b.end - a.end);
-    const nonOverlappingMatches: typeof matches = [typeof matches];
+    const nonOverlappingMatches: typeof matches = [];
     for (const match of matches) {
       const overlaps = nonOverlappingMatches.some(m =>
         match.start < m.end && match.end > m.start
