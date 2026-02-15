@@ -12,11 +12,12 @@ from app.agent.nodes.content import _extract_entities_llm, _generate_follow_ups
 from app.agent.state import AgentState
 from app.core.database import get_db_session
 from app.core.logging import get_logger
-from app.services import document_service, entity_service
+from app.services import document_service, entity_service, message_service
 from app.services.persistence_coordinator import (
     create_placeholder_message,
     persist_assistant_message,
     persist_document,
+    persist_roadmap,
     persist_user_message,
     update_placeholder_message,
 )
@@ -34,6 +35,7 @@ from app.services.websocket_message_sender import (
     send_navigation,
     send_node_end,
     send_node_start,
+    send_roadmap,
     send_thinking,
     send_tool_end,
     send_tool_start,
@@ -199,6 +201,19 @@ class AgentStreamProcessor:
         if result_state.get("document"):
             await self._handle_document(result_state)
 
+        # Handle roadmap
+        if result_state.get("roadmap"):
+            # Persist roadmap to database
+            async with get_db_session() as db:
+                roadmap_id = await persist_roadmap(
+                    db,
+                    session_id=self.session_id,
+                    user_id=self.user_id,
+                    roadmap_data=result_state["roadmap"],
+                )
+                result_state["roadmap"]["id"] = roadmap_id
+            await send_roadmap(self.websocket, roadmap=result_state["roadmap"])
+
         # Handle navigation
         if result_state.get("navigation_target"):
             await self._handle_navigation(result_state["navigation_target"])
@@ -222,11 +237,8 @@ class AgentStreamProcessor:
 
     async def _handle_error(self, error_msg: str) -> None:
         """Handle error state."""
-        # Delete placeholder message on error
         if self.ctx.placeholder_message_id:
             async with get_db_session() as db:
-                from app.services import message_service
-
                 await message_service.delete_message(db, message_id=self.ctx.placeholder_message_id)
                 logger.info(
                     "Placeholder message deleted due to error",
@@ -462,4 +474,4 @@ async def _background_generate_follow_ups(
         count = len(follow_ups)
         logger.info("Background follow-ups pushed", doc_id=doc_id, count=count)
     except Exception:
-        pass  # WebSocket might be closed
+        logger.debug("Failed to send follow-ups, WebSocket may be closed", doc_id=doc_id)

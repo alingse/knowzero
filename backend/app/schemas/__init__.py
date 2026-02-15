@@ -12,6 +12,12 @@ from app.schemas.entity import (
     EntityResponse,
     RelatedDocument,
 )
+from app.schemas.roadmap import (
+    RoadmapCreate,
+    RoadmapMilestoneSchema,
+    RoadmapResponse,
+    RoadmapUpdate,
+)
 from app.schemas.session import (
     ChatRequest,
     ChatResponse,
@@ -38,4 +44,8 @@ __all__ = [
     "EntityResponse",
     "EntityQueryResponse",
     "RelatedDocument",
+    "RoadmapCreate",
+    "RoadmapResponse",
+    "RoadmapUpdate",
+    "RoadmapMilestoneSchema",
 ]

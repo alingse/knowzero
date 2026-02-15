@@ -93,21 +93,6 @@ def _make_decision(intent_type: str, current_doc_id: int | None, state: AgentSta
     return decision
 
 
-def _get_optimization_mode(state: AgentState) -> str:
-    """Get optimization mode based on user need."""
-    intent = state.get("intent", {})
-    user_need = intent.get("user_need", "")
-
-    mode_map = {
-        "more_examples": "add_examples",
-        "more_depth": "add_depth",
-        "more_clarity": "rewrite",
-        "different_angle": "rephrase",
-    }
-
-    return mode_map.get(user_need, "add_examples")
-
-
 def route_by_intent(state: AgentState) -> str:
     """Route to next node based on intent.
 
@@ -135,7 +120,6 @@ def route_by_decision(state: AgentState) -> str:
 
     if action == "navigate":
         return "navigator_agent"
-    elif action == "plan":
+    if action == "plan":
         return "planner_agent"
-    else:  # generate_new, update_doc, merge
-        return "content_agent"
+    return "content_agent"

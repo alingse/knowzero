@@ -1,4 +1,4 @@
-import type { ChatRequest, Document, EntityQueryResponse, Message, Session } from "@/types";
+import type { ChatRequest, Document, EntityQueryResponse, Message, Roadmap, Session } from "@/types";
 
 const API_BASE = import.meta.env.VITE_API_URL || "/api";
 
@@ -38,6 +38,7 @@ export const sessionsApi = {
       messages: Message[];
       current_document?: Document & { follow_up_questions?: import("@/types").FollowUpQuestion[] };
       documents?: (Document & { follow_up_questions?: import("@/types").FollowUpQuestion[] })[];
+      roadmap?: Roadmap;
       agent_status?: Session["agent_status"];
       agent_started_at?: string | null;
     }>(
@@ -74,6 +75,24 @@ export const entitiesApi = {
     fetchJson<EntityQueryResponse>(
       `/entities/query?name=${encodeURIComponent(name)}&session_id=${encodeURIComponent(sessionId)}`
     ),
+};
+
+// Roadmaps
+export const roadmapsApi = {
+  getActive: (sessionId: string) =>
+    fetchJson<Roadmap>(`/roadmaps/active/${sessionId}`),
+
+  list: (sessionId: string) =>
+    fetchJson<Roadmap[]>(`/roadmaps/session/${sessionId}`),
+
+  get: (id: number) =>
+    fetchJson<Roadmap>(`/roadmaps/${id}`),
+
+  update: (id: number, data: Partial<Roadmap>) =>
+    fetchJson<Roadmap>(`/roadmaps/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
 };
 
 // Health

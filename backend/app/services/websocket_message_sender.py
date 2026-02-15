@@ -107,6 +107,21 @@ async def send_document_complete(
     logger.info("Document complete sent", doc_id=doc_id, topic=topic)
 
 
+async def send_roadmap(
+    websocket: WebSocket,
+    *,
+    roadmap: dict,
+) -> None:
+    """Send learning roadmap to client."""
+    await websocket.send_json(
+        {
+            "type": "roadmap",
+            "data": roadmap,
+        }
+    )
+    logger.info("Roadmap sent", goal=roadmap.get("goal"))
+
+
 async def send_follow_ups(
     websocket: WebSocket,
     *,

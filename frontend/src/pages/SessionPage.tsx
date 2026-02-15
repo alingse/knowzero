@@ -5,10 +5,12 @@ import { useParams, useLocation } from "react-router-dom";
 import { AIAssistant, useAIAssistant, type AIInteractionContext } from "@/components/AIAssistant";
 import { DocumentView } from "@/components/DocumentView/DocumentView";
 import { Layout, MainContent } from "@/components/Layout/Layout";
+import { RoadmapView } from "@/components/RoadmapView";
 import { Sidebar } from "@/components/Sidebar/Sidebar";
 import { useWebSocket } from "@/api/websocket";
 import { sessionsApi } from "@/api/client";
 import { useSessionStore } from "@/stores/sessionStore";
+import { cn } from "@/lib/utils";
 import type { ExecutionEvent } from "@/components/Chat/ExecutionProgress";
 import type { DisplayMessage } from "@/components/Chat/MessagesList";
 import type { Document, FollowUpQuestion, StreamResponse, Message } from "@/types";
@@ -42,8 +44,14 @@ export function SessionPage() {
   const [selectedText, setSelectedText] = useState("");
   const [selectionPosition, setSelectionPosition] = useState<{ x: number; y: number } | undefined>();
 
-  // Placeholder message ID for tracking
-  const [_placeholderId, setPlaceholderId] = useState<number | null>(null);
+  // View mode: document | roadmap
+  const [viewMode, setViewMode] = useState<"document" | "roadmap">("document");
+
+  // Placeholder message ID for tracking.
+  // We only use the setter (setPlaceholderId) because the actual ID value is stored
+  // in the messages array via addMessage(). The setter is used to trigger state
+  // updates when we need to track placeholder changes across the component lifecycle.
+  const [, setPlaceholderId] = useState<number | null>(null);
 
   const {
     currentDocument,
@@ -63,6 +71,9 @@ export function SessionPage() {
     setFollowUpQuestions,
     updateDocumentEntities,
     setAgentStatus,
+    setRoadmap,
+    roadmap,
+    updateRoadmap,
   } = useSessionStore();
 
   // Restore session on load
@@ -89,6 +100,11 @@ export function SessionPage() {
       // Restore last document topic for streaming title (faster UX)
       if (data.current_document?.topic) {
         setStreamingTitle(data.current_document.topic);
+      }
+
+      // Restore roadmap if available
+      if (data.roadmap) {
+        setRoadmap(data.roadmap);
       }
 
       return data;
@@ -150,11 +166,13 @@ export function SessionPage() {
         setStreamingTitle("正在生成文档...");
         setFollowUpQuestions([]);
         // Save placeholder id synchronously for immediate use
-        const newPlaceholderId = addPlaceholder("...");
-        setPlaceholderId(newPlaceholderId);
+        {
+          const newPlaceholderId = addPlaceholder("...");
+          setPlaceholderId(newPlaceholderId);
+        }
         break;
 
-      case "token":
+      case "token": {
         const tokenContent = response.data?.content as string;
         if (tokenContent) {
           if (!streamingContent) {
@@ -164,8 +182,9 @@ export function SessionPage() {
         }
         setStreaming(true);
         break;
+      }
 
-      case "document_start":
+      case "document_start": {
         const docTopic = response.data?.topic as string;
         if (docTopic) {
           setStreamingTitle(docTopic);
@@ -179,8 +198,9 @@ export function SessionPage() {
           });
         }
         break;
+      }
 
-      case "node_start":
+      case "node_start": {
         const nodeName = response.data?.name as string;
         console.log("node_start event:", nodeName, response.data);
         if (nodeName) {
@@ -207,8 +227,9 @@ export function SessionPage() {
           });
         }
         break;
+      }
 
-      case "node_end":
+      case "node_end": {
         const nodeEndName = response.data?.name as string;
         if (nodeEndName) {
           setExecutionEvents((prev) => [
@@ -217,8 +238,9 @@ export function SessionPage() {
           ]);
         }
         break;
+      }
 
-      case "tool_start":
+      case "tool_start": {
         const toolName = response.data?.tool as string;
         if (toolName) {
           setExecutionEvents((prev) => [
@@ -227,8 +249,9 @@ export function SessionPage() {
           ]);
         }
         break;
+      }
 
-      case "tool_end":
+      case "tool_end": {
         const toolEndName = response.data?.tool as string;
         if (toolEndName) {
           setExecutionEvents((prev) => [
@@ -237,6 +260,7 @@ export function SessionPage() {
           ]);
         }
         break;
+      }
 
       case "progress":
         setExecutionEvents((prev) => [
@@ -261,20 +285,20 @@ export function SessionPage() {
         setStreamingTitle("");
         break;
 
-      case "document_token":
+      case "document_token": {
         const docTokenContent = response.data?.content as string;
         if (docTokenContent) {
           // Batch tokens to reduce render frequency (every 100ms)
           tokenBufferRef.current += docTokenContent;
-          
+
           // Flush immediately if buffer gets large
           const shouldFlushNow = tokenBufferRef.current.length > 100;
-          
+
           if (!tokenBatchTimeoutRef.current || shouldFlushNow) {
             if (tokenBatchTimeoutRef.current) {
               clearTimeout(tokenBatchTimeoutRef.current);
             }
-            
+
             if (shouldFlushNow) {
               // Immediate flush for large buffers
               setStreamingContent((prev) => prev + tokenBufferRef.current);
@@ -292,6 +316,7 @@ export function SessionPage() {
         }
         setStreaming(true);
         break;
+      }
 
       case "document":
         // Flush any remaining buffered tokens
@@ -361,6 +386,15 @@ export function SessionPage() {
           }));
           console.log("[follow_ups] Setting follow-up questions:", mapped.length);
           setFollowUpQuestions(mapped);
+        }
+        break;
+      }
+
+      case "roadmap": {
+        if (response.data) {
+          setRoadmap(response.data as import("@/types").Roadmap);
+          // Remove placeholder when roadmap is received
+          removePlaceholder();
         }
         break;
       }
@@ -466,9 +500,14 @@ export function SessionPage() {
     if (targetDoc) {
       setCurrentDocument(targetDoc);
       // Update follow-up questions from the selected document
-      setFollowUpQuestions((targetDoc as any).follow_up_questions || []);
+      setFollowUpQuestions((targetDoc as Document & { follow_up_questions?: FollowUpQuestion[] }).follow_up_questions || []);
     }
   }, [documents, setCurrentDocument, setFollowUpQuestions]);
+
+  // Handle roadmap update
+  const handleRoadmapUpdate = useCallback((updated: import("@/types").Roadmap) => {
+    updateRoadmap(updated);
+  }, [updateRoadmap]);
 
   // Handle text selection for comment mode
   const handleTextSelection = useCallback(() => {
@@ -565,34 +604,77 @@ export function SessionPage() {
       <Sidebar />
       <MainContent>
         <div className="flex flex-1 flex-col">
+          {/* View mode toggle */}
+          {roadmap && (
+            <div className="flex items-center gap-2 border-b px-4 py-2">
+              <button
+                type="button"
+                onClick={() => setViewMode("document")}
+                className={cn(
+                  "px-3 py-1.5 text-sm font-medium rounded-md transition-colors",
+                  viewMode === "document"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:bg-muted"
+                )}
+              >
+                学习文档
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("roadmap")}
+                className={cn(
+                  "px-3 py-1.5 text-sm font-medium rounded-md transition-colors",
+                  viewMode === "roadmap"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:bg-muted"
+                )}
+              >
+                学习路线
+              </button>
+            </div>
+          )}
+
           {/* Document View */}
-          {streamingContent && !currentDocument ? (
-            <DocumentView
-              document={{
-                id: 0,
-                session_id: sessionId || "",
-                topic: streamingTitle || "正在生成文档...",
-                content: streamingContent,
-                version: 1,
-                entities: [],
-                prerequisites: [],
-                related: [],
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString(),
-              }}
-              onEntityClick={handleEntityClick}
-              onDocumentClick={handleDocumentClick}
-              isStreaming={true}
-            />
+          {viewMode === "document" ? (
+            streamingContent && !currentDocument ? (
+              <DocumentView
+                document={{
+                  id: 0,
+                  session_id: sessionId || "",
+                  topic: streamingTitle || "正在生成文档...",
+                  content: streamingContent,
+                  version: 1,
+                  entities: [],
+                  prerequisites: [],
+                  related: [],
+                  created_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString(),
+                }}
+                onEntityClick={handleEntityClick}
+                onDocumentClick={handleDocumentClick}
+                isStreaming={true}
+              />
+            ) : (
+              <DocumentView
+                document={currentDocument || undefined}
+                followUpQuestions={followUpQuestions}
+                onFollowUpClick={handleFollowUpClick}
+                onEntityClick={handleEntityClick}
+                onDocumentClick={handleDocumentClick}
+                isStreaming={false}
+              />
+            )
           ) : (
-            <DocumentView
-              document={currentDocument || undefined}
-              followUpQuestions={followUpQuestions}
-              onFollowUpClick={handleFollowUpClick}
-              onEntityClick={handleEntityClick}
-              onDocumentClick={handleDocumentClick}
-              isStreaming={false}
-            />
+            /* Roadmap View */
+            <div className="flex-1 overflow-auto p-4">
+              {roadmap ? (
+                <RoadmapView roadmap={roadmap} onUpdate={handleRoadmapUpdate} />
+              ) : (
+                <div className="flex items-center justify-center h-full text-muted-foreground">
+                  暂无学习路线图
+                </div>
+              )}
+            </div>
           )}
 
           {/* Bottom Chat Area - Embedded Mode */}

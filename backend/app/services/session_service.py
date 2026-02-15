@@ -1,6 +1,6 @@
 """Session service for session state operations."""
 
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -36,7 +36,7 @@ async def update_agent_status(
     # Update the agent status
     session.agent_status = status
     if status == "running":
-        session.agent_started_at = datetime.utcnow()
+        session.agent_started_at = datetime.now(UTC)
     elif status == "idle":
         # Clear the started time when idle
         session.agent_started_at = None

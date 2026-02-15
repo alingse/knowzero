@@ -85,6 +85,26 @@ export interface FollowUpQuestion {
   is_clicked: boolean;
 }
 
+export interface RoadmapMilestone {
+  id: number;
+  title: string;
+  description: string;
+  topics: string[];
+}
+
+export interface Roadmap {
+  id: number;
+  session_id: string;
+  goal: string;
+  milestones: RoadmapMilestone[];
+  mermaid?: string;
+  version: number;
+  parent_roadmap_id?: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Comment {
   id: number;
   document_id: number;
@@ -123,6 +143,7 @@ export interface StreamResponse {
     | "thinking"
     | "content"
     | "document"
+    | "roadmap"
     | "document_start"  // Document generation started, with topic
     | "document_token"   // Document content streaming token
     | "entities"

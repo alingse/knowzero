@@ -39,6 +39,7 @@ class AgentState(TypedDict):
 
     # === Final Results ===
     document: Annotated[dict | None, "Generated/retrieved document"]
+    roadmap: Annotated[dict | None, "Generated learning roadmap"]
     follow_up_questions: Annotated[list, "Generated follow-up questions"]
     change_summary: Annotated[str | None, "Document change summary"]
     response: Annotated[dict | None, "Direct response for chitchat/etc"]

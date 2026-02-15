@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import documents, entities, sessions, websocket
+from app.api.routes import documents, entities, roadmaps, sessions, websocket
 from app.core.config import get_settings
 from app.core.database import close_db, init_db
 from app.core.logging import configure_logging, get_logger
@@ -55,6 +55,7 @@ app.add_middleware(
 app.include_router(sessions.router, prefix="/api")
 app.include_router(documents.router, prefix="/api")
 app.include_router(entities.router, prefix="/api")
+app.include_router(roadmaps.router, prefix="/api")
 app.include_router(websocket.router)  # WebSocket routes
 
 

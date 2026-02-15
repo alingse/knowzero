@@ -1,7 +1,9 @@
 """LangGraph main graph definition with checkpointer."""
 
+from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, StateGraph
+from langgraph.graph.state import CompiledStateGraph
 
 from app.agent.nodes import (
     chitchat_agent_node,
@@ -9,6 +11,7 @@ from app.agent.nodes import (
     input_normalizer_node,
     intent_agent_node,
     navigator_agent_node,
+    planner_agent_node,
     route_agent_node,
 )
 from app.agent.nodes.route import route_by_decision, route_by_intent
@@ -18,7 +21,7 @@ from app.core.logging import get_logger
 logger = get_logger(__name__)
 
 
-def create_knowzero_graph(checkpointer=None):
+def create_knowzero_graph(checkpointer: BaseCheckpointSaver | None = None) -> CompiledStateGraph:
     """Create the KnowZero Agent workflow graph.
 
     Flow:
@@ -41,6 +44,7 @@ def create_knowzero_graph(checkpointer=None):
     workflow.add_node("content_agent", content_agent_node)
     workflow.add_node("navigator_agent", navigator_agent_node)
     workflow.add_node("chitchat_agent", chitchat_agent_node)
+    workflow.add_node("planner_agent", planner_agent_node)
 
     # Set entry point
     workflow.set_entry_point("input_normalizer")
@@ -63,11 +67,12 @@ def create_knowzero_graph(checkpointer=None):
         route_by_decision,
         {
             "navigator_agent": "navigator_agent",
-            "planner_agent": "content_agent",
+            "planner_agent": "planner_agent",
             "content_agent": "content_agent",
         },
     )
 
+    workflow.add_edge("planner_agent", "content_agent")
     workflow.add_edge("content_agent", END)
     workflow.add_edge("navigator_agent", END)
     workflow.add_edge("chitchat_agent", END)
@@ -80,7 +85,7 @@ _checkpointer = None
 _graph = None
 
 
-def get_checkpointer():
+def get_checkpointer() -> MemorySaver:
     """Get or create global checkpointer."""
     global _checkpointer
     if _checkpointer is None:
@@ -89,7 +94,7 @@ def get_checkpointer():
     return _checkpointer
 
 
-def get_graph():
+def get_graph() -> CompiledStateGraph:
     """Get or create global graph instance with checkpointer."""
     global _graph
     if _graph is None:

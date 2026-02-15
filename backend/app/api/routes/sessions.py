@@ -1,9 +1,10 @@
 """Session routes."""
 
+import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -13,9 +14,13 @@ from app.models import Document, Message, Session
 from app.schemas import (
     ChatRequest,
     MessageResponse,
+    MessageType,
     SessionCreate,
     SessionResponse,
 )
+from app.schemas.document import DocumentResponse
+from app.schemas.roadmap import RoadmapResponse
+from app.services import roadmap_service
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/sessions", tags=["sessions"])
@@ -27,8 +32,6 @@ async def create_session(
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> Session:
     """Create a new learning session."""
-    import uuid
-
     session = Session(
         id=str(uuid.uuid4()),
         title=data.title,
@@ -93,8 +96,6 @@ async def restore_session(
         )
 
     # Get recent messages (include completed document_card messages for history)
-    from app.schemas import MessageType
-
     msg_result = await db.execute(
         select(Message)
         .where(Message.session_id == session_id)
@@ -104,8 +105,6 @@ async def restore_session(
     messages = list(msg_result.scalars().all())
 
     # Clean up incomplete document_card placeholder messages (stale "generating" status)
-    from sqlalchemy import delete
-
     await db.execute(
         delete(Message)
         .where(Message.session_id == session_id)
@@ -132,10 +131,11 @@ async def restore_session(
     )
     documents = list(docs_result.scalars().all())
 
-    # Convert SQLAlchemy models to dicts using model_dump
-    from app.schemas import MessageResponse, SessionResponse
-    from app.schemas.document import DocumentResponse
+    # Get active roadmap (may be None if no roadmap exists for this session)
+    active_roadmap = await roadmap_service.get_active_roadmap(db, session_id)
 
+    # Convert SQLAlchemy models to dicts
+    # Note: We use conditional expressions for optional fields to avoid validation errors
     return {
         "session": SessionResponse.model_validate(session).model_dump(mode="json"),
         "messages": [
@@ -147,6 +147,10 @@ async def restore_session(
         "documents": [
             DocumentResponse.model_validate(d).model_dump(mode="json") for d in documents
         ],
+        # Roadmap is optional - only include if one exists for this session
+        "roadmap": RoadmapResponse.model_validate(active_roadmap).model_dump(mode="json")
+        if active_roadmap
+        else None,
         "agent_status": session.agent_status,
         "agent_started_at": session.agent_started_at.isoformat()
         if session.agent_started_at

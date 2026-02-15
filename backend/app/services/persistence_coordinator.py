@@ -8,7 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import get_logger
 from app.models.session import Message
-from app.services import document_service, message_service, session_service
+from app.schemas.roadmap import RoadmapCreate, RoadmapMilestoneSchema
+from app.services import document_service, message_service, roadmap_service, session_service
 
 logger = get_logger(__name__)
 
@@ -177,3 +178,99 @@ async def persist_assistant_message(
     )
     logger.info("Assistant message persisted", message_id=msg.id, session_id=session_id)
     return msg
+
+
+async def persist_roadmap(
+    db: AsyncSession,
+    *,
+    session_id: str,
+    user_id: int | None,
+    roadmap_data: dict,
+) -> int:
+    """Persist a roadmap to the database.
+
+    Args:
+        db: Database session
+        session_id: Session ID
+        user_id: User ID (optional, defaults to 1 until auth is implemented)
+        roadmap_data: Roadmap data from agent (dict with 'goal', 'milestones', 'mermaid')
+
+    Returns:
+        Created roadmap ID
+
+    Raises:
+        ValueError: If roadmap_data is missing required fields
+        pydantic.ValidationError: If milestones data is invalid
+
+    Note: This function commits the transaction.
+    """
+    # Validate required fields
+    if not isinstance(roadmap_data, dict):
+        raise ValueError(f"roadmap_data must be a dict, got {type(roadmap_data)}")
+
+    goal = roadmap_data.get("goal")
+    if not goal or not isinstance(goal, str):
+        raise ValueError("roadmap_data must contain a non-empty 'goal' string field")
+
+    milestones_raw = roadmap_data.get("milestones", [])
+    if not isinstance(milestones_raw, list):
+        raise ValueError("'milestones' must be a list")
+
+    # Convert milestones to schema format with validation
+    milestones = []
+    for i, m in enumerate(milestones_raw):
+        if not isinstance(m, dict):
+            logger.warning(f"Skipping invalid milestone at index {i}: not a dict")
+            continue
+
+        # Extract fields with defaults
+        title = m.get("title", "")
+        description = m.get("description", "")
+        topics = m.get("topics", [])
+
+        # Validate topics is a list
+        if not isinstance(topics, list):
+            logger.warning(f"Milestone {i}: topics must be a list, got {type(topics)}")
+            topics = []
+
+        # Create schema with validation
+        try:
+            milestone_schema = RoadmapMilestoneSchema(
+                id=i,
+                title=str(title) if title else f"阶段 {i + 1}",
+                description=str(description),
+                topics=[str(t) for t in topics if t],
+            )
+            milestones.append(milestone_schema)
+        except Exception as e:
+            logger.warning(f"Failed to validate milestone {i}: {e}, using defaults")
+            # Use default milestone on validation error
+            milestones.append(
+                RoadmapMilestoneSchema(
+                    id=i, title=f"阶段 {i + 1}", description="", topics=[]
+                )
+            )
+
+    # Ensure we have at least one milestone
+    if not milestones:
+        logger.warning("No valid milestones found, creating default milestone")
+        milestones = [
+            RoadmapMilestoneSchema(
+                id=0, title="开始学习", description="学习旅程的第一步", topics=[]
+            )
+        ]
+
+    roadmap_create = RoadmapCreate(
+        goal=goal,
+        milestones=milestones,
+        mermaid=roadmap_data.get("mermaid"),
+    )
+
+    roadmap_id = await roadmap_service.create_roadmap(
+        db,
+        session_id=session_id,
+        user_id=user_id,
+        roadmap_data=roadmap_create,
+    )
+    logger.info("Roadmap persisted", roadmap_id=roadmap_id, session_id=session_id)
+    return roadmap_id

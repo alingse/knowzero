@@ -2,7 +2,7 @@
 
 import { create } from "zustand";
 
-import type { Document, FollowUpQuestion, Message, Session } from "@/types";
+import type { Document, FollowUpQuestion, Message, Roadmap, Session } from "@/types";
 
 interface SessionState {
   // Current session
@@ -11,6 +11,7 @@ interface SessionState {
   documents: Document[]; // All documents in the session
   selectedDocumentId: number | null; // Currently selected document ID
   messages: Message[];
+  roadmap: Roadmap | null;
 
   // UI State
   isLoading: boolean;
@@ -45,6 +46,8 @@ interface SessionState {
   setFollowUpQuestions: (questions: FollowUpQuestion[]) => void;
   updateDocumentEntities: (entities: string[]) => void;
   setAgentStatus: (status: "idle" | "running" | "error", startedAt?: string) => void;
+  setRoadmap: (roadmap: Roadmap | null) => void;
+  updateRoadmap: (updates: Partial<Roadmap>) => void;
 
   // Operations
   clearSession: () => void;
@@ -57,6 +60,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   documents: [],
   selectedDocumentId: null,
   messages: [],
+  roadmap: null,
   isLoading: false,
   error: null,
   agentStatus: "idle",
@@ -94,7 +98,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         selectedDocumentId: documentId,
         currentDocument: selectedDoc,
         // Update follow-up questions from the selected document
-        followUpQuestions: (selectedDoc as any).follow_up_questions || [],
+        followUpQuestions: (selectedDoc as Document & { follow_up_questions?: FollowUpQuestion[] }).follow_up_questions || [],
       });
     }
   },
@@ -132,6 +136,11 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         : null,
     })),
   setAgentStatus: (status, startedAt) => set({ agentStatus: status, agentStartedAt: startedAt }),
+  setRoadmap: (roadmap) => set({ roadmap }),
+  updateRoadmap: (updates) =>
+    set((state) => ({
+      roadmap: state.roadmap ? { ...state.roadmap, ...updates } : null,
+    })),
 
   // Operations
   clearSession: () =>
@@ -141,6 +150,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       documents: [],
       selectedDocumentId: null,
       messages: [],
+      roadmap: null,
       followUpQuestions: [],
       error: null,
       agentStatus: "idle",

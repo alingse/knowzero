@@ -1,5 +1,8 @@
 """Content Agent Node - generates and updates documents via LLM."""
 
+import json
+import time
+
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from app.agent.llm import get_llm
@@ -124,8 +127,6 @@ async def content_agent_node(state: AgentState) -> AgentState:
 
 async def _generate_document(state: AgentState, mode: str) -> dict:
     """Generate new document using LLM."""
-    import time
-
     decision = state.get("routing_decision", {})
     intent = state.get("intent", {})
     target = decision.get("target", "新主题")
@@ -302,8 +303,6 @@ async def _extract_entities_llm(content: str) -> list[str]:
                 HumanMessage(content=ENTITY_EXTRACT_PROMPT.format(content=content[:2000])),
             ]
         )
-        import json
-
         raw = resp.content.strip().strip("`").removeprefix("json")
         return json.loads(raw)
     except Exception as e:
@@ -321,8 +320,6 @@ async def _generate_follow_ups(content: str) -> list[dict]:
                 HumanMessage(content=f"文档内容：\n\n{content[:3000]}"),
             ]
         )
-        import json
-
         raw = resp.content.strip().strip("`").removeprefix("json")
         return json.loads(raw)
     except Exception as e:

@@ -1,7 +1,11 @@
 """Fast-Track Intent Classifier."""
 
+import json
 import re
+import time
 from typing import Any
+
+from langchain_core.messages import HumanMessage, SystemMessage
 
 from app.core.logging import get_logger
 
@@ -15,6 +19,7 @@ class IntentClassifier:
     STRONG_PATTERNS = {
         # Knowledge/learning intents
         r"我想学|我想了解|教教我|什么是|介绍.*一下": ("new_topic", 1.0),
+        r"学习路径|学习建议|学习规划|路线图|roadmap|plan|规划.*学习": ("plan", 1.0),
         r"详细说说|深入讲讲|再详细点|展开讲讲": ("follow_up", 1.0),
         r"和.*的区别|和.*不同|对比一下|比较.*和": ("comparison", 1.0),
         r"怎么办|怎么做|如何实现|给我.*例子": ("question_practical", 1.0),
@@ -110,17 +115,13 @@ class IntentClassifier:
 
     async def _llm_classify(self, message: str, context: dict) -> dict[str, Any]:
         """Use LLM for intent classification."""
-        import time
-
-        from langchain_core.messages import HumanMessage, SystemMessage
-
         logger.info("Using LLM for intent classification", message=message[:50])
         start = time.monotonic()
 
         system_prompt = (
             "你是一个意图分类器。根据用户消息，返回一个 JSON 对象，包含以下字段：\n"
             '- intent_type: 以下之一 "new_topic", "follow_up", "comparison", '
-            '"question_practical", "optimize_content", "navigate", "question"\n'
+            '"question_practical", "optimize_content", "navigate", "plan", "question"\n'
             "- target: 用户想了解的主题（简短）\n"
             "- reasoning: 一句话解释分类原因\n"
             "只返回 JSON，不要其他内容。"
@@ -133,9 +134,7 @@ class IntentClassifier:
                     HumanMessage(content=message),
                 ]
             )
-            import json as _json
-
-            parsed = _json.loads(resp.content.strip().strip("`").removeprefix("json"))
+            parsed = json.loads(resp.content.strip().strip("`").removeprefix("json"))
             elapsed = int((time.monotonic() - start) * 1000)
             return {
                 "intent_type": parsed.get("intent_type", "question"),

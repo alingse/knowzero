@@ -1,5 +1,7 @@
 """Input Normalizer Node."""
 
+from langchain_core.messages import HumanMessage
+
 from app.agent.state import AgentState
 from app.core.logging import get_logger
 
@@ -37,8 +39,6 @@ async def input_normalizer_node(state: AgentState) -> AgentState:
 
     # Add user message to messages list
     if state.get("raw_message") and state.get("input_source") == "chat":
-        from langchain_core.messages import HumanMessage
-
         state["messages"] = state.get("messages", []) + [HumanMessage(content=state["raw_message"])]
 
     logger.debug("Input normalized", state_keys=list(state.keys()))
