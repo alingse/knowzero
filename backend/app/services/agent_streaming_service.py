@@ -8,7 +8,6 @@ import asyncio
 
 from fastapi import WebSocket
 
-from app.agent.graph import get_graph
 from app.agent.nodes.content import _extract_entities_llm, _generate_follow_ups
 from app.agent.state import AgentState
 from app.core.database import get_db_session
@@ -87,6 +86,8 @@ class AgentStreamProcessor:
 
         This is the main event loop that handles all agent streaming.
         """
+        from app.agent.graph import get_graph
+
         graph = get_graph()
         config = {"configurable": {"thread_id": self.session_id}}
 
@@ -183,6 +184,8 @@ class AgentStreamProcessor:
 
         Handles result persistence, sends final messages, and launches background tasks.
         """
+        from app.agent.graph import get_graph
+
         graph = get_graph()
         config = {"configurable": {"thread_id": self.session_id}}
         result_state = await graph.ainvoke(self.state, config)
