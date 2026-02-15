@@ -8,7 +8,7 @@ logger = get_logger(__name__)
 
 async def route_agent_node(state: AgentState) -> AgentState:
     """Make routing decision based on intent.
-    
+
     Decides:
     - generate_new: Create new document
     - update_doc: Update existing document
@@ -50,7 +50,9 @@ def _make_decision(intent_type: str, current_doc_id: int | None, state: AgentSta
         "follow_up": {
             "action": "update_doc" if current_doc_id else "generate_new",
             "mode": "expand",
-            "reasoning": "Follow-up - expand current document" if current_doc_id else "No current doc - create new",
+            "reasoning": "Follow-up - expand current document"
+            if current_doc_id
+            else "No current doc - create new",
         },
         "optimize_content": {
             "action": "generate_new",  # Always create new doc for comment/explanation
@@ -74,11 +76,14 @@ def _make_decision(intent_type: str, current_doc_id: int | None, state: AgentSta
         },
     }
 
-    decision = decision_map.get(intent_type, {
-        "action": "generate_new",
-        "mode": "standard",
-        "reasoning": f"Default routing for intent type: {intent_type}",
-    })
+    decision = decision_map.get(
+        intent_type,
+        {
+            "action": "generate_new",
+            "mode": "standard",
+            "reasoning": f"Default routing for intent type: {intent_type}",
+        },
+    )
 
     # Add target if available
     intent = state.get("intent", {})
@@ -122,7 +127,7 @@ def route_by_intent(state: AgentState) -> str:
 
 def route_by_decision(state: AgentState) -> str:
     """Route based on routing decision.
-    
+
     Returns node name for conditional edge.
     """
     decision = state.get("routing_decision", {})

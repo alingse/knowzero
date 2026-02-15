@@ -40,7 +40,7 @@ class IntentClassifier:
 
     async def classify(self, message: str, context: dict[str, Any]) -> dict[str, Any]:
         """Classify user intent with layered strategy.
-        
+
         Layer 1: Strong rule matching (0-5ms)
         Layer 2: Fuzzy matching (5-10ms)
         Layer 3: LLM classification (500-2000ms)
@@ -104,7 +104,7 @@ class IntentClassifier:
         result = message
         for prefix in prefixes:
             if result.startswith(prefix):
-                result = result[len(prefix):].strip()
+                result = result[len(prefix) :].strip()
 
         return result[:100] if result else message[:100]
 
@@ -127,10 +127,12 @@ class IntentClassifier:
         )
 
         try:
-            resp = await self.llm.ainvoke([
-                SystemMessage(content=system_prompt),
-                HumanMessage(content=message),
-            ])
+            resp = await self.llm.ainvoke(
+                [
+                    SystemMessage(content=system_prompt),
+                    HumanMessage(content=message),
+                ]
+            )
             import json as _json
 
             parsed = _json.loads(resp.content.strip().strip("`").removeprefix("json"))

@@ -5,13 +5,14 @@ Revises: af42447a0350
 Create Date: 2026-02-12 13:30:00.000000
 
 """
+
 from collections.abc import Sequence
 
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = 'add_session_name_unique'
-down_revision: str | None = 'af42447a0350'
+revision: str = "add_session_name_unique"
+down_revision: str | None = "af42447a0350"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
@@ -46,12 +47,12 @@ def upgrade() -> None:
     op.execute("ALTER TABLE entities_new RENAME TO entities")
 
     # Create unique index on (session_id, name)
-    op.create_index('unique_session_entity_name', 'entities', ['session_id', 'name'], unique=True)
+    op.create_index("unique_session_entity_name", "entities", ["session_id", "name"], unique=True)
 
 
 def downgrade() -> None:
     # Remove the composite unique index
-    op.drop_index('unique_session_entity_name', table_name='entities')
+    op.drop_index("unique_session_entity_name", table_name="entities")
 
     # Recreate table with unique name constraint
     op.execute("""

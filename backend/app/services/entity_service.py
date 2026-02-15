@@ -9,9 +9,7 @@ from app.models.entity import Entity, EntityDocumentLink
 logger = get_logger(__name__)
 
 
-async def find_entity_document(
-    db: AsyncSession, session_id: str, entity_name: str
-) -> int | None:
+async def find_entity_document(db: AsyncSession, session_id: str, entity_name: str) -> int | None:
     """Check if an entity has an associated document, return doc ID or None."""
     stmt = (
         select(EntityDocumentLink.document_id)
@@ -37,11 +35,7 @@ async def upsert_entities(
     """Create or update entities linked to a document."""
     for name in entity_names:
         # Find or create entity
-        stmt = (
-            select(Entity)
-            .where(Entity.session_id == session_id)
-            .where(Entity.name == name)
-        )
+        stmt = select(Entity).where(Entity.session_id == session_id).where(Entity.name == name)
         result = await db.execute(stmt)
         entity = result.scalar_one_or_none()
 

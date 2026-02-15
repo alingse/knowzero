@@ -46,7 +46,9 @@ class Document(Base):
     generation_metadata: Mapped[dict | None] = mapped_column(JSON)
 
     # Relations
-    follow_up_questions = relationship("FollowUpQuestion", back_populates="document", cascade="all, delete-orphan")
+    follow_up_questions = relationship(
+        "FollowUpQuestion", back_populates="document", cascade="all, delete-orphan"
+    )
 
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

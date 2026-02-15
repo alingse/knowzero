@@ -12,7 +12,7 @@ logger = get_logger(__name__)
 
 async def intent_agent_node(state: AgentState) -> AgentState:
     """Analyze user intent from input.
-    
+
     Uses layered classification strategy:
     1. Strong patterns (fast-track)
     2. Fuzzy matching
@@ -72,9 +72,7 @@ async def _analyze_entity_intent(state: AgentState) -> dict:
     doc_id = None
     try:
         async with get_db_session() as db:
-            doc_id = await entity_service.find_entity_document(
-                db, session_id, entity_name
-            )
+            doc_id = await entity_service.find_entity_document(db, session_id, entity_name)
     except Exception as e:
         logger.warning("Entity lookup failed", error=str(e))
 

@@ -182,15 +182,17 @@ async def _generate_document(state: AgentState, mode: str) -> dict:
             target=target,
             mode=mode,
             model=str(type(llm)),
-            timeout=getattr(llm, 'timeout', 'not set'),
+            timeout=getattr(llm, "timeout", "not set"),
         )
 
         # Use astream for streaming tokens
         content = ""
-        async for chunk in llm.astream([
-            SystemMessage(content=system),
-            HumanMessage(content=user_prompt),
-        ]):
+        async for chunk in llm.astream(
+            [
+                SystemMessage(content=system),
+                HumanMessage(content=user_prompt),
+            ]
+        ):
             content += chunk.content
 
         elapsed = time.monotonic() - start_time
@@ -202,7 +204,7 @@ async def _generate_document(state: AgentState, mode: str) -> dict:
             content_length=len(content),
         )
 
-    except GeneratorExit as e:
+    except GeneratorExit:
         # GeneratorExit is a special exception - should NOT be caught normally
         elapsed = time.monotonic() - start_time
         logger.error(
@@ -257,17 +259,17 @@ async def _update_document(state: AgentState, mode: str) -> dict:
     existing_content = current_doc.get("content", "")
     system = UPDATE_SYSTEM_PROMPT.format(mode=mode)
     user_prompt = (
-        f"原文档：\n\n{existing_content}\n\n"
-        f"用户反馈：{raw_message}\n\n"
-        f"请按照 {mode} 模式优化文档。"
+        f"原文档：\n\n{existing_content}\n\n用户反馈：{raw_message}\n\n请按照 {mode} 模式优化文档。"
     )
 
     # Use astream for streaming tokens
     content = ""
-    async for chunk in llm.astream([
-        SystemMessage(content=system),
-        HumanMessage(content=user_prompt),
-    ]):
+    async for chunk in llm.astream(
+        [
+            SystemMessage(content=system),
+            HumanMessage(content=user_prompt),
+        ]
+    ):
         content += chunk.content
 
     mode_descriptions = {
@@ -295,9 +297,11 @@ async def _extract_entities_llm(content: str) -> list[str]:
     """Extract entities from content using LLM."""
     try:
         llm = get_llm()
-        resp = await llm.ainvoke([
-            HumanMessage(content=ENTITY_EXTRACT_PROMPT.format(content=content[:2000])),
-        ])
+        resp = await llm.ainvoke(
+            [
+                HumanMessage(content=ENTITY_EXTRACT_PROMPT.format(content=content[:2000])),
+            ]
+        )
         import json
 
         raw = resp.content.strip().strip("`").removeprefix("json")
@@ -311,10 +315,12 @@ async def _generate_follow_ups(content: str) -> list[dict]:
     """Generate follow-up questions using LLM."""
     try:
         llm = get_llm()
-        resp = await llm.ainvoke([
-            SystemMessage(content=FOLLOW_UP_SYSTEM_PROMPT),
-            HumanMessage(content=f"文档内容：\n\n{content[:3000]}"),
-        ])
+        resp = await llm.ainvoke(
+            [
+                SystemMessage(content=FOLLOW_UP_SYSTEM_PROMPT),
+                HumanMessage(content=f"文档内容：\n\n{content[:3000]}"),
+            ]
+        )
         import json
 
         raw = resp.content.strip().strip("`").removeprefix("json")

@@ -94,6 +94,7 @@ async def restore_session(
 
     # Get recent messages (include completed document_card messages for history)
     from app.schemas import MessageType
+
     msg_result = await db.execute(
         select(Message)
         .where(Message.session_id == session_id)
@@ -104,6 +105,7 @@ async def restore_session(
 
     # Clean up incomplete document_card placeholder messages (stale "generating" status)
     from sqlalchemy import delete
+
     await db.execute(
         delete(Message)
         .where(Message.session_id == session_id)
@@ -136,11 +138,19 @@ async def restore_session(
 
     return {
         "session": SessionResponse.model_validate(session).model_dump(mode="json"),
-        "messages": [MessageResponse.model_validate(m).model_dump(mode="json") for m in messages[::-1]],
-        "current_document": DocumentResponse.model_validate(current_doc).model_dump(mode="json") if current_doc else None,
-        "documents": [DocumentResponse.model_validate(d).model_dump(mode="json") for d in documents],
+        "messages": [
+            MessageResponse.model_validate(m).model_dump(mode="json") for m in messages[::-1]
+        ],
+        "current_document": DocumentResponse.model_validate(current_doc).model_dump(mode="json")
+        if current_doc
+        else None,
+        "documents": [
+            DocumentResponse.model_validate(d).model_dump(mode="json") for d in documents
+        ],
         "agent_status": session.agent_status,
-        "agent_started_at": session.agent_started_at.isoformat() if session.agent_started_at else None,
+        "agent_started_at": session.agent_started_at.isoformat()
+        if session.agent_started_at
+        else None,
         "restore_position": "last_message",
     }
 

@@ -28,9 +28,7 @@ async def navigator_agent_node(state: AgentState) -> AgentState:
             if target_doc_id:
                 doc = await document_service.get_document(db, target_doc_id)
             else:
-                doc = await document_service.find_document_by_topic(
-                    db, session_id, target
-                )
+                doc = await document_service.find_document_by_topic(db, session_id, target)
     except Exception as e:
         logger.warning("Navigator DB lookup failed", error=str(e))
 

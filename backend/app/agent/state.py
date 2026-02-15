@@ -7,7 +7,7 @@ from langgraph.graph.message import add_messages
 
 class AgentState(TypedDict):
     """Unified Agent State for KnowZero.
-    
+
     This state is passed between all agents in the graph.
     """
 

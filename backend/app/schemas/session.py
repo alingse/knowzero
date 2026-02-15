@@ -85,7 +85,7 @@ class CommentData(BaseModel):
     comment: str
     selected_text: str
     context_before: str | None = None  # Text before selection for better context
-    context_after: str | None = None   # Text after selection for better context
+    context_after: str | None = None  # Text after selection for better context
     position: dict | None = None  # {start, end}
     document_id: int
     section_id: str | None = None

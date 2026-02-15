@@ -20,9 +20,7 @@ class Entity(Base):
     """Entity model - independent of documents."""
 
     __tablename__ = "entities"
-    __table_args__ = (
-        UniqueConstraint("session_id", "name", name="unique_session_entity_name"),
-    )
+    __table_args__ = (UniqueConstraint("session_id", "name", name="unique_session_entity_name"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String)  # unique per session_id, not globally

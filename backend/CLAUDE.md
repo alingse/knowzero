@@ -16,10 +16,11 @@ uvicorn app.main:app --reload
 pytest
 
 # 代码格式化
-ruff format .
+uv run ruff format .
 
 # 代码检查
-ruff check . --fix
+uv run ruff check .
+uv run ruff check . --fix --unsafe-fixes  # 自动修复问题
 
 # 类型检查
 mypy app
@@ -28,6 +29,15 @@ mypy app
 alembic upgrade head
 alembic revision --autogenerate -m "description"
 ```
+
+## 代码质量规范
+
+**提交代码前必须执行**：
+1. `uv run ruff format .` - 格式化代码
+2. `uv run ruff check .` - 检查代码质量
+3. `uv run ruff check . --fix --unsafe-fixes` - 自动修复可修复的问题
+
+确保所有检查通过后再提交。
 
 ## 技术栈
 

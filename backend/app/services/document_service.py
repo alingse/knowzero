@@ -88,9 +88,7 @@ async def get_document(db: AsyncSession, document_id: int) -> Document | None:
     return await db.get(Document, document_id)
 
 
-async def find_document_by_topic(
-    db: AsyncSession, session_id: str, topic: str
-) -> Document | None:
+async def find_document_by_topic(db: AsyncSession, session_id: str, topic: str) -> Document | None:
     """Find a document by topic within a session."""
     stmt = (
         select(Document)
@@ -103,9 +101,7 @@ async def find_document_by_topic(
     return result.scalar_one_or_none()
 
 
-async def list_session_documents(
-    db: AsyncSession, session_id: str
-) -> list[Document]:
+async def list_session_documents(db: AsyncSession, session_id: str) -> list[Document]:
     """List all documents in a session."""
     stmt = (
         select(Document)
