@@ -69,7 +69,7 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-muted-foreground/30 rounded-full;
+  @apply rounded-full bg-muted-foreground/30;
 }
 
 ::-webkit-scrollbar-thumb:hover {
@@ -78,15 +78,15 @@
 
 /* Markdown content styles */
 .markdown-content h1 {
-  @apply text-2xl font-bold mb-4;
+  @apply mb-4 text-2xl font-bold;
 }
 
 .markdown-content h2 {
-  @apply text-xl font-semibold mb-3 mt-6;
+  @apply mb-3 mt-6 text-xl font-semibold;
 }
 
 .markdown-content h3 {
-  @apply text-lg font-medium mb-2 mt-4;
+  @apply mb-2 mt-4 text-lg font-medium;
 }
 
 .markdown-content p {
@@ -94,19 +94,19 @@
 }
 
 .markdown-content ul {
-  @apply list-disc list-inside mb-4;
+  @apply mb-4 list-inside list-disc;
 }
 
 .markdown-content ol {
-  @apply list-decimal list-inside mb-4;
+  @apply mb-4 list-inside list-decimal;
 }
 
 .markdown-content code {
-  @apply bg-muted px-1.5 py-0.5 rounded text-sm font-mono;
+  @apply rounded bg-muted px-1.5 py-0.5 font-mono text-sm;
 }
 
 .markdown-content pre {
-  @apply bg-muted p-4 rounded-lg mb-4 overflow-x-auto;
+  @apply mb-4 overflow-x-auto rounded-lg bg-muted p-4;
 }
 
 .markdown-content pre code {
@@ -123,7 +123,7 @@
 
 /* Entity highlight */
 .entity-highlight {
-  @apply font-semibold text-primary cursor-pointer hover:underline;
+  @apply cursor-pointer font-semibold text-primary hover:underline;
 }
 
 /* Prevent layout shift during streaming */
@@ -138,8 +138,14 @@
 
 /* Smooth streaming cursor animation */
 @keyframes blink {
-  0%, 50% { opacity: 1; }
-  51%, 100% { opacity: 0; }
+  0%,
+  50% {
+    opacity: 1;
+  }
+  51%,
+  100% {
+    opacity: 0;
+  }
 }
 
 .streaming-cursor {
@@ -173,8 +179,13 @@
 
 /* Document icon animation */
 @keyframes document-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
 }
 
 .document-icon-new {

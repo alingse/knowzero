@@ -35,14 +35,14 @@ function CompactExecutionProgressComponent({ events, className }: CompactExecuti
 
     for (const event of events) {
       const key = event.name || event.tool || "unknown";
-      
+
       if (event.type === "node_start" || event.type === "tool_start") {
         if (!seen.has(key)) {
           active.push(event);
           seen.add(key);
         }
       } else if (event.type === "node_end" || event.type === "tool_end") {
-        const index = active.findIndex(e => (e.name || e.tool) === key);
+        const index = active.findIndex((e) => (e.name || e.tool) === key);
         if (index !== -1) {
           active.splice(index, 1);
         }
@@ -63,18 +63,18 @@ function CompactExecutionProgressComponent({ events, className }: CompactExecuti
 
   // Get the latest active item
   const currentItem = active[active.length - 1];
-  
+
   // Build the status text
   const statusParts: string[] = [];
-  
+
   // Add completed items (limit to last 2)
   if (completed.length > 0) {
     statusParts.push(...completed.slice(-2).map(getDisplayName));
   }
-  
+
   // Add current active item
   if (currentItem) {
-    const name = currentItem.tool 
+    const name = currentItem.tool
       ? `调用 ${currentItem.tool}`
       : getDisplayName(currentItem.name || "处理中");
     statusParts.push(name);
@@ -85,7 +85,12 @@ function CompactExecutionProgressComponent({ events, className }: CompactExecuti
   }
 
   return (
-    <div className={cn("flex items-center gap-1.5 text-xs text-muted-foreground/70 mt-1.5 ml-0.5 will-change-contents", className)}>
+    <div
+      className={cn(
+        "ml-0.5 mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground/70 will-change-contents",
+        className
+      )}
+    >
       {currentItem ? (
         <Loader2 className="h-3 w-3 animate-spin text-primary/70" />
       ) : (
@@ -94,9 +99,7 @@ function CompactExecutionProgressComponent({ events, className }: CompactExecuti
       <span className="truncate">
         {statusParts.map((part, i) => (
           <span key={i}>
-            {i > 0 && (
-              <span className="mx-1 text-muted-foreground/40">›</span>
-            )}
+            {i > 0 && <span className="mx-1 text-muted-foreground/40">›</span>}
             <span className={i === statusParts.length - 1 && currentItem ? "text-primary/80" : ""}>
               {part}
             </span>

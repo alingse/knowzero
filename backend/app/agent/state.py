@@ -27,6 +27,12 @@ class AgentState(TypedDict):
     user_level: Annotated[str, "User experience level"]
     learned_topics: Annotated[list[str], "Topics the user has learned"]
     recent_docs: Annotated[list[int], "Recently accessed documents"]
+    available_docs: Annotated[list[dict], "List of available documents with id and title"]
+
+    # === Roadmap Context ===
+    current_roadmap: Annotated[dict | None, "Current active roadmap for the session"]
+    roadmap_modified: Annotated[bool, "Whether the roadmap has been modified"]
+    roadmap_only: Annotated[bool, "Whether to only generate roadmap without documents"]
 
     # === Messages (with reducer) ===
     messages: Annotated[list, add_messages]

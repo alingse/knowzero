@@ -80,6 +80,22 @@ ENTITY_EXTRACT_PROMPT = """\
 文档：
 {content}"""
 
+MILESTONE_CLASSIFY_PROMPT = """\
+根据文档内容，判断它最匹配学习路线图的哪个阶段。
+
+文档标题: {doc_topic}
+文档摘要: {doc_summary}
+
+学习路线图:
+{milestones_json}
+
+规则：
+1. 返回最匹配的阶段 id（数字）
+2. 如果文档内容跨多个阶段，选择最主要的那个
+3. 如果完全不匹配任何阶段，返回 -1
+
+只返回一个数字，不要其他内容。"""
+
 
 async def content_agent_node(state: AgentState) -> AgentState:
     """Generate or update document content via LLM."""
@@ -130,7 +146,8 @@ async def _generate_document(state: AgentState, mode: str) -> dict:
     """Generate new document using LLM."""
     decision = state.get("routing_decision", {})
     intent = state.get("intent", {})
-    target = decision.get("target", "新主题")
+    # Use intent target first, fallback to decision target, then raw message, then default
+    target = intent.get("target") or decision.get("target") or state.get("raw_message", "新主题")
     user_level = state.get("user_level", "beginner")
     llm = get_llm()
 
@@ -327,8 +344,58 @@ async def _generate_follow_ups(content: str) -> list[dict]:
         return []
 
 
+async def _classify_milestone(doc_topic: str, doc_summary: str, roadmap: dict | None) -> int | None:
+    """Classify document to a milestone using LLM.
+
+    Returns milestone ID or None if no roadmap/no match.
+    """
+    if not roadmap:
+        return None
+
+    milestones = roadmap.get("milestones", [])
+    if not milestones:
+        return None
+
+    try:
+        llm = get_llm()
+        milestones_json = json.dumps(
+            [{k: m[k] for k in ("id", "title", "description", "topics")} for m in milestones],
+            ensure_ascii=False,
+            indent=2,
+        )
+
+        resp = await llm.ainvoke(
+            [
+                HumanMessage(
+                    content=MILESTONE_CLASSIFY_PROMPT.format(
+                        doc_topic=doc_topic,
+                        doc_summary=doc_summary[:500],
+                        milestones_json=milestones_json,
+                    )
+                ),
+            ]
+        )
+
+        result = resp.content.strip()
+        milestone_id = int(result)
+
+        if milestone_id < 0:
+            logger.info("Document doesn't match any milestone", topic=doc_topic)
+            return None
+
+        logger.info("Document classified to milestone", topic=doc_topic, milestone_id=milestone_id)
+        return milestone_id
+
+    except Exception as e:
+        logger.warning("Milestone classification failed", error=str(e))
+        return None
+
+
 def _generate_category_path(topic: str) -> str:
     """Generate category path for document."""
+    # Handle None or empty topic
+    if not topic:
+        topic = "其他"
     tech_keywords = {
         "react": "前端/React",
         "vue": "前端/Vue",
@@ -363,7 +430,7 @@ def _generate_category_path(topic: str) -> str:
 
 
 async def post_process_node(state: AgentState) -> AgentState:
-    """Post-process: extract entities and generate follow-ups in parallel."""
+    """Post-process: extract entities, generate follow-ups, and classify milestone in parallel."""
     document = state.get("document")
     if not document or not document.get("content"):
         logger.info("post_process skipped: no document content")
@@ -372,14 +439,36 @@ async def post_process_node(state: AgentState) -> AgentState:
     content = document["content"]
     logger.info("post_process started", content_length=len(content))
 
-    entities, follow_ups = await asyncio.gather(
+    # Get current roadmap for milestone classification
+    current_roadmap = state.get("current_roadmap")
+
+    # Parallel execution: entities, follow-ups, milestone classification
+    results = await asyncio.gather(
         _extract_entities_llm(content),
         _generate_follow_ups(content),
+        _classify_milestone(document.get("topic", ""), content[:500], current_roadmap),
     )
 
+    entities, follow_ups, milestone_id = results
+
     document["entities"] = entities
+    # Update roadmap and milestone association
+    if milestone_id is not None:
+        document["milestone_id"] = milestone_id
+        document["roadmap_id"] = current_roadmap.get("id") if current_roadmap else None
+        logger.info(
+            "post_process milestone assigned",
+            milestone_id=milestone_id,
+            roadmap_id=document.get("roadmap_id"),
+        )
+
     state["document"] = document
     state["follow_up_questions"] = follow_ups
 
-    logger.info("post_process completed", entities=len(entities), follow_ups=len(follow_ups))
+    logger.info(
+        "post_process completed",
+        entities=len(entities),
+        follow_ups=len(follow_ups),
+        milestone_id=milestone_id,
+    )
     return state

@@ -22,6 +22,16 @@ from app.core.logging import get_logger
 logger = get_logger(__name__)
 
 
+def _should_generate_document(state: AgentState) -> str:
+    """Determine if we should generate a document after roadmap planning.
+
+    Returns "END" if roadmap_only=True (modify mode), otherwise "content_agent".
+    """
+    if state.get("roadmap_only", False):
+        return "END"
+    return "content_agent"
+
+
 def create_knowzero_graph(checkpointer: BaseCheckpointSaver | None = None) -> CompiledStateGraph:
     """Create the KnowZero Agent workflow graph.
 
@@ -75,7 +85,18 @@ def create_knowzero_graph(checkpointer: BaseCheckpointSaver | None = None) -> Co
         },
     )
 
-    workflow.add_edge("planner_agent", "content_agent")
+    # Conditional edge after planner_agent:
+    # - If roadmap_only=True, go to END (modified roadmap, no document)
+    # - Otherwise, continue to content_agent (new roadmap, generate first document)
+    workflow.add_conditional_edges(
+        "planner_agent",
+        _should_generate_document,
+        {
+            "END": END,
+            "content_agent": "content_agent",
+        },
+    )
+
     workflow.add_edge("content_agent", "post_process")
     workflow.add_edge("post_process", END)
     workflow.add_edge("navigator_agent", END)

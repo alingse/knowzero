@@ -75,7 +75,7 @@ export function AIDialog({
   return (
     <div
       className={cn(
-        "fixed right-0 bottom-0 z-40 flex h-[500px] w-full max-w-md flex-col border-l bg-background shadow-2xl transition-transform duration-300 sm:bottom-0 sm:right-[280px] sm:h-[600px] sm:rounded-l-2xl sm:border-t",
+        "fixed bottom-0 right-0 z-40 flex h-[500px] w-full max-w-md flex-col border-l bg-background shadow-2xl transition-transform duration-300 sm:bottom-0 sm:right-[280px] sm:h-[600px] sm:rounded-l-2xl sm:border-t",
         className
       )}
     >
@@ -152,9 +152,7 @@ function EmptyState({ onQuickAction, isLoading }: EmptyStateProps) {
     <div className="space-y-4">
       {/* Quick actions */}
       <div>
-        <div className="mb-3 text-xs font-medium text-muted-foreground">
-          快捷操作
-        </div>
+        <div className="mb-3 text-xs font-medium text-muted-foreground">快捷操作</div>
         <div className="grid grid-cols-2 gap-2">
           {quickActions.map((action) => (
             <button
@@ -163,8 +161,8 @@ function EmptyState({ onQuickAction, isLoading }: EmptyStateProps) {
               disabled={isLoading}
               className={cn(
                 "flex items-center gap-2 rounded-lg border p-3 text-left text-sm transition-all",
-                "hover:bg-accent hover:border-primary/50",
-                "disabled:opacity-50 disabled:cursor-not-allowed"
+                "hover:border-primary/50 hover:bg-accent",
+                "disabled:cursor-not-allowed disabled:opacity-50"
               )}
             >
               <span className="text-lg">{action.icon}</span>
@@ -186,9 +184,7 @@ function EmptyState({ onQuickAction, isLoading }: EmptyStateProps) {
 
       {/* Custom question hints */}
       <div className="space-y-2">
-        <div className="text-xs text-muted-foreground">
-          你可以问：
-        </div>
+        <div className="text-xs text-muted-foreground">你可以问：</div>
         <div className="space-y-1 text-xs text-muted-foreground/80">
           <div className="flex items-start gap-2">
             <span>•</span>

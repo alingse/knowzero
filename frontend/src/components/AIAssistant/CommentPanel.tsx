@@ -1,6 +1,6 @@
 /**
  * CommentPanel - Inline comment/annotation panel
- * 
+ *
  * Appears near selected text in the document.
  * Allows users to comment on specific sections and trigger AI actions.
  */
@@ -97,7 +97,7 @@ export function CommentPanel({
   }, [onClose]);
 
   const handleQuickAction = (action: (typeof quickActions)[0]) => {
-    const fullPrompt = `${action.prompt}: "${selectedText.slice(0, 100)}${selectedText.length > 100 ? '...' : ''}"`;
+    const fullPrompt = `${action.prompt}: "${selectedText.slice(0, 100)}${selectedText.length > 100 ? "..." : ""}"`;
     onSend(fullPrompt);
   };
 
@@ -115,7 +115,7 @@ export function CommentPanel({
 
   const handleSubmit = () => {
     if (!comment.trim() || isLoading) return;
-    const fullPrompt = `关于这段内容"${selectedText.slice(0, 50)}${selectedText.length > 50 ? '...' : ''}"，${comment}`;
+    const fullPrompt = `关于这段内容"${selectedText.slice(0, 50)}${selectedText.length > 50 ? "..." : ""}"，${comment}`;
     onSend(fullPrompt);
   };
 
@@ -149,7 +149,7 @@ export function CommentPanel({
       style={style}
       className={cn(
         "w-80 rounded-xl border bg-background shadow-2xl",
-        "animate-in fade-in zoom-in-95 duration-200"
+        "duration-200 animate-in fade-in zoom-in-95"
       )}
     >
       {/* Header */}
@@ -158,24 +158,21 @@ export function CommentPanel({
           <Sparkles className="h-4 w-4 text-primary" />
           <span className="text-sm font-medium">AI 注释</span>
         </div>
-        <button
-          onClick={onClose}
-          className="rounded p-1 text-muted-foreground hover:bg-muted"
-        >
+        <button onClick={onClose} className="rounded p-1 text-muted-foreground hover:bg-muted">
           <X className="h-3.5 w-3.5" />
         </button>
       </div>
 
       {/* Selected text preview */}
       <div className="border-b bg-muted/30 px-3 py-2">
-        <div className="flex items-center justify-between mb-1">
+        <div className="mb-1 flex items-center justify-between">
           <div className="text-xs text-muted-foreground">选中的内容：</div>
           <button
             onClick={handleCopy}
             className={cn(
               "flex items-center gap-1 rounded px-1.5 py-0.5 text-xs transition-colors",
-              copied 
-                ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" 
+              copied
+                ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
                 : "text-muted-foreground hover:bg-muted hover:text-foreground"
             )}
           >
@@ -192,9 +189,7 @@ export function CommentPanel({
             )}
           </button>
         </div>
-        <div className="text-sm line-clamp-3 text-foreground/80">
-          "{selectedText}"
-        </div>
+        <div className="line-clamp-3 text-sm text-foreground/80">"{selectedText}"</div>
       </div>
 
       {/* Quick actions */}
@@ -207,7 +202,7 @@ export function CommentPanel({
             className={cn(
               "flex flex-col items-center gap-1 rounded-lg p-2 text-xs",
               "transition-colors hover:bg-accent",
-              "disabled:opacity-50 disabled:cursor-not-allowed"
+              "disabled:cursor-not-allowed disabled:opacity-50"
             )}
           >
             <action.icon className="h-4 w-4 text-primary" />
@@ -227,11 +222,9 @@ export function CommentPanel({
           disabled={isLoading}
           className="min-h-[80px] resize-none text-sm"
         />
-        
+
         <div className="mt-2 flex items-center justify-between">
-          <span className="text-xs text-muted-foreground">
-            或选择上方快捷操作
-          </span>
+          <span className="text-xs text-muted-foreground">或选择上方快捷操作</span>
           <Button
             size="sm"
             onClick={handleSubmit}
@@ -253,15 +246,10 @@ export function CommentPanel({
       {/* Previous comments on this selection (if any) */}
       {messages.length > 0 && (
         <div className="border-t bg-muted/20 px-3 py-2">
-          <div className="mb-2 text-xs font-medium text-muted-foreground">
-            历史评论
-          </div>
-          <div className="space-y-2 max-h-32 overflow-y-auto">
+          <div className="mb-2 text-xs font-medium text-muted-foreground">历史评论</div>
+          <div className="max-h-32 space-y-2 overflow-y-auto">
             {messages.map((msg) => (
-              <div
-                key={msg.id}
-                className="rounded bg-background p-2 text-xs"
-              >
+              <div key={msg.id} className="rounded bg-background p-2 text-xs">
                 <div className="text-muted-foreground">
                   {new Date(msg.timestamp).toLocaleString()}
                 </div>

@@ -16,11 +16,14 @@ async def navigator_agent_node(state: AgentState) -> AgentState:
     Looks up real documents from the database.
     """
     intent = state.get("intent", {})
-    target = intent.get("target", "")
-    target_doc_id = intent.get("target_doc_id")
+    routing_decision = state.get("routing_decision", {})
+
+    # Priority: routing_decision > intent
+    target_doc_id = routing_decision.get("target_doc_id") or intent.get("target_doc_id")
+    target = routing_decision.get("target") or intent.get("target", "")
     session_id = state.get("session_id", "")
 
-    logger.info("Navigator Agent processing", target=target)
+    logger.info("Navigator Agent processing", target=target, target_doc_id=target_doc_id)
 
     doc = None
     try:

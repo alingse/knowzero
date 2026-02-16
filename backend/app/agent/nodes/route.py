@@ -1,96 +1,426 @@
-"""Route Agent Node."""
+"""Agentic Route Agent Node - makes intelligent routing decisions based on context."""
 
+from typing import Any
+
+from langchain_core.messages import HumanMessage, SystemMessage
+from pydantic import BaseModel, Field
+
+from app.agent.llm import get_llm
 from app.agent.state import AgentState
+from app.core.database import get_db_session
 from app.core.logging import get_logger
+from app.services import document_service
 
 logger = get_logger(__name__)
 
 
-async def route_agent_node(state: AgentState) -> AgentState:
-    """Make routing decision based on intent.
+# ============================================================================
+# Pydantic Models: Structured Output
+# ============================================================================
 
-    Decides:
-    - generate_new: Create new document
-    - update_doc: Update existing document
-    - navigate: Navigate to existing document
-    - plan: Generate learning path
+
+class RouteDecision(BaseModel):
+    """Routing decision output from LLM."""
+
+    action: str = Field(description="Next action: generate_new | update_doc | navigate | plan")
+    mode: str = Field(
+        description="Execution mode: standard | roadmap_learning | "
+        "roadmap_generate | roadmap_modify | explain_selection | comparison"
+    )
+    target: str | None = Field(default=None, description="Learning target if applicable")
+    target_doc_id: int | None = Field(
+        default=None, description="Target document ID for navigate action"
+    )
+    reasoning: str = Field(description="Explanation of why this decision was made")
+    confidence: float = Field(default=0.8, description="Decision confidence (0.0 - 1.0)")
+
+
+# ============================================================================
+# Fast Path: Rule-based Matching for Obvious Cases
+# ============================================================================
+
+# Obvious routing decisions (no LLM needed)
+OBVIOUS_DECISIONS = {
+    # Simple new topic without roadmap
+    ("new_topic", False): {
+        "action": "generate_new",
+        "mode": "standard",
+        "reasoning": "New topic without roadmap, generate standalone document",
+    },
+    # Follow-up with current document
+    ("follow_up", "has_current_doc"): {
+        "action": "update_doc",
+        "mode": "expand",
+        "reasoning": "Follow-up on current document",
+    },
+    # Follow-up without current document
+    ("follow_up", None): {
+        "action": "generate_new",
+        "mode": "standard",
+        "reasoning": "Follow-up without current doc, create new",
+    },
+    # Comparison analysis
+    ("comparison", None): {
+        "action": "generate_new",
+        "mode": "comparison",
+        "reasoning": "Generate comparison document",
+    },
+    # Explain selected content
+    ("optimize_content", None): {
+        "action": "generate_new",
+        "mode": "explain_selection",
+        "reasoning": "Generate new document to explain selected content",
+    },
+}
+
+
+# ============================================================================
+# Main Node Function
+# ============================================================================
+
+
+async def route_agent_node(state: AgentState) -> AgentState:
+    """Agentic routing: make autonomous decisions based on full context.
+
+    Responsibilities:
+    - Input: intent (user intent) + complete session context
+    - Process: hybrid strategy (rules + LLM reasoning)
+    - Output: routing_decision (next action)
+
+    Design Philosophy:
+    - Obvious cases take fast path (rule matching, < 1ms)
+    - Complex cases take smart path (LLM reasoning, ~500ms)
+    - Output reasoning for debugging and optimization
     """
     intent = state.get("intent", {})
     intent_type = intent.get("intent_type", "question")
+    current_roadmap = state.get("current_roadmap")
     current_doc_id = state.get("current_doc_id")
 
     logger.info(
-        "Route Agent deciding",
+        "Route Agent processing",
         intent_type=intent_type,
+        has_roadmap=current_roadmap is not None,
         current_doc_id=current_doc_id,
     )
 
-    # Make routing decision
-    decision = _make_decision(intent_type, current_doc_id, state)
-    state["routing_decision"] = decision
+    # ========== Fast Path: Obvious Cases ==========
+    fast_decision = _try_fast_route(intent_type, current_doc_id, current_roadmap, state)
+    if fast_decision:
+        logger.info(
+            "Fast route decision",
+            action=fast_decision["action"],
+            reasoning=fast_decision["reasoning"],
+        )
+        state["routing_decision"] = {
+            **fast_decision,
+            "method": "rule",
+        }
+        return state
+
+    # ========== Smart Path: LLM Reasoning ==========
+    # Fetch available documents for routing decision
+    await _fetch_available_docs(state)
+
+    context = _build_decision_context(state)
+    llm_decision = await _llm_route_decision(context, get_llm())
+
+    # ========== Override: First topic must generate roadmap ==========
+    # If this is a first topic (no roadmap, no documents), override LLM's decision
+    if intent_type == "new_topic" and not current_roadmap and not state.get("recent_docs"):
+        logger.info(
+            "Overriding LLM decision: first topic must generate roadmap",
+            original_mode=llm_decision.get("mode"),
+            original_action=llm_decision.get("action"),
+        )
+        # Override to plan action with roadmap_generate mode
+        llm_decision["action"] = "plan"
+        llm_decision["mode"] = "roadmap_generate"
+        llm_decision["reasoning"] = (
+            "首次学习新主题，自动生成学习路线图。原决策: " + llm_decision.get("reasoning", "")
+        )
+
+    # ========== Override: Navigate without target_doc_id should generate_new ==========
+    # If LLM chose navigate but didn't provide a valid target_doc_id, fallback to generate_new
+    if llm_decision.get("action") == "navigate" and not llm_decision.get("target_doc_id"):
+        logger.info(
+            "Overriding LLM decision: navigate without target_doc_id, falling back to generate_new",
+            original_reasoning=llm_decision.get("reasoning"),
+        )
+        llm_decision["action"] = "generate_new"
+        # Keep the same mode (could be roadmap_learning or standard)
+        llm_decision["reasoning"] = (
+            "导航未指定目标文档ID，改为生成新文档。原决策: " + llm_decision.get("reasoning", "")
+        )
 
     logger.info(
-        "Routing decision made",
-        action=decision.get("action"),
-        mode=decision.get("mode"),
+        "LLM route decision",
+        action=llm_decision["action"],
+        mode=llm_decision["mode"],
+        reasoning=llm_decision["reasoning"],
+        confidence=llm_decision["confidence"],
     )
 
+    state["routing_decision"] = {
+        **llm_decision,
+        "method": "llm",
+    }
     return state
 
 
-def _make_decision(intent_type: str, current_doc_id: int | None, state: AgentState) -> dict:
-    """Make routing decision based on intent type."""
+def _try_fast_route(
+    intent_type: str, current_doc_id: int | None, current_roadmap: dict | None, state: AgentState
+) -> dict | None:
+    """Attempt fast routing decision (rule matching).
 
-    decision_map = {
-        "new_topic": {
-            "action": "generate_new",
-            "mode": "standard",
-            "reasoning": "New topic request - create new document",
-        },
-        "follow_up": {
-            "action": "update_doc" if current_doc_id else "generate_new",
-            "mode": "expand",
-            "reasoning": "Follow-up - expand current document"
-            if current_doc_id
-            else "No current doc - create new",
-        },
-        "optimize_content": {
-            "action": "generate_new",  # Always create new doc for comment/explanation
-            "mode": "explain_selection",  # New mode for explaining selected text
-            "reasoning": "Generate new document to explain selected content",
-        },
-        "navigate": {
-            "action": "navigate",
-            "mode": "direct",
-            "reasoning": "Navigate to existing document",
-        },
-        "comparison": {
-            "action": "generate_new",
-            "mode": "comparison",
-            "reasoning": "Create comparison document",
-        },
-        "plan": {
-            "action": "plan",
-            "mode": "learning_path",
-            "reasoning": "Generate learning path",
-        },
+    Returns decision dict if matched, otherwise None.
+    """
+    # Skip fast path for first topic without roadmap - let LLM decide
+    if intent_type == "new_topic" and not current_roadmap and not state.get("recent_docs"):
+        logger.info(
+            "First topic without roadmap - skipping fast path for LLM decision",
+            intent_type=intent_type,
+            has_roadmap=current_roadmap is not None,
+            has_documents=bool(state.get("recent_docs")),
+        )
+        return None  # Let LLM router handle this
+
+    # Build lookup key
+    if intent_type == "follow_up":
+        key = ("follow_up", "has_current_doc" if current_doc_id else None)
+    elif intent_type in ("new_topic", "comparison", "optimize_content"):
+        key = (intent_type, None)
+    else:
+        return None
+
+    decision = OBVIOUS_DECISIONS.get(key)
+    if decision:
+        result = decision.copy()
+        # Add target if available
+        intent = state.get("intent", {})
+        if intent.get("target"):
+            result["target"] = intent["target"]
+        return result
+
+    return None
+
+
+async def _fetch_available_docs(state: AgentState) -> None:
+    """Fetch available documents (id + title only) for routing decision."""
+    session_id = state.get("session_id", "")
+    if not session_id:
+        state["available_docs"] = []
+        return
+
+    try:
+        async with get_db_session() as db:
+            docs = await document_service.list_session_documents(db, session_id)
+            state["available_docs"] = [
+                {"id": doc.id, "title": doc.topic, "created_at": doc.created_at.isoformat()}
+                for doc in docs
+            ]
+        logger.info("Fetched available docs", count=len(state["available_docs"]))
+    except Exception as e:
+        logger.warning("Failed to fetch available docs", error=str(e))
+        state["available_docs"] = []
+
+
+def _build_decision_context(state: AgentState) -> dict[str, Any]:
+    """Build complete decision context.
+
+    This is key to Agentic: give LLM enough information to make decisions.
+    """
+    current_roadmap = state.get("current_roadmap")
+
+    context = {
+        # User input
+        "user_message": state.get("raw_message", ""),
+        "detected_intent": state.get("intent", {}),
+        "detected_target": state.get("intent", {}).get("target"),
+        # Session state
+        "has_roadmap": current_roadmap is not None,
+        "current_roadmap_summary": _summarize_roadmap(current_roadmap),
+        "current_doc_id": state.get("current_doc_id"),
+        # User context
+        "user_level": state.get("user_level", "beginner"),
+        "learned_topics": state.get("learned_topics", []),
+        "recent_docs": state.get("recent_docs", []),
+        "available_docs": state.get("available_docs", []),
+        # Roadmap progress (if any)
+        "milestone_progress": _get_milestone_progress(state) if current_roadmap else None,
     }
 
-    decision = decision_map.get(
-        intent_type,
-        {
-            "action": "generate_new",
-            "mode": "standard",
-            "reasoning": f"Default routing for intent type: {intent_type}",
-        },
+    return context
+
+
+def _summarize_roadmap(roadmap: dict | None) -> str:
+    """Generate roadmap summary for LLM understanding."""
+    if not roadmap:
+        return "无"
+
+    milestones = roadmap.get("milestones", [])
+    if not milestones:
+        return f"「{roadmap.get('goal', '')}」，无阶段"
+
+    milestone_summary = "; ".join(
+        [
+            f"阶段{m.get('id')}: {m.get('title')}"
+            for m in milestones[:5]  # Only first 5
+        ]
     )
 
-    # Add target if available
-    intent = state.get("intent", {})
-    if intent.get("target"):
-        decision["target"] = intent["target"]
+    return f"「{roadmap.get('goal', '')}」，共 {len(milestones)} 个阶段: {milestone_summary}"
 
-    return decision
+
+def _get_milestone_progress(state: AgentState) -> list[dict]:
+    """Get milestone progress (if roadmap exists).
+
+    This info helps LLM make smarter decisions.
+    """
+    # TODO: Call progress calculation service or get from cache
+    # Simplified: return empty list for now
+    return []
+
+
+# ============================================================================
+# LLM Smart Decision
+# ============================================================================
+
+
+async def _llm_route_decision(context: dict[str, Any], llm) -> dict[str, Any]:
+    """Use LLM for intelligent routing decision.
+
+    This is the core of Agentic: LLM is not a simple classifier,
+    but a decision-maker based on full context.
+    """
+
+    system_prompt = """你是 KnowZero 学习平台的路由决策 Agent。
+
+你的任务是根据用户输入和会话状态，决定下一步的行动。
+
+**可用的行动**：
+1. **generate_new** - 生成新的学习文档
+2. **update_doc** - 更新/扩展现有文档
+3. **navigate** - 导航到现有文档
+4. **plan** - 生成/修改学习路线图
+
+**可用的模式**：
+- **standard**: 标准生成（无路线图上下文）
+- **roadmap_learning**: 在路线图内学习（生成文档并自动关联到里程碑）
+- **roadmap_generate**: 生成新路线图（首次）
+- **roadmap_modify**: 修改现有路线图
+
+**决策原则**：
+1. 用户首次表达系统性学习需求，且没有路线图 → roadmap_generate
+2. 用户已有路线图，且表达调整意图（太简单、太基础、调整等）→ roadmap_modify
+3. 用户已有路线图，问具体问题 → roadmap_learning
+4. 用户没有路线图，问具体问题 → standard
+5. 用户选中文本并评论 → explain_selection
+6. 用户想对比概念 → comparison
+
+**关于 navigate 行为**：
+- 只有在「可用文档」列表中存在与用户问题相关的文档时，才选择 navigate
+- 如果没有可用文档或现有文档与问题不相关，应选择 generate_new
+- 导航时必须在 target_doc_id 字段中指定要导航到的文档 ID
+
+**重要**：
+- 必须从用户输入中提取学习目标（target），如果检测到的意图有 target 则使用它
+- 如果无法从上下文确定 target，使用用户的原始输入作为 target
+- target 字段不能为 null
+
+返回 JSON 格式，包含 reasoning 字段解释你的决策逻辑。"""
+
+    user_prompt = _build_user_prompt(context)
+
+    try:
+        # Use json_mode instead of function_calling for DeepSeek compatibility
+        structured_llm = llm.with_structured_output(RouteDecision, method="json_mode")
+        result: RouteDecision = await structured_llm.ainvoke(
+            [
+                SystemMessage(content=system_prompt),
+                HumanMessage(content=user_prompt),
+            ]
+        )
+
+        return result.model_dump()
+
+    except Exception as e:
+        logger.warning("LLM routing failed, using fallback", error=str(e))
+        # Fallback to simple rules
+        return _fallback_routing(context)
+
+
+def _build_user_prompt(context: dict[str, Any]) -> str:
+    """Build user prompt for LLM."""
+
+    parts = [
+        "**用户输入**：",
+        context["user_message"],
+        "",
+        "**检测到的意图**：",
+        f"- 类型: {context['detected_intent'].get('intent_type', 'unknown')}",
+        f"- 目标: {context['detected_target'] or '无'}",
+        "",
+        "**会话状态**：",
+        f"- 用户水平: {context['user_level']}",
+        f"- 是否有路线图: {'是' if context['has_roadmap'] else '否'}",
+        f"- 当前路线图: {context['current_roadmap_summary']}",
+        f"- 当前文档ID: {context['current_doc_id'] or '无'}",
+        f"- 已学主题: {', '.join(context['learned_topics'][-5:]) if context['learned_topics'] else '无'}",
+    ]
+
+    # Add milestone progress if available
+    if context.get("milestone_progress"):
+        parts.append("")
+        parts.append("**里程碑进度**：")
+        for ms in context["milestone_progress"]:
+            parts.append(f"- 阶段{ms['id']} ({ms['title']}): {ms['progress']:.0%}")
+
+    # Add available documents
+    parts.append("")
+    if context.get("available_docs"):
+        parts.append("**可用文档**：")
+        for doc in context["available_docs"]:
+            parts.append(f"- ID {doc['id']}: {doc['title']}")
+    else:
+        parts.append("**可用文档**：无")
+
+    parts.append("")
+    parts.append("**请决策下一步行动**：")
+
+    return "\n".join(parts)
+
+
+def _fallback_routing(context: dict[str, Any]) -> dict[str, Any]:
+    """Fallback routing strategy: simple rules when LLM fails."""
+
+    intent_type = context["detected_intent"].get("intent_type", "question")
+    has_roadmap = context["has_roadmap"]
+    # Use detected_target first, fallback to user_message, then default
+    target = context["detected_target"] or context["user_message"] or "新主题"
+
+    # Conservative strategy
+    if intent_type == "plan" and not has_roadmap:
+        return {
+            "action": "plan",
+            "mode": "roadmap_generate",
+            "target": target,
+            "reasoning": "Fallback: plan intent without roadmap",
+            "confidence": 0.5,
+        }
+
+    return {
+        "action": "generate_new",
+        "mode": "roadmap_learning" if has_roadmap else "standard",
+        "target": target,
+        "reasoning": "Fallback: default to generate_new",
+        "confidence": 0.5,
+    }
+
+
+# ============================================================================
+# Conditional Edge Functions (for graph.py)
+# ============================================================================
 
 
 def route_by_intent(state: AgentState) -> str:

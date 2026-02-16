@@ -1,4 +1,12 @@
-import type { ChatRequest, Document, EntityQueryResponse, Message, Roadmap, Session } from "@/types";
+import type {
+  ChatRequest,
+  Document,
+  EntityQueryResponse,
+  Message,
+  Roadmap,
+  RoadmapProgress,
+  Session,
+} from "@/types";
 
 const API_BASE = import.meta.env.VITE_API_URL || "/api";
 
@@ -29,8 +37,7 @@ export const sessionsApi = {
 
   get: (id: string) => fetchJson<Session>(`/sessions/${id}`),
 
-  getMessages: (id: string) =>
-    fetchJson<Message[]>(`/sessions/${id}/messages`),
+  getMessages: (id: string) => fetchJson<Message[]>(`/sessions/${id}/messages`),
 
   restore: (id: string) =>
     fetchJson<{
@@ -41,9 +48,7 @@ export const sessionsApi = {
       roadmap?: Roadmap;
       agent_status?: Session["agent_status"];
       agent_started_at?: string | null;
-    }>(
-      `/sessions/${id}/restore`
-    ),
+    }>(`/sessions/${id}/restore`),
 
   chat: (id: string, data: ChatRequest) =>
     fetchJson<{ type: string; message?: string }>(`/sessions/${id}/chat`, {
@@ -79,14 +84,13 @@ export const entitiesApi = {
 
 // Roadmaps
 export const roadmapsApi = {
-  getActive: (sessionId: string) =>
-    fetchJson<Roadmap>(`/roadmaps/active/${sessionId}`),
+  getActive: (sessionId: string) => fetchJson<Roadmap>(`/roadmaps/active/${sessionId}`),
 
-  list: (sessionId: string) =>
-    fetchJson<Roadmap[]>(`/roadmaps/session/${sessionId}`),
+  list: (sessionId: string) => fetchJson<Roadmap[]>(`/roadmaps/session/${sessionId}`),
 
-  get: (id: number) =>
-    fetchJson<Roadmap>(`/roadmaps/${id}`),
+  get: (id: number) => fetchJson<Roadmap>(`/roadmaps/${id}`),
+
+  getProgress: (id: number) => fetchJson<RoadmapProgress>(`/roadmaps/${id}/progress`),
 
   update: (id: number, data: Partial<Roadmap>) =>
     fetchJson<Roadmap>(`/roadmaps/${id}`, {

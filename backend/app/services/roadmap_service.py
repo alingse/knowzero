@@ -1,13 +1,139 @@
-"""Roadmap service for CRUD operations."""
+"""Roadmap service for CRUD operations and progress tracking."""
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import get_logger
+from app.models.document import Document
 from app.models.roadmap import Roadmap
 from app.schemas.roadmap import RoadmapCreate, RoadmapUpdate
 
 logger = get_logger(__name__)
+
+
+# ============================================================================
+# Progress Calculation
+# ============================================================================
+
+
+def calc_milestone_progress(milestone: dict, documents: list[Document]) -> float:
+    """Calculate progress for a single milestone.
+
+    Progress is based on the proportion of milestone topics covered by documents.
+    """
+    topics = milestone.get("topics", [])
+    if not topics:
+        # If no topics defined, progress is based on document count
+        # (any document = 100%, no documents = 0%)
+        return 1.0 if documents else 0.0
+
+    # Count covered topics
+    covered_topics = set()
+    for doc in documents:
+        # Check if document entities match milestone topics
+        doc_entities = set(doc.entities or [])
+        covered = doc_entities.intersection(set(topics))
+        covered_topics.update(covered)
+
+    return len(covered_topics) / len(topics)
+
+
+def calc_milestone_status(milestone: dict, progress: float, prev_milestone_completed: bool) -> str:
+    """Calculate milestone status based on progress and prerequisites.
+
+    Returns: "locked" | "active" | "completed"
+    """
+    if progress >= 1.0:
+        return "completed"
+    elif progress > 0:
+        return "active"
+    else:
+        # Locked if previous milestone not completed, otherwise active
+        return "active" if prev_milestone_completed else "locked"
+
+
+async def get_roadmap_progress(
+    db: AsyncSession,
+    roadmap: Roadmap,
+) -> dict:
+    """Calculate progress for all milestones in a roadmap.
+
+    Args:
+        db: Database session
+        roadmap: Roadmap model
+
+    Returns:
+        Progress data with overall progress and milestone details
+    """
+    # Get all documents associated with this roadmap
+    result = await db.execute(
+        select(Document).where(
+            Document.roadmap_id == roadmap.id,
+        )
+    )
+    all_documents = result.scalars().all()
+
+    # Group documents by milestone_id
+    milestone_documents: dict[int, list[Document]] = {}
+    orphan_documents: list[Document] = []
+
+    for doc in all_documents:
+        milestone_id = doc.milestone_id
+        if milestone_id is None:
+            orphan_documents.append(doc)
+        else:
+            if milestone_id not in milestone_documents:
+                milestone_documents[milestone_id] = []
+            milestone_documents[milestone_id].append(doc)
+
+    # Calculate progress for each milestone
+    milestones_data = []
+    total_progress = 0.0
+    prev_completed = True  # First milestone is always unlocked
+
+    for milestone in roadmap.milestones:
+        milestone_id = milestone.get("id")
+        documents = milestone_documents.get(milestone_id, [])
+
+        progress = calc_milestone_progress(milestone, documents)
+        status = calc_milestone_status(milestone, progress, prev_completed)
+
+        # Collect covered topics
+        covered_topics = set()
+        for doc in documents:
+            covered_topics.update(doc.entities or [])
+
+        milestones_data.append(
+            {
+                "id": milestone_id,
+                "title": milestone.get("title"),
+                "description": milestone.get("description"),
+                "status": status,
+                "progress": progress,
+                "document_count": len(documents),
+                "covered_topics": list(covered_topics),
+            }
+        )
+
+        total_progress += progress
+        prev_completed = status == "completed"
+
+    # Calculate overall progress
+    num_milestones = len(roadmap.milestones)
+    overall_progress = total_progress / num_milestones if num_milestones > 0 else 0.0
+
+    return {
+        "roadmap_id": roadmap.id,
+        "goal": roadmap.goal,
+        "overall_progress": overall_progress,
+        "milestones": milestones_data,
+        "orphan_document_count": len(orphan_documents),
+    }
+
+
+# ============================================================================
+# CRUD Operations
+# ============================================================================
 
 
 async def create_roadmap(

@@ -38,7 +38,7 @@ export function EntityMention({
       <PopoverPrimitive.Trigger asChild>
         <strong
           className={cn(
-            "entity-mention cursor-pointer border-b-2 border-dotted border-primary transition-colors hover:bg-accent/50 rounded px-0.5",
+            "entity-mention cursor-pointer rounded border-b-2 border-dotted border-primary px-0.5 transition-colors hover:bg-accent/50",
             className
           )}
         >

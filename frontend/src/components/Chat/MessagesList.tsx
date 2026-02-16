@@ -38,7 +38,10 @@ interface LoadingIndicatorProps {
 }
 
 // Loading Indicator Component
-const LoadingIndicator = memo(function LoadingIndicator({ showAvatar = true, executionEvents = [] }: LoadingIndicatorProps) {
+const LoadingIndicator = memo(function LoadingIndicator({
+  showAvatar = true,
+  executionEvents = [],
+}: LoadingIndicatorProps) {
   return (
     <div className="flex gap-3 py-2">
       {showAvatar && (
@@ -70,7 +73,7 @@ const LoadingIndicator = memo(function LoadingIndicator({ showAvatar = true, exe
 const PlaceholderMessage = memo(function PlaceholderMessage({
   content,
   executionEvents = [],
-  showAvatar = true
+  showAvatar = true,
 }: PlaceholderMessageProps) {
   return (
     <div className="flex gap-3 py-2">
@@ -96,7 +99,11 @@ const PlaceholderMessage = memo(function PlaceholderMessage({
 });
 
 // Individual Message Item Component
-const MessageItem = memo(function MessageItem({ message, executionEvents = [], showAvatar = true }: MessageItemProps) {
+const MessageItem = memo(function MessageItem({
+  message,
+  executionEvents = [],
+  showAvatar = true,
+}: MessageItemProps) {
   const isUser = message.role === "user";
   const isSystem = message.role === "system";
 
@@ -116,9 +123,7 @@ const MessageItem = memo(function MessageItem({ message, executionEvents = [], s
             </AvatarFallback>
           </Avatar>
         )}
-        <div className="max-w-[85%] rounded-lg bg-muted px-4 py-2.5 text-sm">
-          {message.content}
-        </div>
+        <div className="max-w-[85%] rounded-lg bg-muted px-4 py-2.5 text-sm">{message.content}</div>
       </div>
     );
   }
@@ -145,12 +150,7 @@ const MessageItem = memo(function MessageItem({ message, executionEvents = [], s
 
   // Regular messages
   return (
-    <div
-      className={cn(
-        "flex gap-3 py-2",
-        isUser ? "flex-row-reverse" : "flex-row"
-      )}
-    >
+    <div className={cn("flex gap-3 py-2", isUser ? "flex-row-reverse" : "flex-row")}>
       {showAvatar && (
         <Avatar className={cn("h-8 w-8 shrink-0", isUser ? "bg-primary" : "bg-muted")}>
           <AvatarFallback>
@@ -162,9 +162,7 @@ const MessageItem = memo(function MessageItem({ message, executionEvents = [], s
       <div
         className={cn(
           "max-w-[85%] rounded-lg px-4 py-2.5 text-sm",
-          isUser
-            ? "bg-primary text-primary-foreground"
-            : "bg-muted text-foreground"
+          isUser ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"
         )}
       >
         {message.content}
@@ -212,7 +210,7 @@ function MessagesListComponent({
       ))}
 
       {/* Loading indicator - only show when loading and no placeholder message */}
-      {isLoading && !messages.some(m => m.isPlaceholder) && (
+      {isLoading && !messages.some((m) => m.isPlaceholder) && (
         <LoadingIndicator showAvatar={showAvatars} executionEvents={executionEvents} />
       )}
 

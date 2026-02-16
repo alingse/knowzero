@@ -51,14 +51,14 @@ export function useWebSocket({
     ws.onmessage = (event) => {
       try {
         const response: StreamResponse = JSON.parse(event.data);
-        
+
         // Update loading state based on response type
         if (response.type === "thinking") {
           setIsLoading(true);
         } else if (response.type === "done" || response.type === "error") {
           setIsLoading(false);
         }
-        
+
         onMessage?.(response);
       } catch (e) {
         console.error("Failed to parse WebSocket message:", e);

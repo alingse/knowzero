@@ -73,7 +73,7 @@ export function ExecutionProgress({ events, className }: ExecutionProgressProps)
   }
 
   return (
-    <div className={cn("border rounded-lg bg-muted/30 p-3", className)}>
+    <div className={cn("rounded-lg border bg-muted/30 p-3", className)}>
       <div className="mb-2 flex items-center gap-2 text-xs font-medium text-muted-foreground">
         {activeItems.length > 0 ? (
           <>

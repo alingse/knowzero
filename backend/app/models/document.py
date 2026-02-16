@@ -37,6 +37,11 @@ class Document(Base):
     # Classification
     category_path: Mapped[str | None] = mapped_column(String)
 
+    # Roadmap Relations
+    roadmap_id: Mapped[int | None] = mapped_column(ForeignKey("roadmaps.id"), default=None)
+    milestone_id: Mapped[int | None] = mapped_column(Integer, default=None)
+    orphan_reason: Mapped[str | None] = mapped_column(String, default=None)
+
     # Relations
     entities: Mapped[list] = mapped_column(JSON, default=list)
     prerequisites: Mapped[list] = mapped_column(JSON, default=list)

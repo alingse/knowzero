@@ -246,9 +246,7 @@ async def persist_roadmap(
             logger.warning(f"Failed to validate milestone {i}: {e}, using defaults")
             # Use default milestone on validation error
             milestones.append(
-                RoadmapMilestoneSchema(
-                    id=i, title=f"阶段 {i + 1}", description="", topics=[]
-                )
+                RoadmapMilestoneSchema(id=i, title=f"阶段 {i + 1}", description="", topics=[])
             )
 
     # Ensure we have at least one milestone

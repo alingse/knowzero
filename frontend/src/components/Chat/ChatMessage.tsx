@@ -46,13 +46,7 @@ export function ChatMessage({ message, className }: ChatMessageProps) {
   }
 
   return (
-    <div
-      className={cn(
-        "flex gap-3 py-4",
-        isUser ? "flex-row-reverse" : "flex-row",
-        className
-      )}
-    >
+    <div className={cn("flex gap-3 py-4", isUser ? "flex-row-reverse" : "flex-row", className)}>
       <Avatar className={cn("h-8 w-8", isUser ? "bg-primary" : "bg-muted")}>
         <AvatarFallback>
           {isUser ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
@@ -63,9 +57,7 @@ export function ChatMessage({ message, className }: ChatMessageProps) {
         <div
           className={cn(
             "rounded-lg px-4 py-2.5 text-sm",
-            isUser
-              ? "bg-primary text-primary-foreground"
-              : "bg-muted text-foreground"
+            isUser ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"
           )}
         >
           {message.content}

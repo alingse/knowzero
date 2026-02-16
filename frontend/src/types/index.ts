@@ -92,6 +92,24 @@ export interface RoadmapMilestone {
   topics: string[];
 }
 
+export interface RoadmapMilestoneProgress {
+  id: number;
+  title: string;
+  description: string;
+  status: "locked" | "active" | "completed";
+  progress: number; // 0 to 1
+  document_count: number;
+  covered_topics: string[];
+}
+
+export interface RoadmapProgress {
+  roadmap_id: number;
+  goal: string;
+  overall_progress: number; // 0 to 1
+  milestones: RoadmapMilestoneProgress[];
+  orphan_document_count: number;
+}
+
 export interface Roadmap {
   id: number;
   session_id: string;
@@ -124,8 +142,8 @@ export interface ChatRequest {
   comment_data?: {
     comment: string;
     selected_text: string;
-    context_before?: string;  // Text before selection for better context
-    context_after?: string;   // Text after selection for better context
+    context_before?: string; // Text before selection for better context
+    context_after?: string; // Text after selection for better context
     position?: { start: number; end: number };
     document_id: number;
     section_id?: string;
@@ -144,19 +162,19 @@ export interface StreamResponse {
     | "content"
     | "document"
     | "roadmap"
-    | "document_start"  // Document generation started, with topic
-    | "document_token"   // Document content streaming token
+    | "document_start" // Document generation started, with topic
+    | "document_token" // Document content streaming token
     | "entities"
     | "follow_ups"
     | "error"
     | "done"
     // Streaming event types for LangGraph progress
-    | "token"           // LLM token streaming
-    | "node_start"       // Agent node execution started
-    | "node_end"         // Agent node execution ended
-    | "tool_start"       // Tool call started
-    | "tool_end"         // Tool call ended
-    | "progress";        // Custom progress updates
+    | "token" // LLM token streaming
+    | "node_start" // Agent node execution started
+    | "node_end" // Agent node execution ended
+    | "tool_start" // Tool call started
+    | "tool_end" // Tool call ended
+    | "progress"; // Custom progress updates
   data?: Record<string, unknown>;
   message?: string;
 }

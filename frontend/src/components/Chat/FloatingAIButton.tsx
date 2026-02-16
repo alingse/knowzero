@@ -24,12 +24,7 @@ export function FloatingAIButton({
   const isWhite = variant === "white";
 
   return (
-    <div
-      className={cn(
-        "group fixed right-8 bottom-8 z-50",
-        className
-      )}
-    >
+    <div className={cn("group fixed bottom-8 right-8 z-50", className)}>
       {/* Crystal ball button */}
       <Button
         size="lg"
@@ -48,7 +43,7 @@ export function FloatingAIButton({
             "hover:shadow-[0_12px_40px_rgb(0,0,0,0.15),inset_0_1px_0_rgba(255,255,255,0.9)]",
             "before:absolute before:-inset-1 before:rounded-full before:bg-gradient-to-br",
             "before:from-blue-100/40 before:to-slate-300/40",
-            "before:blur-lg before:opacity-0 before:transition-opacity",
+            "before:opacity-0 before:blur-lg before:transition-opacity",
             "hover:before:opacity-80",
           ],
           // Colored variant
@@ -56,21 +51,17 @@ export function FloatingAIButton({
             "bg-gradient-to-br from-primary to-primary/80",
             "before:absolute before:-inset-1 before:rounded-full before:bg-gradient-to-br",
             "before:from-primary/50 before:to-blue-500/50",
-            "before:blur-lg before:opacity-0 before:transition-opacity",
+            "before:opacity-0 before:blur-lg before:transition-opacity",
             "hover:before:opacity-100",
           ]
         )}
       >
         {isOpen ? (
-          <X className={cn(
-            "h-6 w-6",
-            isWhite ? "text-slate-600" : "text-primary-foreground"
-          )} />
+          <X className={cn("h-6 w-6", isWhite ? "text-slate-600" : "text-primary-foreground")} />
         ) : (
-          <MessageCircle className={cn(
-            "h-7 w-7",
-            isWhite ? "text-slate-600" : "text-primary-foreground"
-          )} />
+          <MessageCircle
+            className={cn("h-7 w-7", isWhite ? "text-slate-600" : "text-primary-foreground")}
+          />
         )}
 
         {/* Pulse animation for unread */}
@@ -83,10 +74,12 @@ export function FloatingAIButton({
 
         {/* Ripple effect on hover */}
         {isHovered && (
-          <span className={cn(
-            "absolute -inset-4 rounded-full border-2 animate-pulse",
-            isWhite ? "border-slate-400/50" : "border-primary/30"
-          )} />
+          <span
+            className={cn(
+              "absolute -inset-4 animate-pulse rounded-full border-2",
+              isWhite ? "border-slate-400/50" : "border-primary/30"
+            )}
+          />
         )}
       </Button>
 

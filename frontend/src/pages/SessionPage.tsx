@@ -5,10 +5,11 @@ import { useParams, useLocation } from "react-router-dom";
 import { AIAssistant, useAIAssistant, type AIInteractionContext } from "@/components/AIAssistant";
 import { DocumentView } from "@/components/DocumentView/DocumentView";
 import { Layout, MainContent } from "@/components/Layout/Layout";
+import { RoadmapBar } from "@/components/RoadmapView";
 import { RoadmapView } from "@/components/RoadmapView";
 import { Sidebar } from "@/components/Sidebar/Sidebar";
 import { useWebSocket } from "@/api/websocket";
-import { sessionsApi } from "@/api/client";
+import { sessionsApi, roadmapsApi } from "@/api/client";
 import { useSessionStore } from "@/stores/sessionStore";
 import { cn } from "@/lib/utils";
 import type { ExecutionEvent } from "@/components/Chat/ExecutionProgress";
@@ -42,7 +43,9 @@ export function SessionPage() {
 
   // Text selection for comment mode
   const [selectedText, setSelectedText] = useState("");
-  const [selectionPosition, setSelectionPosition] = useState<{ x: number; y: number } | undefined>();
+  const [selectionPosition, setSelectionPosition] = useState<
+    { x: number; y: number } | undefined
+  >();
 
   // View mode: document | roadmap
   const [viewMode, setViewMode] = useState<"document" | "roadmap">("document");
@@ -71,6 +74,8 @@ export function SessionPage() {
     setRoadmap,
     roadmap,
     updateRoadmap,
+    roadmapProgress,
+    setRoadmapProgress,
   } = useSessionStore();
 
   // Restore session on load
@@ -102,6 +107,13 @@ export function SessionPage() {
       // Restore roadmap if available
       if (data.roadmap) {
         setRoadmap(data.roadmap);
+        // Fetch roadmap progress
+        try {
+          const progress = await roadmapsApi.getProgress(data.roadmap.id);
+          setRoadmapProgress(progress);
+        } catch (error) {
+          console.error("Failed to load roadmap progress:", error);
+        }
       }
 
       return data;
@@ -123,31 +135,37 @@ export function SessionPage() {
   });
 
   // Helper to add placeholder message
-  const addPlaceholder = useCallback((content: string) => {
-    const id = -Date.now();
-    const placeholderMsg: DisplayMessage = {
-      id,
-      role: "assistant",
-      content,
-      message_type: MessageType.DOCUMENT_CARD,
-      timestamp: new Date().toISOString(),
-      isPlaceholder: true,
-    };
-    addMessage(placeholderMsg);
-    placeholderIdRef.current = id;
-    return id;
-  }, [addMessage]);
+  const addPlaceholder = useCallback(
+    (content: string) => {
+      const id = -Date.now();
+      const placeholderMsg: DisplayMessage = {
+        id,
+        role: "assistant",
+        content,
+        message_type: MessageType.DOCUMENT_CARD,
+        timestamp: new Date().toISOString(),
+        isPlaceholder: true,
+      };
+      addMessage(placeholderMsg);
+      placeholderIdRef.current = id;
+      return id;
+    },
+    [addMessage]
+  );
 
   // Helper to update placeholder message
-  const updatePlaceholder = useCallback((id: number, content: string) => {
-    updateMessage(id, { content });
-  }, [updateMessage]);
+  const updatePlaceholder = useCallback(
+    (id: number, content: string) => {
+      updateMessage(id, { content });
+    },
+    [updateMessage]
+  );
 
   // Helper to remove placeholder
   const removePlaceholder = useCallback(() => {
     const id = placeholderIdRef.current;
     if (id) {
-      setMessages((prev: Message[]) => prev.filter(m => m.id !== id));
+      setMessages((prev: Message[]) => prev.filter((m) => m.id !== id));
     }
     placeholderIdRef.current = null;
   }, [setMessages]);
@@ -223,7 +241,12 @@ export function SessionPage() {
         if (nodeEndName) {
           setExecutionEvents((prev) => [
             ...prev,
-            { id: `node-end-${Date.now()}`, type: "node_end", name: nodeEndName, timestamp: Date.now() },
+            {
+              id: `node-end-${Date.now()}`,
+              type: "node_end",
+              name: nodeEndName,
+              timestamp: Date.now(),
+            },
           ]);
         }
         break;
@@ -234,7 +257,13 @@ export function SessionPage() {
         if (toolName) {
           setExecutionEvents((prev) => [
             ...prev,
-            { id: `tool-${Date.now()}`, type: "tool_start", tool: toolName, data: response.data?.input, timestamp: Date.now() },
+            {
+              id: `tool-${Date.now()}`,
+              type: "tool_start",
+              tool: toolName,
+              data: response.data?.input,
+              timestamp: Date.now(),
+            },
           ]);
         }
         break;
@@ -245,7 +274,13 @@ export function SessionPage() {
         if (toolEndName) {
           setExecutionEvents((prev) => [
             ...prev,
-            { id: `tool-end-${Date.now()}`, type: "tool_end", tool: toolEndName, data: response.data?.output, timestamp: Date.now() },
+            {
+              id: `tool-end-${Date.now()}`,
+              type: "tool_end",
+              tool: toolEndName,
+              data: response.data?.output,
+              timestamp: Date.now(),
+            },
           ]);
         }
         break;
@@ -254,7 +289,12 @@ export function SessionPage() {
       case "progress":
         setExecutionEvents((prev) => [
           ...prev,
-          { id: `progress-${Date.now()}`, type: "progress", data: response.data, timestamp: Date.now() },
+          {
+            id: `progress-${Date.now()}`,
+            type: "progress",
+            data: response.data,
+            timestamp: Date.now(),
+          },
         ]);
         // Update placeholder with progress message for background task status
         if (response.data?.message && placeholderIdRef.current) {
@@ -335,14 +375,16 @@ export function SessionPage() {
         break;
 
       case "entities": {
-        const entitiesData = response.data as { document_id?: number; entities?: string[] } | undefined;
+        const entitiesData = response.data as
+          | { document_id?: number; entities?: string[] }
+          | undefined;
         // Use fresh store state to avoid stale closure
         const currentDoc = useSessionStore.getState().currentDocument;
-        const shouldUpdateEntities = entitiesData?.entities && (
-          !entitiesData.document_id ||  // No document ID specified, allow update
-          !currentDoc ||       // No current document, allow update (new doc)
-          entitiesData.document_id === currentDoc?.id  // ID matches current document
-        );
+        const shouldUpdateEntities =
+          entitiesData?.entities &&
+          (!entitiesData.document_id || // No document ID specified, allow update
+            !currentDoc || // No current document, allow update (new doc)
+            entitiesData.document_id === currentDoc?.id); // ID matches current document
         if (shouldUpdateEntities) {
           updateDocumentEntities(entitiesData.entities!);
         }
@@ -350,14 +392,16 @@ export function SessionPage() {
       }
 
       case "follow_ups": {
-        const fuData = response.data as { document_id?: number; questions?: FollowUpQuestion[] } | undefined;
+        const fuData = response.data as
+          | { document_id?: number; questions?: FollowUpQuestion[] }
+          | undefined;
         // Use fresh store state to avoid stale closure
         const currentDocForFU = useSessionStore.getState().currentDocument;
-        const shouldUpdateFU = fuData?.questions && (
-          !fuData.document_id ||  // No document ID specified, allow update
-          !currentDocForFU ||       // No current document, allow update (new doc)
-          fuData.document_id === currentDocForFU?.id  // ID matches current document
-        );
+        const shouldUpdateFU =
+          fuData?.questions &&
+          (!fuData.document_id || // No document ID specified, allow update
+            !currentDocForFU || // No current document, allow update (new doc)
+            fuData.document_id === currentDocForFU?.id); // ID matches current document
         console.log("[follow_ups] Received:", {
           hasData: !!fuData,
           hasQuestions: !!fuData?.questions,
@@ -380,7 +424,13 @@ export function SessionPage() {
 
       case "roadmap": {
         if (response.data) {
-          setRoadmap(response.data as import("@/types").Roadmap);
+          const roadmap = response.data as import("@/types").Roadmap;
+          setRoadmap(roadmap);
+          // Fetch roadmap progress after setting roadmap
+          roadmapsApi
+            .getProgress(roadmap.id)
+            .then((progress) => setRoadmapProgress(progress))
+            .catch((error) => console.error("Failed to load roadmap progress:", error));
           // Remove placeholder when roadmap is received
           removePlaceholder();
         }
@@ -421,7 +471,11 @@ export function SessionPage() {
   };
 
   // Setup WebSocket
-  const { sendMessage, isConnected, isLoading: isAgentLoading } = useWebSocket({
+  const {
+    sendMessage,
+    isConnected,
+    isLoading: isAgentLoading,
+  } = useWebSocket({
     sessionId: sessionId || "",
     onMessage: handleWebSocketMessage,
   });
@@ -463,43 +517,58 @@ export function SessionPage() {
   };
 
   // Handle follow-up question click
-  const handleFollowUpClick = useCallback((question: FollowUpQuestion) => {
-    handleSendMessage(question.question, { type: "follow_up" });
-  }, [handleSendMessage]);
+  const handleFollowUpClick = useCallback(
+    (question: FollowUpQuestion) => {
+      handleSendMessage(question.question, { type: "follow_up" });
+    },
+    [handleSendMessage]
+  );
 
   // Handle entity click for deep exploration
-  const handleEntityClick = useCallback((entityName: string, sourceDocId: number) => {
-    if (!sessionId || !isConnected) return;
+  const handleEntityClick = useCallback(
+    (entityName: string, sourceDocId: number) => {
+      if (!sessionId || !isConnected) return;
 
-    // Send entity exploration request through WebSocket
-    const requestData: import("@/types").ChatRequest = {
-      session_id: sessionId,
-      message: "",
-      source: "entity",
-      entity_data: {
-        entity_name: entityName,
-        source_doc_id: sourceDocId,
-      },
-    };
+      // Send entity exploration request through WebSocket
+      const requestData: import("@/types").ChatRequest = {
+        session_id: sessionId,
+        message: "",
+        source: "entity",
+        entity_data: {
+          entity_name: entityName,
+          source_doc_id: sourceDocId,
+        },
+      };
 
-    sendMessage(requestData);
-  }, [sessionId, isConnected, sendMessage]);
+      sendMessage(requestData);
+    },
+    [sessionId, isConnected, sendMessage]
+  );
 
   // Handle document click from entity card
-  const handleDocumentClick = useCallback((docId: number) => {
-    // Find the document in the store and navigate to it
-    const targetDoc = documents.find(d => d.id === docId);
-    if (targetDoc) {
-      setCurrentDocument(targetDoc);
-      // Update follow-up questions from the selected document
-      setFollowUpQuestions((targetDoc as Document & { follow_up_questions?: FollowUpQuestion[] }).follow_up_questions || []);
-    }
-  }, [documents, setCurrentDocument, setFollowUpQuestions]);
+  const handleDocumentClick = useCallback(
+    (docId: number) => {
+      // Find the document in the store and navigate to it
+      const targetDoc = documents.find((d) => d.id === docId);
+      if (targetDoc) {
+        setCurrentDocument(targetDoc);
+        // Update follow-up questions from the selected document
+        setFollowUpQuestions(
+          (targetDoc as Document & { follow_up_questions?: FollowUpQuestion[] })
+            .follow_up_questions || []
+        );
+      }
+    },
+    [documents, setCurrentDocument, setFollowUpQuestions]
+  );
 
   // Handle roadmap update
-  const handleRoadmapUpdate = useCallback((updated: import("@/types").Roadmap) => {
-    updateRoadmap(updated);
-  }, [updateRoadmap]);
+  const handleRoadmapUpdate = useCallback(
+    (updated: import("@/types").Roadmap) => {
+      updateRoadmap(updated);
+    },
+    [updateRoadmap]
+  );
 
   // Handle text selection for comment mode
   const handleTextSelection = useCallback(() => {
@@ -561,7 +630,7 @@ export function SessionPage() {
     if (initialQuery && isConnected && !isLoading && sessionId) {
       const storageKey = `initialQuerySent_${sessionId}`;
       const hasSent = sessionStorage.getItem(storageKey);
-      
+
       if (!hasSent) {
         handleSendMessage(initialQuery);
         sessionStorage.setItem(storageKey, "true");
@@ -596,14 +665,19 @@ export function SessionPage() {
       <Sidebar />
       <MainContent>
         <div className="flex flex-1 flex-col">
-          {/* View mode toggle */}
-          {roadmap && (
+          {/* Roadmap Bar - replaces view mode toggle */}
+          {roadmap && roadmapProgress && (
+            <RoadmapBar progress={roadmapProgress} onExpand={() => setViewMode("roadmap")} />
+          )}
+
+          {/* View mode toggle - fallback if no progress data */}
+          {roadmap && !roadmapProgress && (
             <div className="flex items-center gap-2 border-b px-4 py-2">
               <button
                 type="button"
                 onClick={() => setViewMode("document")}
                 className={cn(
-                  "px-3 py-1.5 text-sm font-medium rounded-md transition-colors",
+                  "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
                   viewMode === "document"
                     ? "bg-primary text-primary-foreground"
                     : "text-muted-foreground hover:bg-muted"
@@ -615,7 +689,7 @@ export function SessionPage() {
                 type="button"
                 onClick={() => setViewMode("roadmap")}
                 className={cn(
-                  "px-3 py-1.5 text-sm font-medium rounded-md transition-colors",
+                  "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
                   viewMode === "roadmap"
                     ? "bg-primary text-primary-foreground"
                     : "text-muted-foreground hover:bg-muted"
@@ -660,9 +734,13 @@ export function SessionPage() {
             /* Roadmap View */
             <div className="flex-1 overflow-auto p-4">
               {roadmap ? (
-                <RoadmapView roadmap={roadmap} onUpdate={handleRoadmapUpdate} />
+                <RoadmapView
+                  roadmap={roadmap}
+                  progress={roadmapProgress}
+                  onUpdate={handleRoadmapUpdate}
+                />
               ) : (
-                <div className="flex items-center justify-center h-full text-muted-foreground">
+                <div className="flex h-full items-center justify-center text-muted-foreground">
                   暂无学习路线图
                 </div>
               )}

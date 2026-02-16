@@ -29,7 +29,11 @@ export function EntityCard({
   onDocumentClick,
   className,
 }: EntityCardProps) {
-  const { data: entity, isLoading, error } = useQuery({
+  const {
+    data: entity,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ["entity", "query", sessionId, entityName],
     queryFn: () => entitiesApi.query(entityName, sessionId),
     enabled: !!sessionId && !!entityName,
@@ -49,9 +53,7 @@ export function EntityCard({
 
   if (error || !entity) {
     return (
-      <div className={cn("p-4 text-sm text-muted-foreground", className)}>
-        无法加载实体详情
-      </div>
+      <div className={cn("p-4 text-sm text-muted-foreground", className)}>无法加载实体详情</div>
     );
   }
 
@@ -63,9 +65,7 @@ export function EntityCard({
           <Sparkles className="h-4 w-4 text-muted-foreground" />
           <span className="font-medium">{entityName}</span>
         </div>
-        <p className="mb-3 text-sm text-muted-foreground">
-          这是一个新实体，想要了解更多吗？
-        </p>
+        <p className="mb-3 text-sm text-muted-foreground">这是一个新实体，想要了解更多吗？</p>
         <Button size="sm" variant="outline" className="w-full" onClick={onExploreClick}>
           深度探索
         </Button>
@@ -89,9 +89,7 @@ export function EntityCard({
       </div>
 
       {/* Summary */}
-      {entity.summary && (
-        <p className="mb-3 text-sm text-muted-foreground">{entity.summary}</p>
-      )}
+      {entity.summary && <p className="mb-3 text-sm text-muted-foreground">{entity.summary}</p>}
 
       {/* Main document indicator */}
       {entity.has_main_doc && entity.main_doc_id && (

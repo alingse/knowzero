@@ -41,12 +41,13 @@ manager = ConnectionManager()
 
 async def _load_session_context(
     session_id: str,
-) -> tuple[int | None, dict | None, list[int], list[str]]:
+) -> tuple[int | None, dict | None, list[int], list[str], dict | None]:
     """Load session context from DB for agent state building."""
     current_doc_id = None
     current_doc = None
     recent_docs: list[int] = []
     learned_topics: list[str] = []
+    current_roadmap: dict | None = None
 
     async with get_db_session() as db:
         docs = await document_service.list_session_documents(db, session_id)
@@ -62,7 +63,20 @@ async def _load_session_context(
                 "version": docs[0].version,
             }
 
-    return current_doc_id, current_doc, recent_docs, learned_topics
+        # Load active roadmap for the session
+        from app.services import roadmap_service
+
+        active_roadmap = await roadmap_service.get_active_roadmap(db, session_id)
+        if active_roadmap:
+            current_roadmap = {
+                "id": active_roadmap.id,
+                "goal": active_roadmap.goal,
+                "milestones": active_roadmap.milestones,
+                "mermaid": active_roadmap.mermaid,
+                "version": active_roadmap.version,
+            }
+
+    return current_doc_id, current_doc, recent_docs, learned_topics, current_roadmap
 
 
 def _build_agent_state(
@@ -72,6 +86,7 @@ def _build_agent_state(
     current_doc: dict | None,
     recent_docs: list[int],
     learned_topics: list[str],
+    current_roadmap: dict | None,
 ) -> AgentState:
     """Build the initial agent state from request and session context."""
     return {
@@ -86,6 +101,7 @@ def _build_agent_state(
         "user_level": "beginner",
         "learned_topics": learned_topics,
         "recent_docs": recent_docs,
+        "current_roadmap": current_roadmap,
         "messages": [],
         "intent": None,
         "routing_decision": None,
@@ -135,13 +151,26 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                     current_doc,
                     recent_docs,
                     learned_topics,
+                    current_roadmap,
                 ) = await _load_session_context(session_id)
             except Exception as e:
                 logger.warning("Context loading failed", error=str(e))
-                current_doc_id, current_doc, recent_docs, learned_topics = None, None, [], []
+                current_doc_id, current_doc, recent_docs, learned_topics, current_roadmap = (
+                    None,
+                    None,
+                    [],
+                    [],
+                    None,
+                )
 
             state = _build_agent_state(
-                request, session_id, current_doc_id, current_doc, recent_docs, learned_topics
+                request,
+                session_id,
+                current_doc_id,
+                current_doc,
+                recent_docs,
+                learned_topics,
+                current_roadmap,
             )
 
             await stream_agent_response(websocket, state)

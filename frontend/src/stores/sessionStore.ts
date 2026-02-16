@@ -2,7 +2,14 @@
 
 import { create } from "zustand";
 
-import type { Document, FollowUpQuestion, Message, Roadmap, Session } from "@/types";
+import type {
+  Document,
+  FollowUpQuestion,
+  Message,
+  Roadmap,
+  RoadmapProgress,
+  Session,
+} from "@/types";
 
 interface SessionState {
   // Current session
@@ -12,6 +19,7 @@ interface SessionState {
   selectedDocumentId: number | null; // Currently selected document ID
   messages: Message[];
   roadmap: Roadmap | null;
+  roadmapProgress: RoadmapProgress | null;
 
   // UI State
   isLoading: boolean;
@@ -48,6 +56,7 @@ interface SessionState {
   setAgentStatus: (status: "idle" | "running" | "error", startedAt?: string) => void;
   setRoadmap: (roadmap: Roadmap | null) => void;
   updateRoadmap: (updates: Partial<Roadmap>) => void;
+  setRoadmapProgress: (progress: RoadmapProgress | null) => void;
 
   // Operations
   clearSession: () => void;
@@ -61,6 +70,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   selectedDocumentId: null,
   messages: [],
   roadmap: null,
+  roadmapProgress: null,
   isLoading: false,
   error: null,
   agentStatus: "idle",
@@ -81,7 +91,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   setDocuments: (documents) => set({ documents }),
   addDocument: (document) => {
     set((state) => ({
-      documents: [...state.documents.filter(d => d.id !== document.id), document],
+      documents: [...state.documents.filter((d) => d.id !== document.id), document],
     }));
   },
   selectDocument: (documentId) => {
@@ -92,30 +102,30 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       return;
     }
 
-    const selectedDoc = documents.find(d => d.id === documentId);
+    const selectedDoc = documents.find((d) => d.id === documentId);
     if (selectedDoc) {
       set({
         selectedDocumentId: documentId,
         currentDocument: selectedDoc,
         // Update follow-up questions from the selected document
-        followUpQuestions: (selectedDoc as Document & { follow_up_questions?: FollowUpQuestion[] }).follow_up_questions || [],
+        followUpQuestions:
+          (selectedDoc as Document & { follow_up_questions?: FollowUpQuestion[] })
+            .follow_up_questions || [],
       });
     }
   },
   setSelectedDocumentId: (documentId) => set({ selectedDocumentId: documentId }),
   setMessages: (messages) =>
     set((state) => ({
-      messages: typeof messages === 'function'
-        ? (messages as (prev: Message[]) => Message[])(state.messages)
-        : messages
+      messages:
+        typeof messages === "function"
+          ? (messages as (prev: Message[]) => Message[])(state.messages)
+          : messages,
     })),
-  addMessage: (message) =>
-    set((state) => ({ messages: [...state.messages, message] })),
+  addMessage: (message) => set((state) => ({ messages: [...state.messages, message] })),
   updateMessage: (id, updates) =>
     set((state) => ({
-      messages: state.messages.map((m) =>
-        m.id === id ? { ...m, ...updates } : m
-      ),
+      messages: state.messages.map((m) => (m.id === id ? { ...m, ...updates } : m)),
     })),
   appendStreamingContent: (content) =>
     set((state) => ({
@@ -131,9 +141,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   },
   updateDocumentEntities: (entities) =>
     set((state) => ({
-      currentDocument: state.currentDocument
-        ? { ...state.currentDocument, entities }
-        : null,
+      currentDocument: state.currentDocument ? { ...state.currentDocument, entities } : null,
     })),
   setAgentStatus: (status, startedAt) => set({ agentStatus: status, agentStartedAt: startedAt }),
   setRoadmap: (roadmap) => set({ roadmap }),
@@ -141,6 +149,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     set((state) => ({
       roadmap: state.roadmap ? { ...state.roadmap, ...updates } : null,
     })),
+  setRoadmapProgress: (progress) => set({ roadmapProgress: progress }),
 
   // Operations
   clearSession: () =>

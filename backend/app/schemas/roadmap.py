@@ -14,6 +14,28 @@ class RoadmapMilestoneSchema(BaseModel):
     topics: list[str]
 
 
+class RoadmapMilestoneProgress(BaseModel):
+    """Progress data for a single milestone."""
+
+    id: int
+    title: str
+    description: str
+    status: str  # "locked" | "active" | "completed"
+    progress: float  # 0.0 to 1.0
+    document_count: int
+    covered_topics: list[str]
+
+
+class RoadmapProgress(BaseModel):
+    """Progress data for a roadmap."""
+
+    roadmap_id: int
+    goal: str
+    overall_progress: float  # 0.0 to 1.0
+    milestones: list[RoadmapMilestoneProgress]
+    orphan_document_count: int
+
+
 class RoadmapCreate(BaseModel):
     """Create a new roadmap."""
 

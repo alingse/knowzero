@@ -1,12 +1,12 @@
 /**
  * AIAssistant - Unified AI interaction component
- * 
+ *
  * This component manages different AI interaction modes:
  * - chat: Bottom chat area for general conversation
  * - dialog: Floating dialog for focused AI interaction
  * - comment: Inline comment/annotation on document
  * - entity: Entity click to explore
- * 
+ *
  * Usage:
  * - <AIAssistant mode="chat" /> - Always visible bottom chat
  * - <AIAssistant mode="dialog" /> - Floating dialog triggered by crystal ball
@@ -31,12 +31,12 @@ interface AIAssistantProps {
   messages: DisplayMessage[];
   executionEvents?: ExecutionEvent[];
   isLoading?: boolean;
-  disabled?: boolean;  // External disabled state (e.g., from agent status)
+  disabled?: boolean; // External disabled state (e.g., from agent status)
   onSendMessage: (message: string, context?: AIInteractionContext) => void;
 
   // Mode-specific props
-  isOpen?: boolean;           // For dialog mode
-  onClose?: () => void;       // For dialog/comment/entity mode
+  isOpen?: boolean; // For dialog mode
+  onClose?: () => void; // For dialog/comment/entity mode
 
   // Context data for specific interactions
   context?: AIInteractionContext;
@@ -51,14 +51,14 @@ interface AIAssistantProps {
 // Context passed with each interaction
 export interface AIInteractionContext {
   type: "chat" | "comment" | "entity" | "follow_up" | "context_menu";
-  sourceText?: string;        // For comment: selected text
-  contextBefore?: string;     // For comment: text before selection
-  contextAfter?: string;      // For comment: text after selection
-  entityName?: string;        // For entity click
+  sourceText?: string; // For comment: selected text
+  contextBefore?: string; // For comment: text before selection
+  contextAfter?: string; // For comment: text after selection
+  entityName?: string; // For entity click
   entityType?: string;
   documentId?: number;
-  position?: { start: number; end: number };  // Text position in document
-  parentMessageId?: number;   // For threaded replies
+  position?: { start: number; end: number }; // Text position in document
+  parentMessageId?: number; // For threaded replies
 }
 
 export function AIAssistant({
@@ -76,10 +76,10 @@ export function AIAssistant({
   className,
 }: AIAssistantProps) {
   const [internalOpen, setInternalOpen] = useState(false);
-  
+
   // For dialog mode: use internal state if not controlled externally
   const dialogOpen = mode === "dialog" && (isOpen !== undefined ? isOpen : internalOpen);
-  
+
   // Auto-open comment panel when there's selected text
   useEffect(() => {
     if (mode === "comment" && selectedText) {
@@ -103,7 +103,7 @@ export function AIAssistant({
 
   const handleSend = (message: string) => {
     onSendMessage(message, context);
-    
+
     // Auto-close comment panel after sending
     if (mode === "comment") {
       setInternalOpen(false);
@@ -128,11 +128,7 @@ export function AIAssistant({
     case "dialog":
       return (
         <>
-          <FloatingAIButton
-            isOpen={dialogOpen}
-            onToggle={handleToggle}
-            variant="white"
-          />
+          <FloatingAIButton isOpen={dialogOpen} onToggle={handleToggle} variant="white" />
           <ChatPanel
             variant="dialog"
             isOpen={dialogOpen}
@@ -153,7 +149,7 @@ export function AIAssistant({
         <CommentPanel
           selectedText={selectedText}
           position={selectionPosition}
-          messages={messages.filter(m => m.message_type === "comment")}
+          messages={messages.filter((m) => m.message_type === "comment")}
           isLoading={isLoading}
           onSend={handleSend}
           onClose={() => {

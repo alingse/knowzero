@@ -16,13 +16,8 @@ interface SidebarProps {
 export function Sidebar({ className }: SidebarProps) {
   const navigate = useNavigate();
   const { sessionId } = useParams<{ sessionId: string }>();
-  
-  const { 
-    documents, 
-    selectedDocumentId, 
-    selectDocument,
-    isStreaming,
-  } = useSessionStore();
+
+  const { documents, selectedDocumentId, selectDocument, isStreaming } = useSessionStore();
 
   const handleNewSession = () => {
     navigate("/");
@@ -49,12 +44,7 @@ export function Sidebar({ className }: SidebarProps) {
   );
 
   return (
-    <aside
-      className={cn(
-        "flex h-full w-72 flex-col border-r bg-card",
-        className
-      )}
-    >
+    <aside className={cn("flex h-full w-72 flex-col border-r bg-card", className)}>
       {/* Header */}
       <div className="flex h-14 items-center border-b px-4">
         <BookOpen className="mr-2 h-5 w-5 text-primary" />
@@ -63,11 +53,7 @@ export function Sidebar({ className }: SidebarProps) {
 
       {/* New Session Button */}
       <div className="p-4">
-        <Button
-          className="w-full"
-          variant="outline"
-          onClick={handleNewSession}
-        >
+        <Button className="w-full" variant="outline" onClick={handleNewSession}>
           <Plus className="mr-2 h-4 w-4" />
           新会话
         </Button>
@@ -89,11 +75,11 @@ export function Sidebar({ className }: SidebarProps) {
                 </span>
               )}
             </div>
-            
+
             {sortedDocuments.length === 0 ? (
               <div className="mt-2 px-2 py-3 text-sm text-muted-foreground">
                 <p>暂无文档</p>
-                <p className="text-xs mt-1">在聊天中生成第一个文档</p>
+                <p className="mt-1 text-xs">在聊天中生成第一个文档</p>
               </div>
             ) : (
               <div className="mt-2 space-y-1">
@@ -103,25 +89,25 @@ export function Sidebar({ className }: SidebarProps) {
                     onClick={() => handleDocumentClick(doc.id)}
                     disabled={isStreaming}
                     className={cn(
-                      "w-full text-left rounded-md px-2 py-2 text-sm transition-colors",
+                      "w-full rounded-md px-2 py-2 text-left text-sm transition-colors",
                       "hover:bg-accent hover:text-accent-foreground",
                       "focus:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                      selectedDocumentId === doc.id 
-                        ? "bg-accent text-accent-foreground font-medium" 
+                      selectedDocumentId === doc.id
+                        ? "bg-accent font-medium text-accent-foreground"
                         : "text-foreground",
-                      isStreaming && "opacity-50 cursor-not-allowed"
+                      isStreaming && "cursor-not-allowed opacity-50"
                     )}
                   >
                     <div className="flex items-start gap-2">
-                      <FileText className={cn(
-                        "h-4 w-4 mt-0.5 flex-shrink-0",
-                        selectedDocumentId === doc.id 
-                          ? "text-primary" 
-                          : "text-muted-foreground"
-                      )} />
-                      <div className="flex-1 min-w-0">
+                      <FileText
+                        className={cn(
+                          "mt-0.5 h-4 w-4 flex-shrink-0",
+                          selectedDocumentId === doc.id ? "text-primary" : "text-muted-foreground"
+                        )}
+                      />
+                      <div className="min-w-0 flex-1">
                         <p className="truncate leading-tight">{doc.topic}</p>
-                        <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
+                        <div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
                           <Clock className="h-3 w-3" />
                           <span>{formatDate(doc.created_at)}</span>
                         </div>
@@ -133,7 +119,6 @@ export function Sidebar({ className }: SidebarProps) {
             )}
           </div>
         )}
-
       </ScrollArea>
 
       <Separator />

@@ -1,6 +1,6 @@
 /**
  * ChatPanel - Reusable chat panel component
- * 
+ *
  * Supports two variants:
  * - embedded: Fixed height panel (for bottom chat area)
  * - dialog: Floating dialog (for crystal ball trigger)
@@ -24,7 +24,7 @@ interface ChatPanelProps {
   messages: DisplayMessage[];
   executionEvents?: ExecutionEvent[];
   isLoading?: boolean;
-  disabled?: boolean;  // External disabled state (e.g., from agent status)
+  disabled?: boolean; // External disabled state (e.g., from agent status)
   onSend: (message: string) => void;
   className?: string;
 }
@@ -119,7 +119,7 @@ export function ChatPanel({
   return (
     <div
       className={cn(
-        "fixed right-0 bottom-0 z-40 flex h-[500px] w-full max-w-md flex-col border-l bg-background shadow-2xl sm:bottom-4 sm:right-[280px] sm:h-[600px] sm:rounded-2xl sm:border",
+        "fixed bottom-0 right-0 z-40 flex h-[500px] w-full max-w-md flex-col border-l bg-background shadow-2xl sm:bottom-4 sm:right-[280px] sm:h-[600px] sm:rounded-2xl sm:border",
         className
       )}
     >
@@ -191,7 +191,9 @@ export function ChatPanel({
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyPress}
-            placeholder={disabled ? "正在生成文档，请稍候..." : "输入你的问题... (Shift+Enter 换行)"}
+            placeholder={
+              disabled ? "正在生成文档，请稍候..." : "输入你的问题... (Shift+Enter 换行)"
+            }
             disabled={isLoading || disabled}
             className="flex-1"
           />

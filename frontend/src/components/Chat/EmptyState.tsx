@@ -25,9 +25,7 @@ export function EmptyState({ type, className, onQuickAction }: EmptyStateProps) 
           </div>
           <div className="text-center">
             <h3 className="text-lg font-medium">开始新的对话</h3>
-            <p className="mt-1 text-sm text-muted-foreground">
-              输入问题或选择快捷操作开始学习
-            </p>
+            <p className="mt-1 text-sm text-muted-foreground">输入问题或选择快捷操作开始学习</p>
           </div>
           {onQuickAction && (
             <div className="mt-4 flex flex-col gap-2">
@@ -59,9 +57,7 @@ export function EmptyState({ type, className, onQuickAction }: EmptyStateProps) 
         </div>
         <div className="text-center">
           <h3 className="text-lg font-medium">选择一个文档开始阅读</h3>
-          <p className="mt-1 text-sm text-muted-foreground">
-            或创建一个新的学习会话
-          </p>
+          <p className="mt-1 text-sm text-muted-foreground">或创建一个新的学习会话</p>
         </div>
       </div>
     </div>

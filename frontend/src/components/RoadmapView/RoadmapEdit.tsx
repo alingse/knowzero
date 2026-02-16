@@ -40,13 +40,13 @@ export function RoadmapEdit({ roadmap, onSave, onCancel, className }: RoadmapEdi
     }
   };
 
-  const updateMilestone = (index: number, field: keyof EditingMilestone, value: string | string[]) => {
+  const updateMilestone = (
+    index: number,
+    field: keyof EditingMilestone,
+    value: string | string[]
+  ) => {
     setMilestones((prev) =>
-      prev.map((m, i) =>
-        i === index
-          ? { ...m, [field]: value, isDirty: true }
-          : m
-      )
+      prev.map((m, i) => (i === index ? { ...m, [field]: value, isDirty: true } : m))
     );
   };
 
@@ -92,7 +92,7 @@ export function RoadmapEdit({ roadmap, onSave, onCancel, className }: RoadmapEdi
           <button
             type="button"
             onClick={onCancel}
-            className="px-3 py-1.5 text-sm font-medium rounded-md text-muted-foreground hover:bg-muted transition-colors"
+            className="rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted"
             disabled={isSaving}
           >
             取消
@@ -101,13 +101,9 @@ export function RoadmapEdit({ roadmap, onSave, onCancel, className }: RoadmapEdi
             type="button"
             onClick={handleSave}
             disabled={isSaving}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+            className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
           >
-            {isSaving ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Save className="h-4 w-4" />
-            )}
+            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
             保存
           </button>
         </div>
@@ -120,7 +116,7 @@ export function RoadmapEdit({ roadmap, onSave, onCancel, className }: RoadmapEdi
           type="text"
           value={goal}
           onChange={(e) => setGoal(e.target.value)}
-          className="w-full px-3 py-2 text-sm rounded-md border bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+          className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
           placeholder="输入学习目标..."
         />
       </div>
@@ -132,7 +128,7 @@ export function RoadmapEdit({ roadmap, onSave, onCancel, className }: RoadmapEdi
           value={mermaid}
           onChange={(e) => setMermaid(e.target.value)}
           rows={4}
-          className="w-full px-3 py-2 text-sm rounded-md border bg-background font-mono focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+          className="w-full resize-none rounded-md border bg-background px-3 py-2 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-primary"
           placeholder="graph TD&#10;  A[开始] --> B[阶段1]&#10;  B --> C[阶段2]&#10;  C --> D[完成]"
         />
       </div>
@@ -151,18 +147,13 @@ export function RoadmapEdit({ roadmap, onSave, onCancel, className }: RoadmapEdi
         </div>
 
         {milestones.map((milestone, index) => (
-          <div
-            key={milestone.id}
-            className="relative border rounded-lg p-4 space-y-3"
-          >
+          <div key={milestone.id} className="relative space-y-3 rounded-lg border p-4">
             <div className="flex items-start justify-between">
-              <span className="text-xs font-medium text-muted-foreground">
-                阶段 {index + 1}
-              </span>
+              <span className="text-xs font-medium text-muted-foreground">阶段 {index + 1}</span>
               <button
                 type="button"
                 onClick={() => removeMilestone(index)}
-                className="text-muted-foreground hover:text-destructive transition-colors"
+                className="text-muted-foreground transition-colors hover:text-destructive"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -173,7 +164,7 @@ export function RoadmapEdit({ roadmap, onSave, onCancel, className }: RoadmapEdi
               type="text"
               value={milestone.title}
               onChange={(e) => updateMilestone(index, "title", e.target.value)}
-              className="w-full px-3 py-2 text-sm rounded-md border bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               placeholder="阶段标题..."
             />
 
@@ -182,7 +173,7 @@ export function RoadmapEdit({ roadmap, onSave, onCancel, className }: RoadmapEdi
               value={milestone.description}
               onChange={(e) => updateMilestone(index, "description", e.target.value)}
               rows={2}
-              className="w-full px-3 py-2 text-sm rounded-md border bg-background focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+              className="w-full resize-none rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               placeholder="阶段描述..."
             />
 
@@ -217,7 +208,7 @@ export function RoadmapEdit({ roadmap, onSave, onCancel, className }: RoadmapEdi
                   ))}
                 </div>
               ) : (
-                <p className="text-xs text-muted-foreground italic">暂无知识点</p>
+                <p className="text-xs italic text-muted-foreground">暂无知识点</p>
               )}
             </div>
           </div>

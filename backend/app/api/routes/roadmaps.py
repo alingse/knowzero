@@ -93,3 +93,23 @@ async def update_roadmap(
             detail="Roadmap not found",
         )
     return RoadmapResponse.model_validate(roadmap).model_dump(mode="json")
+
+
+@router.get("/{roadmap_id}/progress")
+async def get_roadmap_progress(
+    roadmap_id: int,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> dict:
+    """Get progress data for a roadmap.
+
+    Returns overall progress and per-milestone progress details.
+    """
+    roadmap = await roadmap_service.get_roadmap(db, roadmap_id)
+    if not roadmap:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Roadmap not found",
+        )
+
+    progress = await roadmap_service.get_roadmap_progress(db, roadmap)
+    return progress
