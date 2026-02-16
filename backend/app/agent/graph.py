@@ -12,6 +12,7 @@ from app.agent.nodes import (
     intent_agent_node,
     navigator_agent_node,
     planner_agent_node,
+    post_process_node,
     route_agent_node,
 )
 from app.agent.nodes.route import route_by_decision, route_by_intent
@@ -33,6 +34,7 @@ def create_knowzero_graph(checkpointer: BaseCheckpointSaver | None = None) -> Co
     5. [conditional] -> navigator (if navigate action)
                    -> content_agent (otherwise)
     6. content_agent - Generate/update content
+    7. post_process - Extract entities and generate follow-ups
     """
 
     workflow = StateGraph(AgentState)
@@ -45,6 +47,7 @@ def create_knowzero_graph(checkpointer: BaseCheckpointSaver | None = None) -> Co
     workflow.add_node("navigator_agent", navigator_agent_node)
     workflow.add_node("chitchat_agent", chitchat_agent_node)
     workflow.add_node("planner_agent", planner_agent_node)
+    workflow.add_node("post_process", post_process_node)
 
     # Set entry point
     workflow.set_entry_point("input_normalizer")
@@ -73,7 +76,8 @@ def create_knowzero_graph(checkpointer: BaseCheckpointSaver | None = None) -> Co
     )
 
     workflow.add_edge("planner_agent", "content_agent")
-    workflow.add_edge("content_agent", END)
+    workflow.add_edge("content_agent", "post_process")
+    workflow.add_edge("post_process", END)
     workflow.add_edge("navigator_agent", END)
     workflow.add_edge("chitchat_agent", END)
 

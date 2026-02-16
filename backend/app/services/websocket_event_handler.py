@@ -17,6 +17,5 @@ class StreamContext:
         self.placeholder_message_id: int | None = None
         self.accumulated_content: str = ""
         self.final_result: dict = {}
-        # Background task data
-        self.bg_doc_id: int | None = None
-        self.bg_doc_content: str | None = None
+        # Document ID persisted when content_agent ends (used by post_process)
+        self.doc_id: int | None = None

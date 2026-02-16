@@ -238,6 +238,22 @@ async def send_error(
     logger.warning("Error sent", message=message)
 
 
+async def send_progress(
+    websocket: WebSocket,
+    *,
+    stage: str,
+    message: str,
+) -> None:
+    """Send progress update to client for background processing stages."""
+    await websocket.send_json(
+        {
+            "type": "progress",
+            "data": {"stage": stage, "message": message},
+        }
+    )
+    logger.info("Progress sent", stage=stage, message=message)
+
+
 async def send_done(websocket: WebSocket) -> None:
     """Send done event to indicate streaming completion."""
     await websocket.send_json({"type": "done"})

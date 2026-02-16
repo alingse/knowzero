@@ -1,5 +1,6 @@
 """Content Agent Node - generates and updates documents via LLM."""
 
+import asyncio
 import json
 import time
 
@@ -233,8 +234,7 @@ async def _generate_document(state: AgentState, mode: str) -> dict:
     # Generate category path
     category_path = _generate_category_path(target)
 
-    # Entities and follow-ups are extracted asynchronously after document
-    # is sent to client (see websocket.py background tasks)
+    # Entities and follow-ups are extracted in the post_process node
     document = {
         "id": None,
         "topic": target,
@@ -360,3 +360,26 @@ def _generate_category_path(topic: str) -> str:
             return f"{category}/{topic}"
 
     return f"其他/{topic}"
+
+
+async def post_process_node(state: AgentState) -> AgentState:
+    """Post-process: extract entities and generate follow-ups in parallel."""
+    document = state.get("document")
+    if not document or not document.get("content"):
+        logger.info("post_process skipped: no document content")
+        return state
+
+    content = document["content"]
+    logger.info("post_process started", content_length=len(content))
+
+    entities, follow_ups = await asyncio.gather(
+        _extract_entities_llm(content),
+        _generate_follow_ups(content),
+    )
+
+    document["entities"] = entities
+    state["document"] = document
+    state["follow_up_questions"] = follow_ups
+
+    logger.info("post_process completed", entities=len(entities), follow_ups=len(follow_ups))
+    return state

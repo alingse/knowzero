@@ -4,11 +4,8 @@ This module provides the main orchestration for agent response streaming.
 It coordinates persistence, WebSocket communication, and event processing.
 """
 
-import asyncio
-
 from fastapi import WebSocket
 
-from app.agent.nodes.content import _extract_entities_llm, _generate_follow_ups
 from app.agent.state import AgentState
 from app.core.database import get_db_session
 from app.core.logging import get_logger
@@ -35,6 +32,7 @@ from app.services.websocket_message_sender import (
     send_navigation,
     send_node_end,
     send_node_start,
+    send_progress,
     send_roadmap,
     send_thinking,
     send_tool_end,
@@ -54,9 +52,6 @@ class AgentStreamProcessor:
         self.session_id = state["session_id"]
         self.user_id = state["user_id"]
         self.ctx = StreamContext()
-
-        # Track background tasks for proper cleanup and error handling
-        self._background_tasks: list[asyncio.Task[None]] = []
 
     async def initialize(self) -> None:
         """Initialize the streaming session.
@@ -87,6 +82,8 @@ class AgentStreamProcessor:
         """Process streaming events from the LangGraph agent.
 
         This is the main event loop that handles all agent streaming.
+        Document persistence happens when content_agent ends.
+        Entity/follow-up persistence happens when post_process ends.
         """
         from app.agent.graph import get_graph
 
@@ -114,6 +111,7 @@ class AgentStreamProcessor:
             event_type = event["event"]
             event_name = event.get("name", "")
             event_data = event.get("data", {})
+            metadata = event.get("metadata", {})
 
             # Node/Chain start events
             if event_type == "on_chain_start":
@@ -132,28 +130,41 @@ class AgentStreamProcessor:
                     output = event_data["output"]
                     if isinstance(output, dict):
                         self.ctx.final_result.update(output)
+
+                        # When content_agent ends: persist document and send to client
+                        if node_name == "content_agent" and output.get("document"):
+                            await self._on_content_agent_end(output)
+
+                        # When post_process ends: persist entities/follow-ups
+                        if node_name == "post_process":
+                            await self._on_post_process_end(output)
                     else:
                         logger.debug(
                             "Non-dict output in on_chain_end", output_type=type(output).__name__
                         )
 
-            # LLM start
+            # LLM start — skip post_process node LLM events
             elif event_type == "on_chat_model_start":
+                if metadata.get("langgraph_node") == "post_process":
+                    continue
                 await send_node_start(self.websocket, name="LLM", model=event_data.get("model"))
 
-            # LLM token streaming
+            # LLM token streaming — skip post_process node
             elif event_type == "on_chat_model_stream":
+                if metadata.get("langgraph_node") == "post_process":
+                    continue
                 chunk = event_data.get("chunk")
                 if chunk:
                     chunk_str = chunk.content if hasattr(chunk, "content") else str(chunk)
-                    metadata = event.get("metadata", {})
                     node_name = metadata.get("langgraph_node", "")
                     if node_name == "content_agent":
                         self.ctx.accumulated_content += chunk_str
                         await send_document_token(self.websocket, content=chunk_str)
 
-            # LLM end
+            # LLM end — skip post_process node
             elif event_type == "on_chat_model_end":
+                if metadata.get("langgraph_node") == "post_process":
+                    continue
                 await send_node_end(self.websocket, name="LLM")
 
             # Tool call start
@@ -181,29 +192,134 @@ class AgentStreamProcessor:
                 await send_error(self.websocket, message=f"工具 {tool_name} 执行失败: {error_msg}")
                 logger.error("Tool error", tool=tool_name, error=error_msg)
 
+    async def _on_content_agent_end(self, output: dict) -> None:
+        """Handle content_agent completion: persist document and send to client immediately."""
+        doc_data = output["document"]
+
+        async with get_db_session() as db:
+            doc_id, doc_topic = await persist_document(
+                db,
+                session_id=self.session_id,
+                user_id=self.user_id,
+                doc_data=doc_data,
+                change_summary=output.get("change_summary"),
+                input_source=self.state["input_source"],
+                current_doc_id=self.state.get("current_doc_id"),
+                intent=output.get("intent"),
+                routing=output.get("routing_decision"),
+            )
+
+            await persist_assistant_message(
+                db,
+                session_id=self.session_id,
+                user_id=self.user_id,
+                content=output.get("change_summary") or "",
+                message_type="document_ref",
+                related_document_id=doc_id,
+                agent_intent=output.get("intent"),
+                agent_routing=output.get("routing_decision"),
+            )
+
+            await update_placeholder_message(
+                db,
+                message_id=self.ctx.placeholder_message_id,
+                session_id=self.session_id,
+                user_id=self.user_id,
+                doc_id=doc_id,
+                topic=doc_topic,
+            )
+
+        # Send document to client immediately (entities come later from post_process)
+        await send_document_complete(
+            self.websocket,
+            doc_id=doc_id,
+            topic=doc_data.get("topic"),
+            content=doc_data.get("content"),
+            category_path=doc_data.get("category_path"),
+            entities=[],
+        )
+
+        # Save doc_id for post_process to use
+        self.ctx.doc_id = doc_id
+
+        # Notify client that post-processing is starting
+        await send_progress(
+            self.websocket,
+            stage="post_processing",
+            message="正在提取关键概念和生成追问...",
+        )
+
+        logger.info("content_agent document persisted and sent", doc_id=doc_id)
+
+    async def _on_post_process_end(self, output: dict) -> None:
+        """Handle post_process completion: persist entities/follow-ups and send to client."""
+        doc_id = self.ctx.doc_id
+        if not doc_id:
+            logger.warning("post_process ended but no doc_id in context")
+            return
+
+        doc_data = output.get("document") or {}
+        entities = doc_data.get("entities", [])
+        follow_ups = output.get("follow_up_questions", [])
+
+        # Persist entities
+        if entities:
+            try:
+                async with get_db_session() as db:
+                    await entity_service.upsert_entities(db, self.session_id, entities, doc_id)
+                    await document_service.update_document_entities(
+                        db, document_id=doc_id, entities=entities
+                    )
+            except Exception as e:
+                logger.warning("Failed to persist entities", error=str(e), doc_id=doc_id)
+
+        # Persist follow-ups
+        if follow_ups:
+            try:
+                async with get_db_session() as db:
+                    await document_service.save_follow_ups(db, doc_id, follow_ups)
+            except Exception as e:
+                logger.warning("Failed to persist follow-ups", error=str(e), doc_id=doc_id)
+
+        # Send to client
+        await send_entities(self.websocket, document_id=doc_id, entities=entities)
+        await send_follow_ups(self.websocket, document_id=doc_id, questions=follow_ups)
+
+        logger.info(
+            "post_process results persisted and sent",
+            doc_id=doc_id,
+            entities=len(entities),
+            follow_ups=len(follow_ups),
+        )
+
     async def finalize(self) -> None:
         """Finalize the streaming session after event processing completes.
 
-        Handles result persistence, sends final messages, and launches background tasks.
+        Document and entity/follow-up persistence is handled in process_events.
+        This handles remaining result types (roadmap, navigation, response).
         """
         from app.agent.graph import get_graph
 
         graph = get_graph()
         config = {"configurable": {"thread_id": self.session_id}}
-        result_state = await graph.ainvoke(self.state, config)
+
+        # Read final state from checkpoint (NOT ainvoke which re-runs the graph)
+        state_snapshot = await graph.aget_state(config)
+        result_state = state_snapshot.values if state_snapshot and state_snapshot.values else {}
+
+        # Merge with results captured during streaming as fallback
+        if self.ctx.final_result:
+            for key, value in self.ctx.final_result.items():
+                if key not in result_state or result_state[key] is None:
+                    result_state[key] = value
 
         # Handle errors
         if result_state.get("error"):
             await self._handle_error(result_state["error"])
             return
 
-        # Handle document generation
-        if result_state.get("document"):
-            await self._handle_document(result_state)
-
         # Handle roadmap
         if result_state.get("roadmap"):
-            # Persist roadmap to database
             async with get_db_session() as db:
                 roadmap_id = await persist_roadmap(
                     db,
@@ -232,9 +348,6 @@ class AgentStreamProcessor:
 
         await send_done(self.websocket)
 
-        # Launch background tasks
-        await self._launch_background_tasks()
-
     async def _handle_error(self, error_msg: str) -> None:
         """Handle error state."""
         if self.ctx.placeholder_message_id:
@@ -245,59 +358,6 @@ class AgentStreamProcessor:
                     message_id=self.ctx.placeholder_message_id,
                 )
         await send_error(self.websocket, message=error_msg)
-
-    async def _handle_document(self, result_state: dict) -> None:
-        """Handle document persistence and streaming."""
-        doc_data = result_state["document"]
-
-        async with get_db_session() as db:
-            doc_id, doc_topic = await persist_document(
-                db,
-                session_id=self.session_id,
-                user_id=self.user_id,
-                doc_data=doc_data,
-                change_summary=result_state.get("change_summary"),
-                input_source=self.state["input_source"],
-                current_doc_id=self.state.get("current_doc_id"),
-                intent=result_state.get("intent"),
-                routing=result_state.get("routing_decision"),
-            )
-
-            # Persist assistant message for document reference
-            await persist_assistant_message(
-                db,
-                session_id=self.session_id,
-                user_id=self.user_id,
-                content=result_state.get("change_summary") or "",
-                message_type="document_ref",
-                related_document_id=doc_id,
-                agent_intent=result_state.get("intent"),
-                agent_routing=result_state.get("routing_decision"),
-            )
-
-            # Update placeholder message
-            await update_placeholder_message(
-                db,
-                message_id=self.ctx.placeholder_message_id,
-                session_id=self.session_id,
-                user_id=self.user_id,
-                doc_id=doc_id,
-                topic=doc_topic,
-            )
-
-        # Stream document to client
-        await send_document_complete(
-            self.websocket,
-            doc_id=doc_id,
-            topic=doc_data.get("topic"),
-            content=doc_data.get("content"),
-            category_path=doc_data.get("category_path"),
-            entities=[],  # Entities sent later via background task
-        )
-
-        # Save for background tasks in context
-        self.ctx.bg_doc_id = doc_id
-        self.ctx.bg_doc_content = doc_data.get("content", "")
 
     async def _handle_navigation(self, nav: dict) -> None:
         """Handle navigation target."""
@@ -331,60 +391,11 @@ class AgentStreamProcessor:
                 agent_intent=self.state.get("intent"),
             )
 
-    async def _launch_background_tasks(self) -> None:
-        """Launch background tasks for entity extraction and follow-up generation."""
-        if self.ctx.bg_doc_id and self.ctx.bg_doc_content:
-            # Create entity extraction task
-            entity_task = asyncio.create_task(
-                _background_extract_entities(
-                    self.websocket,
-                    self.session_id,
-                    self.ctx.bg_doc_id,
-                    self.ctx.bg_doc_content,
-                )
-            )
-            entity_task.add_done_callback(self._on_task_done)
-            self._background_tasks.append(entity_task)
-
-            # Create follow-up generation task
-            followup_task = asyncio.create_task(
-                _background_generate_follow_ups(
-                    self.websocket,
-                    self.session_id,
-                    self.user_id,
-                    self.ctx.bg_doc_id,
-                    self.ctx.bg_doc_content,
-                )
-            )
-            followup_task.add_done_callback(self._on_task_done)
-            self._background_tasks.append(followup_task)
-
-    def _on_task_done(self, task: asyncio.Task[None]) -> None:
-        """Callback for background task completion with error logging."""
-        try:
-            # Access result to raise any exception that occurred
-            task.result()
-        except Exception as e:
-            logger.warning("Background task failed", error=str(e), exc_info=True)
-
     async def cleanup(self) -> None:
         """Clean up resources after streaming completes.
 
-        Always sets agent status back to idle and waits for background tasks.
+        Sets agent status back to idle.
         """
-        # Wait for background tasks to complete with timeout
-        if self._background_tasks:
-            try:
-                await asyncio.wait_for(
-                    asyncio.gather(*self._background_tasks, return_exceptions=True),
-                    timeout=30.0,
-                )
-            except TimeoutError:
-                logger.warning("Background tasks timed out during cleanup")
-            except Exception as e:
-                logger.warning("Error waiting for background tasks", error=str(e))
-
-        # Set agent status back to idle
         try:
             async with get_db_session() as db:
                 await update_agent_status(db, self.session_id, "idle")
@@ -419,59 +430,3 @@ async def stream_agent_response(
     """
     processor = AgentStreamProcessor(websocket, state)
     await processor.stream()
-
-
-# Background task functions (kept from original for compatibility)
-
-
-async def _background_extract_entities(
-    websocket: WebSocket,
-    session_id: str,
-    doc_id: int,
-    content: str,
-) -> None:
-    """Background: extract entities via LLM, persist, and push to client."""
-    try:
-        entities = await _extract_entities_llm(content)
-        if not entities:
-            return
-
-        async with get_db_session() as db:
-            await entity_service.upsert_entities(db, session_id, entities, doc_id)
-            await document_service.update_document_entities(
-                db, document_id=doc_id, entities=entities
-            )
-
-        await send_entities(websocket, document_id=doc_id, entities=entities)
-        logger.info("Background entities pushed", doc_id=doc_id, count=len(entities))
-    except Exception as e:
-        logger.warning("Background entity extraction failed", error=str(e), doc_id=doc_id)
-
-
-async def _background_generate_follow_ups(
-    websocket: WebSocket,
-    session_id: str,
-    user_id: int,
-    doc_id: int,
-    content: str,
-) -> None:
-    """Background: generate follow-up questions via LLM, persist, and push to client."""
-    follow_ups = []
-
-    try:
-        follow_ups = await _generate_follow_ups(content)
-
-        # Save to database if we got any questions
-        if follow_ups:
-            async with get_db_session() as db:
-                await document_service.save_follow_ups(db, doc_id, follow_ups)
-    except Exception as e:
-        logger.warning("Background follow-up generation failed", error=str(e), doc_id=doc_id)
-
-    # Always send follow_ups message so client knows we're done
-    try:
-        await send_follow_ups(websocket, document_id=doc_id, questions=follow_ups)
-        count = len(follow_ups)
-        logger.info("Background follow-ups pushed", doc_id=doc_id, count=count)
-    except Exception:
-        logger.debug("Failed to send follow-ups, WebSocket may be closed", doc_id=doc_id)

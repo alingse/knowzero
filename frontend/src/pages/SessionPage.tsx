@@ -47,11 +47,8 @@ export function SessionPage() {
   // View mode: document | roadmap
   const [viewMode, setViewMode] = useState<"document" | "roadmap">("document");
 
-  // Placeholder message ID for tracking.
-  // We only use the setter (setPlaceholderId) because the actual ID value is stored
-  // in the messages array via addMessage(). The setter is used to trigger state
-  // updates when we need to track placeholder changes across the component lifecycle.
-  const [, setPlaceholderId] = useState<number | null>(null);
+  // Placeholder message ID for tracking via ref (avoids setState-in-setState warning)
+  const placeholderIdRef = useRef<number | null>(null);
 
   const {
     currentDocument,
@@ -137,7 +134,7 @@ export function SessionPage() {
       isPlaceholder: true,
     };
     addMessage(placeholderMsg);
-    setPlaceholderId(id);
+    placeholderIdRef.current = id;
     return id;
   }, [addMessage]);
 
@@ -148,12 +145,11 @@ export function SessionPage() {
 
   // Helper to remove placeholder
   const removePlaceholder = useCallback(() => {
-    setPlaceholderId((id) => {
-      if (id) {
-        setMessages((prev: Message[]) => prev.filter(m => m.id !== id));
-      }
-      return null;
-    });
+    const id = placeholderIdRef.current;
+    if (id) {
+      setMessages((prev: Message[]) => prev.filter(m => m.id !== id));
+    }
+    placeholderIdRef.current = null;
   }, [setMessages]);
 
   // Handle WebSocket messages
@@ -166,10 +162,7 @@ export function SessionPage() {
         setStreamingTitle("正在生成文档...");
         setFollowUpQuestions([]);
         // Save placeholder id synchronously for immediate use
-        {
-          const newPlaceholderId = addPlaceholder("...");
-          setPlaceholderId(newPlaceholderId);
-        }
+        addPlaceholder("...");
         break;
 
       case "token": {
@@ -190,12 +183,9 @@ export function SessionPage() {
           setStreamingTitle(docTopic);
           setCurrentDocument(null);
           // Update placeholder to show document generation
-          setPlaceholderId((id) => {
-            if (id) {
-              updatePlaceholder(id, `正在生成《${docTopic}》...`);
-            }
-            return id;
-          });
+          if (placeholderIdRef.current) {
+            updatePlaceholder(placeholderIdRef.current, `正在生成《${docTopic}》...`);
+          }
         }
         break;
       }
@@ -208,23 +198,22 @@ export function SessionPage() {
             ...prev,
             { id: `node-${Date.now()}`, type: "node_start", name: nodeName, timestamp: Date.now() },
           ]);
-          // Update placeholder based on node name (use existing display name mapping)
-          setPlaceholderId((id) => {
-            if (id) {
-              const displayNameMap: Record<string, string> = {
-                input_normalizer: "正在理解输入...",
-                intent_agent: "正在分析意图...",
-                route_agent: "正在规划处理...",
-                content_agent: "正在生成内容...",
-                planner_agent: "正在规划学习路径...",
-                navigator_agent: "正在跳转文档...",
-                chitchat_agent: "正在回复...",
-              };
-              const displayName = displayNameMap[nodeName] || `正在执行 ${nodeName}...`;
-              updatePlaceholder(id, displayName);
-            }
-            return id;
-          });
+          // Update placeholder based on node name
+          if (placeholderIdRef.current) {
+            const displayNameMap: Record<string, string> = {
+              input_normalizer: "正在理解输入...",
+              intent_agent: "正在分析意图...",
+              route_agent: "正在规划处理...",
+              content_agent: "正在生成内容...",
+              post_process: "正在提取关键概念和生成追问...",
+              planner_agent: "正在规划学习路径...",
+              navigator_agent: "正在跳转文档...",
+              chitchat_agent: "正在回复...",
+              LLM: "AI 正在生成中...",
+            };
+            const displayName = displayNameMap[nodeName] || `正在执行 ${nodeName}...`;
+            updatePlaceholder(placeholderIdRef.current, displayName);
+          }
         }
         break;
       }
@@ -267,6 +256,10 @@ export function SessionPage() {
           ...prev,
           { id: `progress-${Date.now()}`, type: "progress", data: response.data, timestamp: Date.now() },
         ]);
+        // Update placeholder with progress message for background task status
+        if (response.data?.message && placeholderIdRef.current) {
+          updatePlaceholder(placeholderIdRef.current, response.data.message as string);
+        }
         break;
 
       case "content":
@@ -333,52 +326,47 @@ export function SessionPage() {
           setCurrentDocument(doc);
           addDocument(doc); // Fix: add document to store list
 
-          // Update placeholder to completion state
-          setPlaceholderId((id) => {
-            if (id) {
-              updatePlaceholder(id, `已为你生成《${doc.topic}》📄`);
-            }
-            return null; // Clear after updating
-          });
-
-          // Refresh messages list to get the latest assistant message with document reference
-          if (sessionId) {
-            queryClient.invalidateQueries({ queryKey: ["session", sessionId, "messages"] });
+          // Update placeholder - post_process node_start will update it further
+          if (placeholderIdRef.current) {
+            updatePlaceholder(placeholderIdRef.current, `已生成《${doc.topic}》`);
           }
         }
         setStreamingContent("");
-        setStreamingTitle("");
         break;
 
       case "entities": {
         const entitiesData = response.data as { document_id?: number; entities?: string[] } | undefined;
-        const shouldUpdate = entitiesData?.entities && (
+        // Use fresh store state to avoid stale closure
+        const currentDoc = useSessionStore.getState().currentDocument;
+        const shouldUpdateEntities = entitiesData?.entities && (
           !entitiesData.document_id ||  // No document ID specified, allow update
-          !currentDocument ||       // No current document, allow update (new doc)
-          entitiesData.document_id === currentDocument?.id  // ID matches current document
+          !currentDoc ||       // No current document, allow update (new doc)
+          entitiesData.document_id === currentDoc?.id  // ID matches current document
         );
-        if (shouldUpdate) {
-          updateDocumentEntities(entitiesData.entities);
+        if (shouldUpdateEntities) {
+          updateDocumentEntities(entitiesData.entities!);
         }
         break;
       }
 
       case "follow_ups": {
         const fuData = response.data as { document_id?: number; questions?: FollowUpQuestion[] } | undefined;
-        const shouldUpdate = fuData?.questions && (
+        // Use fresh store state to avoid stale closure
+        const currentDocForFU = useSessionStore.getState().currentDocument;
+        const shouldUpdateFU = fuData?.questions && (
           !fuData.document_id ||  // No document ID specified, allow update
-          !currentDocument ||       // No current document, allow update (new doc)
-          fuData.document_id === currentDocument?.id  // ID matches current document
+          !currentDocForFU ||       // No current document, allow update (new doc)
+          fuData.document_id === currentDocForFU?.id  // ID matches current document
         );
         console.log("[follow_ups] Received:", {
           hasData: !!fuData,
           hasQuestions: !!fuData?.questions,
           questionsCount: fuData?.questions?.length,
           documentId: fuData?.document_id,
-          currentDocId: currentDocument?.id,
-          shouldUpdate,
+          currentDocId: currentDocForFU?.id,
+          shouldUpdate: shouldUpdateFU,
         });
-        if (shouldUpdate) {
+        if (shouldUpdateFU && fuData.questions) {
           const mapped = fuData.questions.map((q, i) => ({
             ...q,
             id: q.id ?? i,
@@ -401,12 +389,10 @@ export function SessionPage() {
 
       case "error":
         setLoading(false);
-        setPlaceholderId((id) => {
-          if (id) {
-            updatePlaceholder(id, "抱歉，出现了问题，请重试。");
-          }
-          return null; // Clear after updating
-        });
+        if (placeholderIdRef.current) {
+          updatePlaceholder(placeholderIdRef.current, "抱歉，出现了问题，请重试。");
+        }
+        placeholderIdRef.current = null;
         console.error("Agent error:", response.message);
         break;
 
@@ -424,6 +410,12 @@ export function SessionPage() {
         setStreaming(false);
         setStreamingContent("");
         setStreamingTitle("");
+        // Clear placeholder ref (message stays until query refresh replaces it)
+        placeholderIdRef.current = null;
+        // Refresh messages from server to get persisted messages
+        if (sessionId) {
+          queryClient.invalidateQueries({ queryKey: ["session", sessionId, "messages"] });
+        }
         break;
     }
   };
