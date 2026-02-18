@@ -16,7 +16,7 @@ async def navigator_agent_node(state: AgentState) -> AgentState:
     Looks up real documents from the database.
     """
     intent = state.get("intent", {})
-    routing_decision = state.get("routing_decision", {})
+    routing_decision = state.get("routing_decision") or {}
 
     # Priority: routing_decision > intent
     target_doc_id = routing_decision.get("target_doc_id") or intent.get("target_doc_id")
@@ -41,7 +41,7 @@ async def navigator_agent_node(state: AgentState) -> AgentState:
             "document_id": doc.id,
             "title": doc.topic,
             "content": doc.content,
-            "message": f"已找到关于 **{doc.topic}** 的文档",
+            "message": f"已找到关于 **{target}** 的文档",
         }
     else:
         navigation_target = {

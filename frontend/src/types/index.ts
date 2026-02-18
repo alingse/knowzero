@@ -166,6 +166,7 @@ export interface StreamResponse {
     | "document_token" // Document content streaming token
     | "entities"
     | "follow_ups"
+    | "navigation" // Navigate to existing document
     | "error"
     | "done"
     // Streaming event types for LangGraph progress

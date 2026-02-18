@@ -76,7 +76,13 @@ export function SessionPage() {
     updateRoadmap,
     roadmapProgress,
     setRoadmapProgress,
+    clearSession,
   } = useSessionStore();
+
+  // Clear stale state immediately when sessionId changes
+  useEffect(() => {
+    clearSession();
+  }, [sessionId, clearSession]);
 
   // Restore session on load
   const { isLoading } = useQuery({
@@ -104,7 +110,7 @@ export function SessionPage() {
         setStreamingTitle(data.current_document.topic);
       }
 
-      // Restore roadmap if available
+      // Restore roadmap (always reset to avoid stale data from previous session)
       if (data.roadmap) {
         setRoadmap(data.roadmap);
         // Fetch roadmap progress
@@ -114,6 +120,9 @@ export function SessionPage() {
         } catch (error) {
           console.error("Failed to load roadmap progress:", error);
         }
+      } else {
+        setRoadmap(null);
+        setRoadmapProgress(null);
       }
 
       return data;
@@ -434,6 +443,27 @@ export function SessionPage() {
           // Remove placeholder when roadmap is received
           removePlaceholder();
         }
+        break;
+      }
+
+      case "navigation": {
+        const navData = response.data as { document_id?: number | null; message?: string } | undefined;
+        if (navData?.document_id) {
+          // Find the document in the store and navigate to it
+          const targetDoc = documents.find((d) => d.id === navData.document_id);
+          if (targetDoc) {
+            setCurrentDocument(targetDoc);
+            setViewMode("document");
+            // Update follow-up questions from the navigated document
+            const followUps = (targetDoc as any).follow_up_questions as FollowUpQuestion[] | undefined;
+            setFollowUpQuestions(followUps || []);
+            console.log("[navigation] Navigated to document:", targetDoc.id, targetDoc.topic);
+          } else {
+            console.warn("[navigation] Document not found in store:", navData.document_id);
+          }
+        }
+        // Remove placeholder when navigation completes
+        removePlaceholder();
         break;
       }
 

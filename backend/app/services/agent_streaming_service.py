@@ -90,22 +90,6 @@ class AgentStreamProcessor:
         graph = get_graph()
         config = {"configurable": {"thread_id": self.session_id}}
 
-        # Create placeholder message when document generation starts
-        async with get_db_session() as db:
-            routing = self.state.get("routing_decision") or {}
-            doc_title = (
-                routing.get("target") if routing else self.state.get("raw_message", "新文档")
-            )
-
-            await send_document_start(self.websocket, topic=doc_title)
-            placeholder_msg = await create_placeholder_message(
-                db,
-                session_id=self.session_id,
-                user_id=self.user_id,
-                topic=doc_title,
-            )
-            self.ctx.placeholder_message_id = placeholder_msg.id
-
         # Process streaming events
         async for event in graph.astream_events(self.state, config, version="v1"):
             event_type = event["event"]
@@ -118,6 +102,30 @@ class AgentStreamProcessor:
                 node_name = event_name.split(".")[-1] if "." in event_name else event_name
                 await send_node_start(self.websocket, name=node_name)
                 logger.debug("Node started", node=node_name)
+
+                # Create placeholder message when content_agent starts
+                if node_name == "content_agent" and not self.ctx.placeholder_message_id:
+                    async with get_db_session() as db:
+                        routing = self.state.get("routing_decision") or {}
+                        intent = self.state.get("intent", {})
+                        doc_title = (
+                            routing.get("target")
+                            or intent.get("target")
+                            or self.state.get("raw_message", "新文档")
+                        )
+
+                        await send_document_start(self.websocket, topic=doc_title)
+                        placeholder_msg = await create_placeholder_message(
+                            db,
+                            session_id=self.session_id,
+                            user_id=self.user_id,
+                            topic=doc_title,
+                        )
+                        self.ctx.placeholder_message_id = placeholder_msg.id
+                        logger.info(
+                            "Placeholder message created for content_agent",
+                            message_id=placeholder_msg.id,
+                        )
 
             # Node/Chain end events
             elif event_type == "on_chain_end":

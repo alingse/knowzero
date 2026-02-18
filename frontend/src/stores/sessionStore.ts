@@ -160,6 +160,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       selectedDocumentId: null,
       messages: [],
       roadmap: null,
+      roadmapProgress: null,
       followUpQuestions: [],
       error: null,
       agentStatus: "idle",

@@ -20,6 +20,8 @@ async def create_document(
     entities: list | None = None,
     generation_metadata: dict | None = None,
     parent_document_id: int | None = None,
+    roadmap_id: int | None = None,
+    milestone_id: int | None = None,
 ) -> Document:
     """Create a new document and its initial version."""
     doc = Document(
@@ -32,6 +34,8 @@ async def create_document(
         version=1,
         generation_metadata=generation_metadata,
         parent_document_id=parent_document_id,
+        roadmap_id=roadmap_id,
+        milestone_id=milestone_id,
     )
     db.add(doc)
     await db.flush()

@@ -32,6 +32,23 @@ def _should_generate_document(state: AgentState) -> str:
     return "content_agent"
 
 
+def _route_after_navigator(state: AgentState) -> str:
+    """Route after navigator based on whether document was found.
+
+    Expected nav_target types:
+    - "document": Found existing document, go to END
+    - "not_found": Document not found, generate new one
+
+    Returns "END" if document was found, otherwise "content_agent" to generate.
+    """
+    nav_target = state.get("navigation_target") or {}
+    nav_type = nav_target.get("type", "")
+
+    if nav_type == "document":
+        return "END"
+    return "content_agent"
+
+
 def create_knowzero_graph(checkpointer: BaseCheckpointSaver | None = None) -> CompiledStateGraph:
     """Create the KnowZero Agent workflow graph.
 
@@ -99,7 +116,19 @@ def create_knowzero_graph(checkpointer: BaseCheckpointSaver | None = None) -> Co
 
     workflow.add_edge("content_agent", "post_process")
     workflow.add_edge("post_process", END)
-    workflow.add_edge("navigator_agent", END)
+
+    # Conditional edge after navigator_agent:
+    # - If document was found, go to END
+    # - If document not found (not_found), go to content_agent to generate
+    workflow.add_conditional_edges(
+        "navigator_agent",
+        _route_after_navigator,
+        {
+            "END": END,
+            "content_agent": "content_agent",
+        },
+    )
+
     workflow.add_edge("chitchat_agent", END)
 
     return workflow.compile(checkpointer=checkpointer)

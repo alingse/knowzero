@@ -142,6 +142,8 @@ async def persist_document(
                 "routing": routing,
             },
             parent_document_id=parent_id,
+            roadmap_id=doc_data.get("roadmap_id"),
+            milestone_id=doc_data.get("milestone_id"),
         )
 
     doc_id = db_doc.id
