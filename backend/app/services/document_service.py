@@ -151,3 +151,30 @@ async def save_follow_ups(
         records.append(fq)
     await db.flush()
     return records
+
+
+async def update_document_roadmap(
+    db: AsyncSession,
+    *,
+    document_id: int,
+    roadmap_id: int | None,
+    milestone_id: int | None,
+) -> Document | None:
+    """Update a document's roadmap and milestone association.
+
+    Called after post_process classifies the document to a milestone.
+    """
+    doc = await db.get(Document, document_id)
+    if not doc:
+        logger.warning("Document not found for roadmap update", doc_id=document_id)
+        return None
+    doc.roadmap_id = roadmap_id
+    doc.milestone_id = milestone_id
+    await db.flush()
+    logger.info(
+        "Document roadmap updated",
+        doc_id=document_id,
+        roadmap_id=roadmap_id,
+        milestone_id=milestone_id,
+    )
+    return doc

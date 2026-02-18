@@ -107,7 +107,7 @@ class AgentStreamProcessor:
                 if node_name == "content_agent" and not self.ctx.placeholder_message_id:
                     async with get_db_session() as db:
                         routing = self.state.get("routing_decision") or {}
-                        intent = self.state.get("intent", {})
+                        intent = self.state.get("intent") or {}
                         doc_title = (
                             routing.get("target")
                             or intent.get("target")
@@ -137,6 +137,8 @@ class AgentStreamProcessor:
                 if "output" in event_data:
                     output = event_data["output"]
                     if isinstance(output, dict):
+                        # Update self.state with node output so it reflects current state
+                        self.state.update(output)
                         self.ctx.final_result.update(output)
 
                         # When content_agent ends: persist document and send to client
@@ -269,6 +271,21 @@ class AgentStreamProcessor:
         doc_data = output.get("document") or {}
         entities = doc_data.get("entities", [])
         follow_ups = output.get("follow_up_questions", [])
+        roadmap_id = doc_data.get("roadmap_id")
+        milestone_id = doc_data.get("milestone_id")
+
+        # Update roadmap/milestone association (set by post_process node)
+        if roadmap_id is not None or milestone_id is not None:
+            try:
+                async with get_db_session() as db:
+                    await document_service.update_document_roadmap(
+                        db,
+                        document_id=doc_id,
+                        roadmap_id=roadmap_id,
+                        milestone_id=milestone_id,
+                    )
+            except Exception as e:
+                logger.warning("Failed to update document roadmap", error=str(e), doc_id=doc_id)
 
         # Persist entities
         if entities:
@@ -298,6 +315,8 @@ class AgentStreamProcessor:
             doc_id=doc_id,
             entities=len(entities),
             follow_ups=len(follow_ups),
+            roadmap_id=roadmap_id,
+            milestone_id=milestone_id,
         )
 
     async def finalize(self) -> None:
