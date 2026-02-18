@@ -1,6 +1,5 @@
-import { ChevronRight, Target } from "lucide-react";
+import { Check, ChevronRight, Lock, Target } from "lucide-react";
 
-import { MilestoneNode } from "./MilestoneNode";
 import { cn } from "@/lib/utils";
 
 import type { RoadmapProgress } from "@/types";
@@ -33,96 +32,106 @@ export function FishboneTimeline({
         </div>
       </div>
 
-      {/* Fishbone Diagram */}
-      <div className="relative overflow-x-auto pb-4">
-        <div className="min-w-max px-4">
-          {/* SVG Connections */}
-          <svg
-            className="pointer-events-none absolute left-0 top-0 h-full w-full"
-            style={{ zIndex: 0 }}
-          >
-            {/* Main spine */}
-            <line x1="0" y1="50%" x2="100%" y2="50%" className="stroke-border stroke-2" />
-            {/* Progress spine */}
-            <line
-              x1="0"
-              y1="50%"
-              x2={`${progress.overall_progress * 100}%`}
-              y2="50%"
-              className="stroke-primary stroke-2 transition-all duration-500"
-            />
-          </svg>
+      {/* Timeline */}
+      <div className="rounded-lg border bg-muted/30 p-4">
+        <div className="flex flex-col gap-0">
+          {progress.milestones.map((milestone, index) => {
+            const isLast = index === progress.milestones.length - 1;
+            const isCurrent = milestone.id === currentMilestoneId;
+            const progressPercent = Math.round(milestone.progress * 100);
 
-          {/* Milestones */}
-          <div className="relative flex items-start justify-between gap-8 py-8">
-            {progress.milestones.map((milestone, index) => (
-              <div
-                key={milestone.id}
-                className="relative flex flex-col items-center"
-                style={{
-                  // Alternate top/bottom positioning
-                  marginTop: index % 2 === 0 ? "0" : "80px",
-                  marginBottom: index % 2 === 0 ? "80px" : "0",
-                }}
-              >
-                {/* Vertical branch line */}
-                <div
-                  className={cn(
-                    "absolute w-0.5 bg-border",
-                    index % 2 === 0
-                      ? "bottom-full left-1/2 h-8 -translate-x-1/2"
-                      : "left-1/2 top-full h-8 -translate-x-1/2"
-                  )}
-                />
-                {/* Progress branch line */}
-                {milestone.status !== "locked" && (
+            return (
+              <div key={milestone.id} className="flex gap-3">
+                {/* Left: timeline track */}
+                <div className="flex flex-col items-center">
+                  {/* Node */}
                   <div
                     className={cn(
-                      "absolute w-0.5 bg-primary",
-                      index % 2 === 0
-                        ? "bottom-full left-1/2 h-8 -translate-x-1/2"
-                        : "left-1/2 top-full h-8 -translate-x-1/2"
+                      "relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
+                      milestone.status === "locked" &&
+                        "border-muted-foreground/30 bg-muted text-muted-foreground",
+                      milestone.status === "active" &&
+                        "border-primary bg-primary text-primary-foreground shadow-md shadow-primary/30",
+                      milestone.status === "completed" &&
+                        "border-green-500 bg-green-500 text-white"
                     )}
-                  />
-                )}
+                  >
+                    {milestone.status === "completed" ? (
+                      <Check className="h-4 w-4" />
+                    ) : milestone.status === "locked" ? (
+                      <Lock className="h-3.5 w-3.5" />
+                    ) : (
+                      <span className="text-xs font-bold">{index + 1}</span>
+                    )}
+                    {isCurrent && (
+                      <div className="absolute -inset-1 animate-ping rounded-full border-2 border-primary opacity-30" />
+                    )}
+                  </div>
+                  {/* Connector line */}
+                  {!isLast && (
+                    <div className="relative h-full w-0.5 min-h-[16px]">
+                      <div className="absolute inset-0 bg-border" />
+                      {milestone.status !== "locked" && (
+                        <div className="absolute inset-0 bg-primary" />
+                      )}
+                    </div>
+                  )}
+                </div>
 
-                {/* Node on spine */}
-                <div
+                {/* Right: milestone card */}
+                <button
+                  type="button"
+                  onClick={() => onMilestoneClick?.(milestone.id)}
                   className={cn(
-                    "relative z-10 flex h-4 w-4 items-center justify-center rounded-full border-2 transition-colors",
-                    milestone.status === "locked" && "border-muted-foreground/30 bg-muted",
+                    "mb-3 flex flex-1 items-center gap-3 rounded-lg border p-3 text-left transition-all",
+                    "hover:shadow-sm",
+                    milestone.status === "locked" &&
+                      "border-muted-foreground/15 bg-muted/40 opacity-60",
                     milestone.status === "active" &&
-                      "border-primary bg-primary shadow-lg shadow-primary/50",
-                    milestone.status === "completed" && "border-green-500 bg-green-500"
+                      "border-primary/30 bg-primary/5",
+                    milestone.status === "completed" &&
+                      "border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/20",
+                    isCurrent && "ring-2 ring-primary ring-offset-1"
                   )}
                 >
-                  {milestone.status === "active" && (
-                    <div className="h-2 w-2 animate-pulse rounded-full bg-white" />
-                  )}
-                </div>
-
-                {/* Milestone Card */}
-                <div
-                  className={cn(
-                    "absolute w-64",
-                    index % 2 === 0 ? "bottom-full mb-2" : "top-full mt-2"
-                  )}
-                >
-                  <MilestoneNode
-                    milestone={milestone}
-                    position={index % 2 === 0 ? "top" : "bottom"}
-                    isCurrent={milestone.id === currentMilestoneId}
-                    onClick={() => onMilestoneClick?.(milestone.id)}
-                  />
-                </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <h4
+                        className={cn(
+                          "truncate text-sm font-semibold",
+                          milestone.status === "locked" && "text-muted-foreground",
+                          milestone.status === "active" && "text-primary",
+                          milestone.status === "completed" && "text-green-600 dark:text-green-400"
+                        )}
+                      >
+                        {milestone.title}
+                      </h4>
+                      {milestone.status === "active" && (
+                        <ChevronRight className="h-3.5 w-3.5 shrink-0 text-primary" />
+                      )}
+                    </div>
+                    <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">
+                      {milestone.description}
+                    </p>
+                  </div>
+                  {/* Progress badge */}
+                  <div
+                    className={cn(
+                      "shrink-0 rounded-full px-2 py-0.5 text-xs font-medium",
+                      milestone.status === "locked" &&
+                        "bg-muted text-muted-foreground",
+                      milestone.status === "active" &&
+                        "bg-primary/10 text-primary",
+                      milestone.status === "completed" &&
+                        "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                    )}
+                  >
+                    {progressPercent}%
+                  </div>
+                </button>
               </div>
-            ))}
-          </div>
-
-          {/* End arrow */}
-          <div className="absolute right-0 top-1/2 flex -translate-y-1/2 items-center">
-            <ChevronRight className="h-6 w-6 text-muted-foreground" />
-          </div>
+            );
+          })}
         </div>
       </div>
 

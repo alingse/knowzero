@@ -7,12 +7,14 @@ import type { RoadmapProgress } from "@/types";
 
 interface RoadmapBarProps {
   progress: RoadmapProgress;
-  onExpand?: () => void;
+  isExpanded?: boolean;
+  onToggle?: (expanded: boolean) => void;
   className?: string;
 }
 
-export function RoadmapBar({ progress, onExpand, className }: RoadmapBarProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
+export function RoadmapBar({ progress, isExpanded: controlledExpanded, onToggle, className }: RoadmapBarProps) {
+  const [internalExpanded, setInternalExpanded] = useState(false);
+  const isExpanded = controlledExpanded ?? internalExpanded;
 
   const completedCount = progress.milestones.filter((m) => m.status === "completed").length;
   const progressPercent = Math.round(progress.overall_progress * 100);
@@ -28,8 +30,9 @@ export function RoadmapBar({ progress, onExpand, className }: RoadmapBarProps) {
           !isExpanded && "h-12"
         )}
         onClick={() => {
-          setIsExpanded(!isExpanded);
-          onExpand?.();
+          const next = !isExpanded;
+          setInternalExpanded(next);
+          onToggle?.(next);
         }}
       >
         <Map className="h-4 w-4 shrink-0 text-primary" />

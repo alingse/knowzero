@@ -245,12 +245,24 @@ function DocumentViewComponent({
     };
   }, []);
 
-  // Auto-scroll to bottom when content updates (unless user is scrolling)
+  // Scroll to top when switching documents
+  const prevDocIdRef = useRef(document?.id);
   useEffect(() => {
-    if (!isUserScrolling && contentEndRef.current) {
+    if (document?.id !== prevDocIdRef.current) {
+      prevDocIdRef.current = document?.id;
+      const viewport = scrollAreaRef.current?.querySelector("[data-radix-scroll-area-viewport]");
+      if (viewport) {
+        viewport.scrollTop = 0;
+      }
+    }
+  }, [document?.id]);
+
+  // Auto-scroll to bottom when streaming content updates (unless user is scrolling)
+  useEffect(() => {
+    if (isStreaming && !isUserScrolling && contentEndRef.current) {
       contentEndRef.current.scrollIntoView({ behavior: "smooth", block: "end" });
     }
-  }, [streaming, stable, isUserScrolling]);
+  }, [streaming, stable, isStreaming, isUserScrolling]);
 
   if (!document) {
     return <EmptyState type="document" className={className} />;

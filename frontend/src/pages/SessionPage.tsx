@@ -552,6 +552,7 @@ export function SessionPage() {
       const targetDoc = documents.find((d) => d.id === docId);
       if (targetDoc) {
         setCurrentDocument(targetDoc);
+        setViewMode("document");
         // Update follow-up questions from the selected document
         setFollowUpQuestions(
           (targetDoc as Document & { follow_up_questions?: FollowUpQuestion[] })
@@ -662,12 +663,16 @@ export function SessionPage() {
 
   return (
     <Layout>
-      <Sidebar />
+      <Sidebar onDocumentSelect={() => setViewMode("document")} />
       <MainContent>
         <div className="flex flex-1 flex-col">
           {/* Roadmap Bar - replaces view mode toggle */}
           {roadmap && roadmapProgress && (
-            <RoadmapBar progress={roadmapProgress} onExpand={() => setViewMode("roadmap")} />
+            <RoadmapBar
+              progress={roadmapProgress}
+              isExpanded={viewMode === "roadmap"}
+              onToggle={(expanded) => setViewMode(expanded ? "roadmap" : "document")}
+            />
           )}
 
           {/* View mode toggle - fallback if no progress data */}

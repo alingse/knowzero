@@ -11,9 +11,10 @@ import { useSessionStore } from "@/stores/sessionStore";
 
 interface SidebarProps {
   className?: string;
+  onDocumentSelect?: () => void;
 }
 
-export function Sidebar({ className }: SidebarProps) {
+export function Sidebar({ className, onDocumentSelect }: SidebarProps) {
   const navigate = useNavigate();
   const { sessionId } = useParams<{ sessionId: string }>();
 
@@ -27,6 +28,7 @@ export function Sidebar({ className }: SidebarProps) {
     // Don't switch if currently streaming
     if (isStreaming) return;
     selectDocument(documentId);
+    onDocumentSelect?.();
   };
 
   // Format date for display
