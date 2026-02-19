@@ -3,6 +3,7 @@ import { useState } from "react";
 
 import { ProgressRing } from "./ProgressRing";
 import { cn } from "@/lib/utils";
+import { getProgressTextColor, getCompletedCardStyle } from "@/utils/roadmapColors";
 
 import type { RoadmapMilestoneProgress } from "@/types";
 
@@ -24,7 +25,7 @@ export function MilestoneNode({
   const statusColors = {
     locked: "text-muted-foreground",
     active: "text-primary",
-    completed: "text-green-500",
+    completed: getProgressTextColor(milestone.progress),
   };
 
   const statusIcons = {
@@ -54,8 +55,7 @@ export function MilestoneNode({
           "hover:shadow-md",
           milestone.status === "locked" && "border-muted-foreground/20 bg-muted/50",
           milestone.status === "active" && "border-primary/30 bg-primary/5 shadow-sm",
-          milestone.status === "completed" &&
-            "border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/20",
+          milestone.status === "completed" && getCompletedCardStyle(milestone.progress),
           isCurrent && "ring-2 ring-primary ring-offset-2"
         )}
       >
@@ -67,7 +67,7 @@ export function MilestoneNode({
             strokeWidth={3}
             className={cn(
               milestone.status === "locked" && "opacity-50",
-              milestone.status === "completed" && "text-green-500"
+              milestone.status === "completed" && getProgressTextColor(milestone.progress)
             )}
           >
             <span

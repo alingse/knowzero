@@ -1,6 +1,12 @@
 import { Check, ChevronRight, Lock, Target } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import {
+  getProgressButtonColor,
+  getCompletedCardStyle,
+  getCompletedTitleColor,
+  getCompletedBadgeStyle,
+} from "@/utils/roadmapColors";
 
 import type { RoadmapProgress } from "@/types";
 
@@ -52,8 +58,7 @@ export function FishboneTimeline({
                         "border-muted-foreground/30 bg-muted text-muted-foreground",
                       milestone.status === "active" &&
                         "border-primary bg-primary text-primary-foreground shadow-md shadow-primary/30",
-                      milestone.status === "completed" &&
-                        "border-green-500 bg-green-500 text-white"
+                      milestone.status === "completed" && getProgressButtonColor(milestone.progress)
                     )}
                   >
                     {milestone.status === "completed" ? (
@@ -89,8 +94,7 @@ export function FishboneTimeline({
                       "border-muted-foreground/15 bg-muted/40 opacity-60",
                     milestone.status === "active" &&
                       "border-primary/30 bg-primary/5",
-                    milestone.status === "completed" &&
-                      "border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/20",
+                    milestone.status === "completed" && getCompletedCardStyle(milestone.progress),
                     isCurrent && "ring-2 ring-primary ring-offset-1"
                   )}
                 >
@@ -101,7 +105,7 @@ export function FishboneTimeline({
                           "truncate text-sm font-semibold",
                           milestone.status === "locked" && "text-muted-foreground",
                           milestone.status === "active" && "text-primary",
-                          milestone.status === "completed" && "text-green-600 dark:text-green-400"
+                          milestone.status === "completed" && getCompletedTitleColor(milestone.progress)
                         )}
                       >
                         {milestone.title}
@@ -122,8 +126,7 @@ export function FishboneTimeline({
                         "bg-muted text-muted-foreground",
                       milestone.status === "active" &&
                         "bg-primary/10 text-primary",
-                      milestone.status === "completed" &&
-                        "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                      milestone.status === "completed" && getCompletedBadgeStyle(milestone.progress)
                     )}
                   >
                     {progressPercent}%

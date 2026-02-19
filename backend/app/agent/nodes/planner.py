@@ -53,6 +53,13 @@ PLANNER_SYSTEM_PROMPT = """
    - 鱼骨图应以"学习目标"为主干
    - 各个阶段为大骨，知识点为小骨
 
+**个性化要求**：
+- 根据用户的角色水平（beginner/intermediate/expert）调整内容深度
+- 根据用户的应用场景（如 backend、data science）调整学习方向和侧重点
+- beginner: 从基础概念开始，循序渐进
+- intermediate: 跳过基础，聚焦进阶和实践
+- expert: 聚焦高级特性、源码分析、性能优化
+
 **重要**：必须严格按照以下 JSON 格式返回，字段名必须完全匹配：
 {
   "goal": "学习目标描述",
@@ -131,6 +138,15 @@ async def _generate_roadmap(state: AgentState, target: str, user_level: str) -> 
     """Generate new roadmap from scratch."""
 
     llm = get_llm()
+    intent = state.get("intent", {})
+    user_role = intent.get("user_role", user_level)
+    context = intent.get("context", "")
+
+    # Build personalized user prompt
+    prompt_parts = [f"请为「{target}」生成一个适合 {user_role} 水平的学习路线图。"]
+    if context:
+        prompt_parts.append(f"应用场景为：{context}，请围绕该场景设计学习内容和实践案例。")
+    user_prompt = "\n".join(prompt_parts)
 
     try:
         # Try using LangChain's structured output for reliable JSON parsing
@@ -140,9 +156,7 @@ async def _generate_roadmap(state: AgentState, target: str, user_level: str) -> 
         result: RoadmapOutput = await structured_llm.ainvoke(
             [
                 SystemMessage(content=PLANNER_SYSTEM_PROMPT),
-                HumanMessage(
-                    content=f"请为「{target}」生成一个适合 {user_level} 水平的学习路线图。"
-                ),
+                HumanMessage(content=user_prompt),
             ]
         )
 
@@ -163,23 +177,27 @@ async def _generate_roadmap(state: AgentState, target: str, user_level: str) -> 
             "Structured output failed, falling back to manual JSON parsing",
             error=str(structured_error),
         )
-        return await _generate_roadmap_fallback(target, user_level, structured_error)
+        return await _generate_roadmap_fallback(target, user_level, context, structured_error)
 
 
 async def _generate_roadmap_fallback(
-    target: str, user_level: str, structured_error: Exception
+    target: str, user_level: str, context: str, structured_error: Exception
 ) -> dict:
     """Fallback roadmap generation using manual JSON parsing."""
 
     llm = get_llm()
 
     try:
+        prompt_parts = [
+            f"请为「{target}」生成一个适合 {user_level} 水平的学习路线图。只返回 JSON 格式，不要其他内容。"
+        ]
+        if context:
+            prompt_parts.append(f"应用场景为：{context}。")
+
         resp = await llm.ainvoke(
             [
                 SystemMessage(content=PLANNER_SYSTEM_PROMPT),
-                HumanMessage(
-                    content=f"请为「{target}」生成一个适合 {user_level} 水平的学习路线图。只返回 JSON 格式，不要其他内容。"
-                ),
+                HumanMessage(content="\n".join(prompt_parts)),
             ]
         )
 

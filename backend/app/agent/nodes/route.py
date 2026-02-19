@@ -309,19 +309,28 @@ async def _llm_route_decision(context: dict[str, Any], llm) -> dict[str, Any]:
 - **roadmap_learning**: 在路线图内学习（生成文档并自动关联到里程碑）
 - **roadmap_generate**: 生成新路线图（首次）
 - **roadmap_modify**: 修改现有路线图
+- **explain_selection**: 解释用户选中的文本
+- **comparison**: 对比分析
 
-**决策原则**：
-1. 用户首次表达系统性学习需求，且没有路线图 → roadmap_generate
-2. 用户已有路线图，且表达调整意图（太简单、太基础、调整等）→ roadmap_modify
-3. 用户已有路线图，问具体问题 → roadmap_learning
-4. 用户没有路线图，问具体问题 → standard
-5. 用户选中文本并评论 → explain_selection
-6. 用户想对比概念 → comparison
+**决策原则**（按优先级排列）：
+1. 用户首次表达系统性学习需求（new_topic），且没有路线图 → action=plan, mode=roadmap_generate
+2. 用户已有路线图，且表达调整意图（太简单、太基础、调整等）→ action=plan, mode=roadmap_modify
+3. 用户已有路线图，学习具体知识点 → action=generate_new, mode=roadmap_learning
+4. 用户没有路线图，学习具体知识点 → action=generate_new, mode=standard
+5. 用户选中文本并评论 → action=generate_new, mode=explain_selection
+6. 用户想对比概念 → action=generate_new, mode=comparison
+7. 用户问简单事实性问题（question）→ action=generate_new, mode=standard（生成简短文档）
+8. 用户问实践操作问题（question_practical）→ action=generate_new, mode=standard（生成实践指南）
 
 **关于 navigate 行为**：
 - 只有在「可用文档」列表中存在与用户问题相关的文档时，才选择 navigate
 - 如果没有可用文档或现有文档与问题不相关，应选择 generate_new
 - 导航时必须在 target_doc_id 字段中指定要导航到的文档 ID
+
+**关于用户角色和应用场景**：
+- 注意用户的角色水平（beginner/intermediate/expert），影响内容深度
+- 注意用户的应用场景（如 backend、data science），影响内容方向
+- 将这些信息体现在 target 中，如 "TiDB（后端应用）"
 
 **重要**：
 - 必须从用户输入中提取学习目标（target），如果检测到的意图有 target 则使用它
@@ -353,13 +362,16 @@ async def _llm_route_decision(context: dict[str, Any], llm) -> dict[str, Any]:
 def _build_user_prompt(context: dict[str, Any]) -> str:
     """Build user prompt for LLM."""
 
+    intent = context["detected_intent"]
     parts = [
         "**用户输入**：",
         context["user_message"],
         "",
         "**检测到的意图**：",
-        f"- 类型: {context['detected_intent'].get('intent_type', 'unknown')}",
+        f"- 类型: {intent.get('intent_type', 'unknown')}",
         f"- 目标: {context['detected_target'] or '无'}",
+        f"- 用户角色: {intent.get('user_role', 'beginner')}",
+        f"- 应用场景: {intent.get('context', '') or '无'}",
         "",
         "**会话状态**：",
         f"- 用户水平: {context['user_level']}",

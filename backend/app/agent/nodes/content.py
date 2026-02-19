@@ -21,12 +21,33 @@ GENERATE_SYSTEM_PROMPT = """\
 3. 内容准确、易懂，适合 {level} 水平的学习者
 4. 在文档中自然地提到相关概念（这些会成为实体词）
 5. 保持内容聚焦，不要过于冗长
+{context_instruction}
+输出格式要求：
+直接输出 Markdown 文档内容，不要包含额外的说明。"""
 
+ROADMAP_LEARNING_SYSTEM_PROMPT = """\
+你是 KnowZero 学习平台的内容生成引擎。用户正在按照学习路线图系统学习，请生成与当前里程碑相关的学习文档。
+
+学习路线图目标：{roadmap_goal}
+当前里程碑：{milestone_title} - {milestone_description}
+里程碑知识点：{milestone_topics}
+
+要求：
+1. 使用 Markdown 格式
+2. 内容应紧密围绕当前里程碑的知识点
+3. 内容准确、易懂，适合 {level} 水平的学习者
+4. 在文档中自然地提到相关概念（这些会成为实体词）
+5. 包含与里程碑知识点相关的实践示例
+{context_instruction}
 输出格式要求：
 直接输出 Markdown 文档内容，不要包含额外的说明。"""
 
 EXPLAIN_SELECTION_SYSTEM_PROMPT = """\
-你是 KnowZero 学习平台的内容解释引擎。用户在文档中选中了一段内容，需要你生成一个新的学习文档来详细解释它。
+你是 KnowZero 学习平台的内容解释引擎。用户在学习文档中选中了一段内容，需要你生成一个新的学习文档来详细解释它。
+
+**原文档主题**：{doc_topic}
+{roadmap_context}
+**重要**：选中的内容来自「{doc_topic}」相关的学习文档，请在该主题的语境下解释，不要脱离原文档的技术领域。
 
 用户需求分析:
 - more_examples: 用户觉得太抽象，需要更多实例
@@ -36,8 +57,8 @@ EXPLAIN_SELECTION_SYSTEM_PROMPT = """\
 
 要求：
 1. 使用 Markdown 格式
-2. 标题应该反映选中内容的核心主题
-3. 结合选中文本的上下文来理解用户困惑
+2. 标题应该反映选中内容在「{doc_topic}」中的具体含义
+3. 结合选中文本的上下文和原文档主题来理解用户困惑
 4. 内容准确、易懂，适合 {level} 水平的学习者
 5. 在文档中自然地提到相关概念（这些会成为实体词）
 6. 保持内容聚焦，直接解决用户的问题
@@ -162,6 +183,15 @@ async def _generate_document(state: AgentState, mode: str) -> dict:
         user_comment = state.get("raw_message", "")
         user_need = intent.get("user_need", "more_examples")
 
+        # Get original document topic for context
+        doc_topic = _resolve_doc_topic(state, comment_data)
+
+        # Build roadmap context string
+        current_roadmap = state.get("current_roadmap")
+        roadmap_context = ""
+        if current_roadmap:
+            roadmap_context = f"**学习路线图**：{current_roadmap.get('goal', '')}\n"
+
         # Build context snippet
         context_parts = []
         if context_before:
@@ -179,19 +209,56 @@ async def _generate_document(state: AgentState, mode: str) -> dict:
             "different_angle": "用户希望换个角度来理解这部分内容",
         }
 
-        system = EXPLAIN_SELECTION_SYSTEM_PROMPT.format(level=user_level)
+        system = EXPLAIN_SELECTION_SYSTEM_PROMPT.format(
+            doc_topic=doc_topic,
+            roadmap_context=roadmap_context,
+            level=user_level,
+        )
         user_prompt = (
-            f"用户在文档中选中了这段内容：\n\n{context_snippet}\n\n"
+            f"用户正在学习「{doc_topic}」，在文档中选中了这段内容：\n\n{context_snippet}\n\n"
             f"用户评论：{user_comment}\n\n"
             f"需求分析：{need_descriptions.get(user_need, '需要进一步解释')}\n\n"
-            f"请生成一个新的学习文档来详细解释选中内容，直接解决用户的问题。"
+            f"请在「{doc_topic}」的语境下生成一个新的学习文档来详细解释选中内容。"
         )
     elif mode == "comparison":
-        system = GENERATE_SYSTEM_PROMPT.format(level=user_level)
+        system = GENERATE_SYSTEM_PROMPT.format(level=user_level, context_instruction="")
         user_prompt = f"请生成一篇对比分析文档：{target}"
+    elif mode == "roadmap_learning":
+        # Roadmap learning mode: include milestone context
+        current_roadmap = state.get("current_roadmap") or {}
+        milestones = current_roadmap.get("milestones", [])
+        intent_context = intent.get("context", "")
+        context_instruction = (
+            f"6. 内容应围绕「{intent_context}」应用场景展开\n" if intent_context else ""
+        )
+
+        # Find the best matching milestone for this target
+        milestone_info = _find_matching_milestone(target, milestones)
+        if milestone_info:
+            system = ROADMAP_LEARNING_SYSTEM_PROMPT.format(
+                roadmap_goal=current_roadmap.get("goal", ""),
+                milestone_title=milestone_info.get("title", ""),
+                milestone_description=milestone_info.get("description", ""),
+                milestone_topics=", ".join(milestone_info.get("topics", [])),
+                level=user_level,
+                context_instruction=context_instruction,
+            )
+        else:
+            system = GENERATE_SYSTEM_PROMPT.format(
+                level=user_level, context_instruction=context_instruction
+            )
+        user_prompt = f"请生成关于「{target}」的学习文档。"
     else:
         # Standard generation
-        system = GENERATE_SYSTEM_PROMPT.format(level=user_level)
+        intent_context = intent.get("context", "")
+        context_instruction = (
+            f"6. 内容应围绕「{intent_context}」应用场景展开，示例和案例应与该场景相关\n"
+            if intent_context
+            else ""
+        )
+        system = GENERATE_SYSTEM_PROMPT.format(
+            level=user_level, context_instruction=context_instruction
+        )
         user_prompt = f"请生成关于「{target}」的学习文档。"
 
     try:
@@ -389,6 +456,59 @@ async def _classify_milestone(doc_topic: str, doc_summary: str, roadmap: dict | 
     except Exception as e:
         logger.warning("Milestone classification failed", error=str(e))
         return None
+
+
+def _resolve_doc_topic(state: AgentState, comment_data: dict) -> str:
+    """Resolve the original document's topic from state context.
+
+    Fallback chain (from most to least reliable):
+    1. available_docs lookup by document_id - most reliable, finds exact document
+    2. state["document"].topic - works when user is viewing the document
+    3. intent.target - BEWARE: semantic varies by intent type:
+       - optimize_content: target is the selected text (NOT the doc topic)
+       - other intents: target is usually the learning topic
+    4. raw_message (truncated) - last resort, user's original input
+
+    This function is primarily used by explain_selection mode, where we need
+    the original document's topic (e.g., "langgraph") to provide context for
+    explaining selected text (e.g., "边（Edge）").
+    """
+    doc_id = comment_data.get("document_id")
+    if doc_id:
+        available_docs = state.get("available_docs", [])
+        for doc in available_docs:
+            if doc.get("id") == doc_id:
+                return doc.get("title", "")
+
+    # Fallback 1: Use current document's topic if available
+    # This works when user is viewing a document and comments on selected text
+    current_doc = state.get("document")
+    if current_doc and current_doc.get("topic"):
+        return current_doc.get("topic", "")
+
+    # Fallback 2: Use intent target or raw message
+    # NOTE: For optimize_content intent, target is the selected text itself,
+    # so this fallback may not return the correct document topic.
+    # The state["document"] fallback above should handle most cases.
+    intent = state.get("intent", {})
+    return intent.get("target") or state.get("raw_message", "")[:50]
+
+
+def _find_matching_milestone(target: str, milestones: list[dict]) -> dict | None:
+    """Find the best matching milestone for a given target topic."""
+    if not milestones:
+        return None
+
+    target_lower = target.lower()
+    for milestone in milestones:
+        topics = [t.lower() for t in milestone.get("topics", [])]
+        title = milestone.get("title", "").lower()
+        # Check if target matches any topic or title
+        if target_lower in title or any(target_lower in t or t in target_lower for t in topics):
+            return milestone
+
+    # No exact match, return first milestone as default
+    return None
 
 
 def _generate_category_path(topic: str) -> str:

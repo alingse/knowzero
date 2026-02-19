@@ -17,29 +17,23 @@ logger = get_logger(__name__)
 
 
 def calc_milestone_progress(milestone: dict, documents: list[Document]) -> float:
-    """Calculate progress for a single milestone.
+    """Calculate progress based on document count.
 
-    Progress is based on the proportion of milestone topics covered by documents.
+    Target: 4 documents = 100% (can exceed for mastery depth).
+
+    Returns:
+        Progress ratio (0.0 to 2.0+).
+        0 docs = 0%, 1 doc = 25%, 2 docs = 50%, 3 docs = 75%, 4 docs = 100%
     """
-    topics = milestone.get("topics", [])
-    if not topics:
-        # If no topics defined, progress is based on document count
-        # (any document = 100%, no documents = 0%)
-        return 1.0 if documents else 0.0
-
-    # Count covered topics
-    covered_topics = set()
-    for doc in documents:
-        # Check if document entities match milestone topics
-        doc_entities = set(doc.entities or [])
-        covered = doc_entities.intersection(set(topics))
-        covered_topics.update(covered)
-
-    return len(covered_topics) / len(topics)
+    target_docs = 4
+    doc_count = len(documents)
+    return min(doc_count / target_docs, 2.0)  # Cap at 200% for display
 
 
-def calc_milestone_status(milestone: dict, progress: float, prev_milestone_completed: bool) -> str:
-    """Calculate milestone status based on progress and prerequisites.
+def calc_milestone_status(milestone: dict, progress: float) -> str:
+    """Calculate milestone status based on document count.
+
+    No sequential dependency - milestones can be learned in any order.
 
     Returns: "locked" | "active" | "completed"
     """
@@ -48,8 +42,7 @@ def calc_milestone_status(milestone: dict, progress: float, prev_milestone_compl
     elif progress > 0:
         return "active"
     else:
-        # Locked if previous milestone not completed, otherwise active
-        return "active" if prev_milestone_completed else "locked"
+        return "locked"  # No documents yet
 
 
 async def get_roadmap_progress(
@@ -86,17 +79,16 @@ async def get_roadmap_progress(
                 milestone_documents[milestone_id] = []
             milestone_documents[milestone_id].append(doc)
 
-    # Calculate progress for each milestone
+    # Calculate progress for each milestone (no sequential dependency)
     milestones_data = []
     total_progress = 0.0
-    prev_completed = True  # First milestone is always unlocked
 
     for milestone in roadmap.milestones:
         milestone_id = milestone.get("id")
         documents = milestone_documents.get(milestone_id, [])
 
         progress = calc_milestone_progress(milestone, documents)
-        status = calc_milestone_status(milestone, progress, prev_completed)
+        status = calc_milestone_status(milestone, progress)
 
         # Collect covered topics
         covered_topics = set()
@@ -116,7 +108,6 @@ async def get_roadmap_progress(
         )
 
         total_progress += progress
-        prev_completed = status == "completed"
 
     # Calculate overall progress
     num_milestones = len(roadmap.milestones)

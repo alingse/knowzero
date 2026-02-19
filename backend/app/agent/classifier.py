@@ -118,14 +118,58 @@ class IntentClassifier:
         logger.info("Using LLM for intent classification", message=message[:50])
         start = time.monotonic()
 
-        system_prompt = (
-            "你是一个意图分类器。根据用户消息，返回一个 JSON 对象，包含以下字段：\n"
-            '- intent_type: 以下之一 "new_topic", "follow_up", "comparison", '
-            '"question_practical", "optimize_content", "navigate", "plan", "question"\n'
-            "- target: 用户想了解的主题（简短）\n"
-            "- reasoning: 一句话解释分类原因\n"
-            "只返回 JSON，不要其他内容。"
-        )
+        system_prompt = """你是 KnowZero 学习平台的意图分类器。根据用户消息，返回 JSON 对象。
+
+**意图类型判断标准**：
+
+1. **new_topic** - 系统性学习新主题（需要生成学习路线图）
+   - 用户想从零开始学习某个技术/概念
+   - 表达方式："XX for YY"、"我想学 XX"、"XX 入门"
+   - 示例："tidb for backend"、"python for data science"、"kubernetes 入门"
+   - 关键特征：有明确的技术主题 + 应用场景/角色定位
+
+2. **plan** - 明确要求学习规划/路线图
+   - 用户直接要求规划、路线图、学习路径
+   - 示例："给我制定一个学习计划"、"XX 的学习路线"
+
+3. **question** - 简单事实性问答（不需要生成文档）
+   - 单个知识点的问题，可以用1-2句话回答
+   - 示例："TiDB 是什么？"、"SQL 怎么写？"
+
+4. **question_practical** - 实践操作类问题
+   - 问具体怎么做、怎么实现
+   - 示例："如何连接数据库"、"怎么部署服务"
+
+5. **follow_up** - 对当前文档的深入追问
+   - 用户想了解更多细节
+   - 示例："详细说说"、"再深入讲讲"
+
+6. **comparison** - 概念对比
+   - 示例："A 和 B 的区别"、"对比一下 XX 和 YY"
+
+7. **navigate** - 想看已有文档
+   - 示例："打开之前的文档"、"看看 XX 那篇"
+
+8. **optimize_content** - 对内容的优化反馈
+   - 示例："太抽象了"、"看不懂"、"举例说明"
+
+**主题提取规则**：
+- 从 "XX for YY" 格式中，XX 是主题，YY 是角色/场景
+- 示例："tidb for backend" → target="tidb", user_role="beginner", context="backend"
+- 如果没有明确角色，默认 user_role="beginner"
+
+**返回格式**：
+```json
+{
+  "intent_type": "new_topic | question | plan | follow_up | comparison | navigate | question_practical | optimize_content",
+  "target": "提取的核心主题（如：tidb、python、kubernetes）",
+  "user_role": "beginner | intermediate | expert（默认 beginner）",
+  "context": "应用场景（如：backend、data science、web development）",
+  "reasoning": "分类原因"
+}
+```
+
+只返回 JSON，不要其他内容。"""
 
         try:
             resp = await self.llm.ainvoke(
@@ -142,6 +186,8 @@ class IntentClassifier:
                 "method": "llm",
                 "processing_time_ms": elapsed,
                 "target": parsed.get("target", self._extract_target(message)),
+                "user_role": parsed.get("user_role", "beginner"),
+                "context": parsed.get("context", ""),
                 "reasoning": parsed.get("reasoning", ""),
             }
         except Exception as e:
@@ -152,6 +198,8 @@ class IntentClassifier:
                 "method": "llm_fallback",
                 "processing_time_ms": int((time.monotonic() - start) * 1000),
                 "target": self._extract_target(message),
+                "user_role": "beginner",
+                "context": "",
             }
 
 
