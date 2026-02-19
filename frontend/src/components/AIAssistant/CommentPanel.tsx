@@ -120,7 +120,8 @@ export function CommentPanel({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
       handleSubmit();
     }
   };
@@ -218,7 +219,7 @@ export function CommentPanel({
           value={comment}
           onChange={(e) => setComment(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="输入你的问题或评论... (Cmd+Enter 发送)"
+          placeholder="输入你的问题或评论... (Enter 发送，Shift+Enter 换行)"
           disabled={isLoading}
           className="min-h-[80px] resize-none text-sm"
         />

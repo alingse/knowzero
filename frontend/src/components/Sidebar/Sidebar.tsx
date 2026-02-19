@@ -34,7 +34,8 @@ export function Sidebar({ className, onDocumentSelect }: SidebarProps) {
   // Format date for display
   const formatDate = (dateString: string) => {
     try {
-      return format(new Date(dateString), "MM-dd HH:mm", { locale: zhCN });
+      const normalized = dateString.endsWith("Z") ? dateString : dateString + "Z";
+      return format(new Date(normalized), "MM-dd HH:mm", { locale: zhCN });
     } catch {
       return "";
     }

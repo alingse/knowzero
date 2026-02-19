@@ -25,9 +25,7 @@ export function SessionPage() {
 
   // AI Assistant state management
   const {
-    isOpen: aiDialogOpen,
     context: aiContext,
-    closeDialog,
     setContext: setAIContext,
   } = useAIAssistant("chat");
 
@@ -433,7 +431,7 @@ export function SessionPage() {
 
       case "roadmap": {
         if (response.data) {
-          const roadmap = response.data as import("@/types").Roadmap;
+          const roadmap = (response.data as unknown) as import("@/types").Roadmap;
           setRoadmap(roadmap);
           // Fetch roadmap progress after setting roadmap
           roadmapsApi
@@ -771,7 +769,7 @@ export function SessionPage() {
               {roadmap ? (
                 <RoadmapView
                   roadmap={roadmap}
-                  progress={roadmapProgress}
+                  progress={roadmapProgress ?? undefined}
                   onUpdate={handleRoadmapUpdate}
                 />
               ) : (
@@ -794,20 +792,6 @@ export function SessionPage() {
           />
         </div>
       </MainContent>
-
-      {/* Floating AI Dialog - for focused interaction */}
-      {currentDocument && (
-        <AIAssistant
-          mode="dialog"
-          isOpen={aiDialogOpen}
-          onClose={closeDialog}
-          messages={displayMessages}
-          executionEvents={executionEvents}
-          isLoading={isAgentLoading}
-          disabled={agentStatus === "running"}
-          onSendMessage={handleSendMessage}
-        />
-      )}
 
       {/* Comment Panel - appears when text is selected */}
       {selectedText && (
