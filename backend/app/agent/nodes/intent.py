@@ -37,14 +37,14 @@ async def intent_agent_node(state: AgentState) -> AgentState:
     elif source == "follow_up":
         intent = await _analyze_followup_intent(state)
     elif source == "entry":
-        intent = {
-            "intent_type": "new_topic",
-            "target": message.strip(),
-            "complexity": "simple",
-            "ambiguity": "low",
-            "confidence": 0.95,
-            "reasoning": "Entry point - simple new topic",
-        }
+        intent = _build_intent(
+            "new_topic",
+            message.strip(),
+            confidence=0.95,
+            complexity="simple",
+            ambiguity="low",
+            reasoning="Entry point - simple new topic",
+        )
     else:  # chat
         intent = await classifier.classify(message, {})
         intent["complexity"] = _estimate_complexity(message)
@@ -62,6 +62,38 @@ async def intent_agent_node(state: AgentState) -> AgentState:
     return state
 
 
+def _build_intent(
+    intent_type: str,
+    target: str,
+    *,
+    confidence: float = 0.85,
+    complexity: str = "moderate",
+    ambiguity: str = "medium",
+    **kwargs,
+) -> dict:
+    """Build intent dict with common fields.
+
+    Args:
+        intent_type: Type of intent (navigate, new_topic, etc.)
+        target: Target topic or entity
+        confidence: Confidence score (0.0 - 1.0)
+        complexity: Query complexity (simple, moderate, complex)
+        ambiguity: Query ambiguity (low, medium, high)
+        **kwargs: Additional intent-specific fields
+
+    Returns:
+        Complete intent dictionary
+    """
+    return {
+        "intent_type": intent_type,
+        "target": target,
+        "complexity": complexity,
+        "ambiguity": ambiguity,
+        "confidence": confidence,
+        **kwargs,
+    }
+
+
 async def _analyze_entity_intent(state: AgentState) -> dict:
     """Analyze entity click intent."""
     entity_data = state.get("entity_data") or {}
@@ -77,24 +109,24 @@ async def _analyze_entity_intent(state: AgentState) -> dict:
         logger.warning("Entity lookup failed", error=str(e))
 
     if doc_id:
-        return {
-            "intent_type": "navigate",
-            "target": entity_name,
-            "target_doc_id": doc_id,
-            "complexity": "simple",
-            "ambiguity": "low",
-            "confidence": 0.95,
-            "reasoning": f"Entity '{entity_name}' has existing document {doc_id}",
-        }
+        return _build_intent(
+            "navigate",
+            entity_name,
+            confidence=0.95,
+            complexity="simple",
+            ambiguity="low",
+            target_doc_id=doc_id,
+            reasoning=f"Entity '{entity_name}' has existing document {doc_id}",
+        )
     else:
-        return {
-            "intent_type": "new_topic",
-            "target": entity_name,
-            "complexity": "simple",
-            "ambiguity": "low",
-            "confidence": 0.95,
-            "reasoning": f"Need to create document for entity '{entity_name}'",
-        }
+        return _build_intent(
+            "new_topic",
+            entity_name,
+            confidence=0.95,
+            complexity="simple",
+            ambiguity="low",
+            reasoning=f"Need to create document for entity '{entity_name}'",
+        )
 
 
 async def _analyze_comment_intent(state: AgentState) -> dict:
@@ -130,16 +162,16 @@ async def _analyze_comment_intent(state: AgentState) -> dict:
     if len(selected_text) > 50:
         target += "..."
 
-    return {
-        "intent_type": "optimize_content",
-        "target": target,  # Set target for new document
-        "user_need": user_need,
-        "target_section": comment_data.get("section_id"),
-        "complexity": "moderate",
-        "ambiguity": "medium",
-        "confidence": 0.85,
-        "reasoning": f"Comment indicates need for {user_need}, will generate new document",
-    }
+    return _build_intent(
+        "optimize_content",
+        target,
+        confidence=0.85,
+        complexity="moderate",
+        ambiguity="medium",
+        user_need=user_need,
+        target_section=comment_data.get("section_id"),
+        reasoning=f"Comment indicates need for {user_need}, will generate new document",
+    )
 
 
 async def _analyze_followup_intent(state: AgentState) -> dict:
@@ -147,14 +179,14 @@ async def _analyze_followup_intent(state: AgentState) -> dict:
     intent_hint = state.get("intent_hint", "follow_up")
     message = state.get("raw_message", "")
 
-    return {
-        "intent_type": intent_hint,
-        "target": message,
-        "complexity": "simple",
-        "ambiguity": "low",
-        "confidence": 0.9,
-        "reasoning": "Follow-up question with intent hint",
-    }
+    return _build_intent(
+        intent_hint,
+        message,
+        confidence=0.9,
+        complexity="simple",
+        ambiguity="low",
+        reasoning="Follow-up question with intent hint",
+    )
 
 
 def _estimate_complexity(message: str) -> str:

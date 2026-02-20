@@ -3,10 +3,12 @@
 import asyncio
 import json
 import time
+from collections.abc import Callable
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from app.agent.llm import get_llm
+from app.agent.llm_utils import parse_llm_json_response
 from app.agent.state import AgentState
 from app.core.logging import get_logger
 
@@ -174,92 +176,8 @@ async def _generate_document(state: AgentState, mode: str) -> dict:
 
     logger.info("_generate_document started", target=target, mode=mode)
 
-    # Handle explain_selection mode - user commented on selected text
-    if mode == "explain_selection":
-        comment_data = state.get("comment_data") or {}
-        selected_text = comment_data.get("selected_text", "")
-        context_before = comment_data.get("context_before", "")
-        context_after = comment_data.get("context_after", "")
-        user_comment = state.get("raw_message", "")
-        user_need = intent.get("user_need", "more_examples")
-
-        # Get original document topic for context
-        doc_topic = _resolve_doc_topic(state, comment_data)
-
-        # Build roadmap context string
-        current_roadmap = state.get("current_roadmap")
-        roadmap_context = ""
-        if current_roadmap:
-            roadmap_context = f"**学习路线图**：{current_roadmap.get('goal', '')}\n"
-
-        # Build context snippet
-        context_parts = []
-        if context_before:
-            context_parts.append(f"...{context_before}")
-        context_parts.append(f"**[{selected_text}]**")  # Mark selected text
-        if context_after:
-            context_parts.append(f"{context_after}...")
-        context_snippet = "".join(context_parts)
-
-        # User need description for the prompt
-        need_descriptions = {
-            "more_examples": "用户觉得这部分太抽象，需要更多具体例子",
-            "more_depth": "用户想深入了解这部分的原理和底层机制",
-            "more_clarity": "用户觉得这部分不够清楚，需要更通俗的解释",
-            "different_angle": "用户希望换个角度来理解这部分内容",
-        }
-
-        system = EXPLAIN_SELECTION_SYSTEM_PROMPT.format(
-            doc_topic=doc_topic,
-            roadmap_context=roadmap_context,
-            level=user_level,
-        )
-        user_prompt = (
-            f"用户正在学习「{doc_topic}」，在文档中选中了这段内容：\n\n{context_snippet}\n\n"
-            f"用户评论：{user_comment}\n\n"
-            f"需求分析：{need_descriptions.get(user_need, '需要进一步解释')}\n\n"
-            f"请在「{doc_topic}」的语境下生成一个新的学习文档来详细解释选中内容。"
-        )
-    elif mode == "comparison":
-        system = GENERATE_SYSTEM_PROMPT.format(level=user_level, context_instruction="")
-        user_prompt = f"请生成一篇对比分析文档：{target}"
-    elif mode == "roadmap_learning":
-        # Roadmap learning mode: include milestone context
-        current_roadmap = state.get("current_roadmap") or {}
-        milestones = current_roadmap.get("milestones", [])
-        intent_context = intent.get("context", "")
-        context_instruction = (
-            f"6. 内容应围绕「{intent_context}」应用场景展开\n" if intent_context else ""
-        )
-
-        # Find the best matching milestone for this target
-        milestone_info = _find_matching_milestone(target, milestones)
-        if milestone_info:
-            system = ROADMAP_LEARNING_SYSTEM_PROMPT.format(
-                roadmap_goal=current_roadmap.get("goal", ""),
-                milestone_title=milestone_info.get("title", ""),
-                milestone_description=milestone_info.get("description", ""),
-                milestone_topics=", ".join(milestone_info.get("topics", [])),
-                level=user_level,
-                context_instruction=context_instruction,
-            )
-        else:
-            system = GENERATE_SYSTEM_PROMPT.format(
-                level=user_level, context_instruction=context_instruction
-            )
-        user_prompt = f"请生成关于「{target}」的学习文档。"
-    else:
-        # Standard generation
-        intent_context = intent.get("context", "")
-        context_instruction = (
-            f"6. 内容应围绕「{intent_context}」应用场景展开，示例和案例应与该场景相关\n"
-            if intent_context
-            else ""
-        )
-        system = GENERATE_SYSTEM_PROMPT.format(
-            level=user_level, context_instruction=context_instruction
-        )
-        user_prompt = f"请生成关于「{target}」的学习文档。"
+    # Build prompts based on mode
+    system, user_prompt = _build_generation_prompts(state, mode, target, user_level, intent)
 
     try:
         start_time = time.monotonic()
@@ -335,6 +253,138 @@ async def _generate_document(state: AgentState, mode: str) -> dict:
     }
 
 
+def _build_comparison_prompts(
+    state: AgentState, target: str, user_level: str, intent: dict
+) -> tuple[str, str]:
+    """Build prompts for comparison mode."""
+    return (
+        GENERATE_SYSTEM_PROMPT.format(level=user_level, context_instruction=""),
+        f"请生成一篇对比分析文档：{target}",
+    )
+
+
+def _build_standard_prompts(
+    state: AgentState, target: str, user_level: str, intent: dict
+) -> tuple[str, str]:
+    """Build prompts for standard generation mode (default)."""
+    intent_context = intent.get("context", "")
+    context_instruction = (
+        f"6. 内容应围绕「{intent_context}」应用场景展开，示例和案例应与该场景相关\n"
+        if intent_context
+        else ""
+    )
+    return (
+        GENERATE_SYSTEM_PROMPT.format(level=user_level, context_instruction=context_instruction),
+        f"请生成关于「{target}」的学习文档。",
+    )
+
+
+def _build_explain_selection_prompts(
+    state: AgentState, user_level: str, intent: dict
+) -> tuple[str, str]:
+    """Build prompts for explain_selection mode."""
+    comment_data = state.get("comment_data") or {}
+    selected_text = comment_data.get("selected_text", "")
+    context_before = comment_data.get("context_before", "")
+    context_after = comment_data.get("context_after", "")
+    user_comment = state.get("raw_message", "")
+    user_need = intent.get("user_need", "more_examples")
+
+    doc_topic = _resolve_doc_topic(state, comment_data)
+
+    # Build roadmap context string
+    current_roadmap = state.get("current_roadmap")
+    roadmap_context = ""
+    if current_roadmap:
+        roadmap_context = f"**学习路线图**：{current_roadmap.get('goal', '')}\n"
+
+    # Build context snippet
+    context_parts = []
+    if context_before:
+        context_parts.append(f"...{context_before}")
+    context_parts.append(f"**[{selected_text}]**")
+    if context_after:
+        context_parts.append(f"{context_after}...")
+    context_snippet = "".join(context_parts)
+
+    # User need description for the prompt
+    need_descriptions = {
+        "more_examples": "用户觉得这部分太抽象，需要更多具体例子",
+        "more_depth": "用户想深入了解这部分的原理和底层机制",
+        "more_clarity": "用户觉得这部分不够清楚，需要更通俗的解释",
+        "different_angle": "用户希望换个角度来理解这部分内容",
+    }
+
+    system = EXPLAIN_SELECTION_SYSTEM_PROMPT.format(
+        doc_topic=doc_topic,
+        roadmap_context=roadmap_context,
+        level=user_level,
+    )
+    user_prompt = (
+        f"用户正在学习「{doc_topic}」，在文档中选中了这段内容：\n\n{context_snippet}\n\n"
+        f"用户评论：{user_comment}\n\n"
+        f"需求分析：{need_descriptions.get(user_need, '需要进一步解释')}\n\n"
+        f"请在「{doc_topic}」的语境下生成一个新的学习文档来详细解释选中内容。"
+    )
+    return system, user_prompt
+
+
+def _build_roadmap_learning_prompts(
+    state: AgentState, target: str, user_level: str, intent: dict
+) -> tuple[str, str]:
+    """Build prompts for roadmap_learning mode."""
+    current_roadmap = state.get("current_roadmap") or {}
+    milestones = current_roadmap.get("milestones", [])
+    intent_context = intent.get("context", "")
+    context_instruction = (
+        f"6. 内容应围绕「{intent_context}」应用场景展开\n" if intent_context else ""
+    )
+
+    # Find the best matching milestone for this target
+    milestone_info = _find_matching_milestone(target, milestones)
+    if milestone_info:
+        system = ROADMAP_LEARNING_SYSTEM_PROMPT.format(
+            roadmap_goal=current_roadmap.get("goal", ""),
+            milestone_title=milestone_info.get("title", ""),
+            milestone_description=milestone_info.get("description", ""),
+            milestone_topics=", ".join(milestone_info.get("topics", [])),
+            level=user_level,
+            context_instruction=context_instruction,
+        )
+    else:
+        system = GENERATE_SYSTEM_PROMPT.format(
+            level=user_level, context_instruction=context_instruction
+        )
+    return system, f"请生成关于「{target}」的学习文档。"
+
+
+# Strategy registry for prompt builders
+_PROMPT_BUILDERS: dict[str, Callable[..., tuple[str, str]]] = {
+    "explain_selection": _build_explain_selection_prompts,
+    "comparison": _build_comparison_prompts,
+    "roadmap_learning": _build_roadmap_learning_prompts,
+    # "standard" is the default, handled in _build_generation_prompts
+}
+
+
+def _build_generation_prompts(
+    state: AgentState, mode: str, target: str, user_level: str, intent: dict
+) -> tuple[str, str]:
+    """Build system and user prompts for document generation using strategy pattern.
+
+    Returns:
+        Tuple of (system_prompt, user_prompt)
+    """
+    builder = _PROMPT_BUILDERS.get(mode, _build_standard_prompts)
+
+    # Call builder with appropriate arguments based on mode
+    # explain_selection has a different signature (no target parameter)
+    if mode == "explain_selection":
+        return builder(state, user_level, intent)
+    # All other modes use the same signature
+    return builder(state, target, user_level, intent)
+
+
 async def _update_document(state: AgentState, mode: str) -> dict:
     """Update existing document using LLM."""
     current_doc = state.get("document") or {}
@@ -387,8 +437,8 @@ async def _extract_entities_llm(content: str) -> list[str]:
                 HumanMessage(content=ENTITY_EXTRACT_PROMPT.format(content=content[:2000])),
             ]
         )
-        raw = resp.content.strip().strip("`").removeprefix("json")
-        return json.loads(raw)
+        parsed = parse_llm_json_response(resp.content)
+        return parsed
     except Exception as e:
         logger.warning("Entity extraction failed", error=str(e))
         return []
@@ -404,8 +454,8 @@ async def _generate_follow_ups(content: str) -> list[dict]:
                 HumanMessage(content=f"文档内容：\n\n{content[:3000]}"),
             ]
         )
-        raw = resp.content.strip().strip("`").removeprefix("json")
-        return json.loads(raw)
+        parsed = parse_llm_json_response(resp.content)
+        return parsed
     except Exception as e:
         logger.warning("Follow-up generation failed", error=str(e))
         return []

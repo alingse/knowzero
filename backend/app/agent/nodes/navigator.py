@@ -1,5 +1,8 @@
 """Navigator Agent Node."""
 
+from dataclasses import asdict, dataclass
+from typing import Literal
+
 from langchain_core.messages import AIMessage
 
 from app.agent.state import AgentState
@@ -8,6 +11,17 @@ from app.core.logging import get_logger
 from app.services import document_service
 
 logger = get_logger(__name__)
+
+
+@dataclass
+class NavigationTarget:
+    """Navigation target result."""
+
+    type: Literal["document", "not_found"]
+    document_id: int | None
+    title: str
+    content: str | None = None
+    message: str = ""
 
 
 async def navigator_agent_node(state: AgentState) -> AgentState:
@@ -36,24 +50,22 @@ async def navigator_agent_node(state: AgentState) -> AgentState:
         logger.warning("Navigator DB lookup failed", error=str(e))
 
     if doc:
-        navigation_target = {
-            "type": "document",
-            "document_id": doc.id,
-            "title": doc.topic,
-            "content": doc.content,
-            "message": f"已找到关于 **{target}** 的文档",
-        }
+        navigation_target = NavigationTarget(
+            type="document",
+            document_id=doc.id,
+            title=doc.topic,
+            content=doc.content,
+            message=f"已找到关于 **{target}** 的文档",
+        )
     else:
-        navigation_target = {
-            "type": "not_found",
-            "document_id": None,
-            "title": target,
-            "message": f"未找到关于 **{target}** 的文档，将为你生成",
-        }
+        navigation_target = NavigationTarget(
+            type="not_found",
+            document_id=None,
+            title=target,
+            message=f"未找到关于 **{target}** 的文档，将为你生成",
+        )
 
-    state["navigation_target"] = navigation_target
-    state["messages"] = state.get("messages", []) + [
-        AIMessage(content=navigation_target["message"])
-    ]
+    state["navigation_target"] = asdict(navigation_target)
+    state["messages"] = state.get("messages", []) + [AIMessage(content=navigation_target.message)]
 
     return state

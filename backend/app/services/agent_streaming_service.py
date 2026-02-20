@@ -4,6 +4,8 @@ This module provides the main orchestration for agent response streaming.
 It coordinates persistence, WebSocket communication, and event processing.
 """
 
+from collections.abc import Callable
+
 from fastapi import WebSocket
 
 from app.agent.state import AgentState
@@ -90,117 +92,134 @@ class AgentStreamProcessor:
         graph = get_graph()
         config = {"configurable": {"thread_id": self.session_id}}
 
+        # Event type handlers
+        handlers: dict[str, Callable[[dict], None]] = {
+            "on_chain_start": self._on_chain_start,
+            "on_chain_end": self._on_chain_end,
+            "on_chat_model_start": self._on_chat_model_start,
+            "on_chat_model_stream": self._on_chat_model_stream,
+            "on_chat_model_end": self._on_chat_model_end,
+            "on_tool_start": self._on_tool_start,
+            "on_tool_end": self._on_tool_end,
+            "on_tool_error": self._on_tool_error,
+        }
+
         # Process streaming events
         async for event in graph.astream_events(self.state, config, version="v1"):
             event_type = event["event"]
-            event_name = event.get("name", "")
-            event_data = event.get("data", {})
-            metadata = event.get("metadata", {})
+            handler = handlers.get(event_type)
+            if handler:
+                await handler(event)
 
-            # Node/Chain start events
-            if event_type == "on_chain_start":
-                node_name = event_name.split(".")[-1] if "." in event_name else event_name
-                await send_node_start(self.websocket, name=node_name)
-                logger.debug("Node started", node=node_name)
+    async def _on_chain_start(self, event: dict) -> None:
+        """Handle chain/node start event."""
+        event_name = event.get("name", "")
+        node_name = event_name.split(".")[-1] if "." in event_name else event_name
+        await send_node_start(self.websocket, name=node_name)
+        logger.debug("Node started", node=node_name)
 
-                # Create placeholder message when content_agent starts
-                if node_name == "content_agent" and not self.ctx.placeholder_message_id:
-                    async with get_db_session() as db:
-                        routing = self.state.get("routing_decision") or {}
-                        intent = self.state.get("intent") or {}
-                        doc_title = (
-                            routing.get("target")
-                            or intent.get("target")
-                            or self.state.get("raw_message", "新文档")
-                        )
-
-                        await send_document_start(self.websocket, topic=doc_title)
-                        placeholder_msg = await create_placeholder_message(
-                            db,
-                            session_id=self.session_id,
-                            user_id=self.user_id,
-                            topic=doc_title,
-                        )
-                        self.ctx.placeholder_message_id = placeholder_msg.id
-                        logger.info(
-                            "Placeholder message created for content_agent",
-                            message_id=placeholder_msg.id,
-                        )
-
-            # Node/Chain end events
-            elif event_type == "on_chain_end":
-                node_name = event_name.split(".")[-1] if "." in event_name else event_name
-                await send_node_end(self.websocket, name=node_name)
-                logger.debug("Node ended", node=node_name)
-
-                # Capture final state updates
-                if "output" in event_data:
-                    output = event_data["output"]
-                    if isinstance(output, dict):
-                        # Update self.state with node output so it reflects current state
-                        self.state.update(output)
-                        self.ctx.final_result.update(output)
-
-                        # When content_agent ends: persist document and send to client
-                        if node_name == "content_agent" and output.get("document"):
-                            await self._on_content_agent_end(output)
-
-                        # When post_process ends: persist entities/follow-ups
-                        if node_name == "post_process":
-                            await self._on_post_process_end(output)
-                    else:
-                        logger.debug(
-                            "Non-dict output in on_chain_end", output_type=type(output).__name__
-                        )
-
-            # LLM start — skip post_process node LLM events
-            elif event_type == "on_chat_model_start":
-                if metadata.get("langgraph_node") == "post_process":
-                    continue
-                await send_node_start(self.websocket, name="LLM", model=event_data.get("model"))
-
-            # LLM token streaming — skip post_process node
-            elif event_type == "on_chat_model_stream":
-                if metadata.get("langgraph_node") == "post_process":
-                    continue
-                chunk = event_data.get("chunk")
-                if chunk:
-                    chunk_str = chunk.content if hasattr(chunk, "content") else str(chunk)
-                    node_name = metadata.get("langgraph_node", "")
-                    if node_name == "content_agent":
-                        self.ctx.accumulated_content += chunk_str
-                        await send_document_token(self.websocket, content=chunk_str)
-
-            # LLM end — skip post_process node
-            elif event_type == "on_chat_model_end":
-                if metadata.get("langgraph_node") == "post_process":
-                    continue
-                await send_node_end(self.websocket, name="LLM")
-
-            # Tool call start
-            elif event_type == "on_tool_start":
-                tool_name = event_name.split(".")[-1] if "." in event_name else event_name
-                tool_input = event_data.get("input", {})
-                await send_tool_start(
-                    self.websocket, tool_name=tool_name, tool_input=str(tool_input)
+        # Create placeholder message when content_agent starts
+        if node_name == "content_agent" and not self.ctx.placeholder_message_id:
+            async with get_db_session() as db:
+                routing = self.state.get("routing_decision") or {}
+                intent = self.state.get("intent") or {}
+                doc_title = (
+                    routing.get("target")
+                    or intent.get("target")
+                    or self.state.get("raw_message", "新文档")
                 )
-                logger.info("Tool started", tool=tool_name)
 
-            # Tool call end
-            elif event_type == "on_tool_end":
-                tool_name = event_name.split(".")[-1] if "." in event_name else event_name
-                tool_output = event_data.get("output", "")
-                await send_tool_end(
-                    self.websocket, tool_name=tool_name, tool_output=str(tool_output)
+                await send_document_start(self.websocket, topic=doc_title)
+                placeholder_msg = await create_placeholder_message(
+                    db,
+                    session_id=self.session_id,
+                    user_id=self.user_id,
+                    topic=doc_title,
                 )
-                logger.info("Tool ended", tool=tool_name)
+                self.ctx.placeholder_message_id = placeholder_msg.id
+                logger.info(
+                    "Placeholder message created for content_agent",
+                    message_id=placeholder_msg.id,
+                )
 
-            # Tool error
-            elif event_type == "on_tool_error":
-                tool_name = event_name.split(".")[-1] if "." in event_name else event_name
-                error_msg = event_data.get("error", "Unknown error")
-                await send_error(self.websocket, message=f"工具 {tool_name} 执行失败: {error_msg}")
-                logger.error("Tool error", tool=tool_name, error=error_msg)
+    async def _on_chain_end(self, event: dict) -> None:
+        """Handle chain/node end event."""
+        event_name = event.get("name", "")
+        event_data = event.get("data", {})
+        node_name = event_name.split(".")[-1] if "." in event_name else event_name
+        await send_node_end(self.websocket, name=node_name)
+        logger.debug("Node ended", node=node_name)
+
+        # Capture final state updates
+        if "output" in event_data:
+            output = event_data["output"]
+            if isinstance(output, dict):
+                self.state.update(output)
+                self.ctx.final_result.update(output)
+
+                if node_name == "content_agent" and output.get("document"):
+                    await self._on_content_agent_end(output)
+
+                if node_name == "post_process":
+                    await self._on_post_process_end(output)
+            else:
+                logger.debug("Non-dict output in on_chain_end", output_type=type(output).__name__)
+
+    async def _on_chat_model_start(self, event: dict) -> None:
+        """Handle chat model start event."""
+        metadata = event.get("metadata", {})
+        if metadata.get("langgraph_node") == "post_process":
+            return
+        event_data = event.get("data", {})
+        await send_node_start(self.websocket, name="LLM", model=event_data.get("model"))
+
+    async def _on_chat_model_stream(self, event: dict) -> None:
+        """Handle chat model token streaming event."""
+        metadata = event.get("metadata", {})
+        if metadata.get("langgraph_node") == "post_process":
+            return
+        event_data = event.get("data", {})
+        chunk = event_data.get("chunk")
+        if chunk:
+            chunk_str = chunk.content if hasattr(chunk, "content") else str(chunk)
+            node_name = metadata.get("langgraph_node", "")
+            if node_name == "content_agent":
+                self.ctx.accumulated_content += chunk_str
+                await send_document_token(self.websocket, content=chunk_str)
+
+    async def _on_chat_model_end(self, event: dict) -> None:
+        """Handle chat model end event."""
+        metadata = event.get("metadata", {})
+        if metadata.get("langgraph_node") == "post_process":
+            return
+        await send_node_end(self.websocket, name="LLM")
+
+    async def _on_tool_start(self, event: dict) -> None:
+        """Handle tool start event."""
+        event_name = event.get("name", "")
+        event_data = event.get("data", {})
+        tool_name = event_name.split(".")[-1] if "." in event_name else event_name
+        tool_input = event_data.get("input", {})
+        await send_tool_start(self.websocket, tool_name=tool_name, tool_input=str(tool_input))
+        logger.info("Tool started", tool=tool_name)
+
+    async def _on_tool_end(self, event: dict) -> None:
+        """Handle tool end event."""
+        event_name = event.get("name", "")
+        event_data = event.get("data", {})
+        tool_name = event_name.split(".")[-1] if "." in event_name else event_name
+        tool_output = event_data.get("output", "")
+        await send_tool_end(self.websocket, tool_name=tool_name, tool_output=str(tool_output))
+        logger.info("Tool ended", tool=tool_name)
+
+    async def _on_tool_error(self, event: dict) -> None:
+        """Handle tool error event."""
+        event_name = event.get("name", "")
+        event_data = event.get("data", {})
+        tool_name = event_name.split(".")[-1] if "." in event_name else event_name
+        error_msg = event_data.get("error", "Unknown error")
+        await send_error(self.websocket, message=f"工具 {tool_name} 执行失败: {error_msg}")
+        logger.error("Tool error", tool=tool_name, error=error_msg)
 
     async def _on_content_agent_end(self, output: dict) -> None:
         """Handle content_agent completion: persist document and send to client immediately."""

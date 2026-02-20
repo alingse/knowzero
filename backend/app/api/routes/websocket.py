@@ -1,6 +1,7 @@
 """WebSocket routes for real-time chat with DB persistence."""
 
 import json
+from dataclasses import dataclass
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
@@ -39,9 +40,18 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 
-async def _load_session_context(
-    session_id: str,
-) -> tuple[int | None, dict | None, list[int], list[str], dict | None]:
+@dataclass
+class SessionContext:
+    """Session context for agent state building."""
+
+    current_doc_id: int | None
+    current_doc: dict | None
+    recent_docs: list[int]
+    learned_topics: list[str]
+    current_roadmap: dict | None
+
+
+async def _load_session_context(session_id: str) -> SessionContext:
     """Load session context from DB for agent state building."""
     current_doc_id = None
     current_doc = None
@@ -76,17 +86,19 @@ async def _load_session_context(
                 "version": active_roadmap.version,
             }
 
-    return current_doc_id, current_doc, recent_docs, learned_topics, current_roadmap
+    return SessionContext(
+        current_doc_id=current_doc_id,
+        current_doc=current_doc,
+        recent_docs=recent_docs,
+        learned_topics=learned_topics,
+        current_roadmap=current_roadmap,
+    )
 
 
 def _build_agent_state(
     request: ChatRequest,
     session_id: str,
-    current_doc_id: int | None,
-    current_doc: dict | None,
-    recent_docs: list[int],
-    learned_topics: list[str],
-    current_roadmap: dict | None,
+    ctx: SessionContext,
 ) -> AgentState:
     """Build the initial agent state from request and session context."""
     return {
@@ -97,15 +109,15 @@ def _build_agent_state(
         "comment_data": request.comment_data.model_dump() if request.comment_data else None,
         "entity_data": request.entity_data.model_dump() if request.entity_data else None,
         "intent_hint": request.intent_hint,
-        "current_doc_id": current_doc_id,
+        "current_doc_id": ctx.current_doc_id,
         "user_level": "beginner",
-        "learned_topics": learned_topics,
-        "recent_docs": recent_docs,
-        "current_roadmap": current_roadmap,
+        "learned_topics": ctx.learned_topics,
+        "recent_docs": ctx.recent_docs,
+        "current_roadmap": ctx.current_roadmap,
         "messages": [],
         "intent": None,
         "routing_decision": None,
-        "document": current_doc,
+        "document": ctx.current_doc,
         "roadmap": None,
         "follow_up_questions": [],
         "change_summary": None,
@@ -146,32 +158,18 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
 
             # Load context from DB
             try:
-                (
-                    current_doc_id,
-                    current_doc,
-                    recent_docs,
-                    learned_topics,
-                    current_roadmap,
-                ) = await _load_session_context(session_id)
+                ctx = await _load_session_context(session_id)
             except Exception as e:
                 logger.warning("Context loading failed", error=str(e))
-                current_doc_id, current_doc, recent_docs, learned_topics, current_roadmap = (
-                    None,
-                    None,
-                    [],
-                    [],
-                    None,
+                ctx = SessionContext(
+                    current_doc_id=None,
+                    current_doc=None,
+                    recent_docs=[],
+                    learned_topics=[],
+                    current_roadmap=None,
                 )
 
-            state = _build_agent_state(
-                request,
-                session_id,
-                current_doc_id,
-                current_doc,
-                recent_docs,
-                learned_topics,
-                current_roadmap,
-            )
+            state = _build_agent_state(request, session_id, ctx)
 
             await stream_agent_response(websocket, state)
 

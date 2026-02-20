@@ -182,31 +182,18 @@ async def persist_assistant_message(
     return msg
 
 
-async def persist_roadmap(
-    db: AsyncSession,
-    *,
-    session_id: str,
-    user_id: int | None,
-    roadmap_data: dict,
-) -> int:
-    """Persist a roadmap to the database.
+def _validate_roadmap_data(roadmap_data: dict) -> tuple[str, list]:
+    """Validate roadmap data and return (goal, milestones_raw).
 
     Args:
-        db: Database session
-        session_id: Session ID
-        user_id: User ID (optional, defaults to 1 until auth is implemented)
-        roadmap_data: Roadmap data from agent (dict with 'goal', 'milestones', 'mermaid')
+        roadmap_data: Raw roadmap data from agent
 
     Returns:
-        Created roadmap ID
+        Tuple of (goal, milestones_raw)
 
     Raises:
-        ValueError: If roadmap_data is missing required fields
-        pydantic.ValidationError: If milestones data is invalid
-
-    Note: This function commits the transaction.
+        ValueError: If roadmap_data is missing required fields or has wrong types
     """
-    # Validate required fields
     if not isinstance(roadmap_data, dict):
         raise ValueError(f"roadmap_data must be a dict, got {type(roadmap_data)}")
 
@@ -218,7 +205,18 @@ async def persist_roadmap(
     if not isinstance(milestones_raw, list):
         raise ValueError("'milestones' must be a list")
 
-    # Convert milestones to schema format with validation
+    return goal, milestones_raw
+
+
+def _normalize_milestones(milestones_raw: list) -> list[RoadmapMilestoneSchema]:
+    """Normalize and validate milestone data.
+
+    Args:
+        milestones_raw: Raw milestone list from agent
+
+    Returns:
+        List of validated RoadmapMilestoneSchema objects
+    """
     milestones = []
     for i, m in enumerate(milestones_raw):
         if not isinstance(m, dict):
@@ -246,7 +244,6 @@ async def persist_roadmap(
             milestones.append(milestone_schema)
         except Exception as e:
             logger.warning(f"Failed to validate milestone {i}: {e}, using defaults")
-            # Use default milestone on validation error
             milestones.append(
                 RoadmapMilestoneSchema(id=i, title=f"阶段 {i + 1}", description="", topics=[])
             )
@@ -260,6 +257,38 @@ async def persist_roadmap(
             )
         ]
 
+    return milestones
+
+
+async def persist_roadmap(
+    db: AsyncSession,
+    *,
+    session_id: str,
+    user_id: int | None,
+    roadmap_data: dict,
+) -> int:
+    """Persist a roadmap to the database.
+
+    Args:
+        db: Database session
+        session_id: Session ID
+        user_id: User ID (optional, defaults to 1 until auth is implemented)
+        roadmap_data: Roadmap data from agent (dict with 'goal', 'milestones', 'mermaid')
+
+    Returns:
+        Created roadmap ID
+
+    Raises:
+        ValueError: If roadmap_data is missing required fields
+        pydantic.ValidationError: If milestones data is invalid
+
+    Note: This function commits the transaction.
+    """
+    # Validate and extract data
+    goal, milestones_raw = _validate_roadmap_data(roadmap_data)
+    milestones = _normalize_milestones(milestones_raw)
+
+    # Create and persist
     roadmap_create = RoadmapCreate(
         goal=goal,
         milestones=milestones,
