@@ -268,11 +268,12 @@ def _build_standard_prompts(
 ) -> tuple[str, str]:
     """Build prompts for standard generation mode (default)."""
     intent_context = intent.get("context", "")
-    context_instruction = (
-        f"6. 内容应围绕「{intent_context}」应用场景展开，示例和案例应与该场景相关\n"
-        if intent_context
-        else ""
-    )
+    if intent_context:
+        context_instruction = (
+            f"6. 内容应围绕「{intent_context}」应用场景展开，示例和案例应与该场景相关\n"
+        )
+    else:
+        context_instruction = ""
     return (
         GENERATE_SYSTEM_PROMPT.format(level=user_level, context_instruction=context_instruction),
         f"请生成关于「{target}」的学习文档。",
