@@ -1,6 +1,7 @@
 """Planner Agent Node - generates and modifies structured learning roadmaps."""
 
 import json
+from typing import Any, cast
 
 from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import BaseModel, Field
@@ -102,10 +103,10 @@ async def planner_agent_node(state: AgentState) -> AgentState:
     - Generate: Create new roadmap from scratch
     - Modify: Adjust existing roadmap based on user feedback
     """
-    decision = state.get("routing_decision", {})
+    decision = state.get("routing_decision") or {}
     mode = decision.get("mode", "roadmap_generate")
     # Use intent target first, fallback to raw message, then default
-    intent = state.get("intent", {})
+    intent = state.get("intent") or {}
     target = decision.get("target") or intent.get("target") or state.get("raw_message", "新主题")
     user_level = state.get("user_level", "beginner")
     current_roadmap = state.get("current_roadmap")
@@ -120,27 +121,27 @@ async def planner_agent_node(state: AgentState) -> AgentState:
     # Check if this is a modify request
     if mode == "roadmap_modify" and current_roadmap:
         result = await _modify_roadmap(state, user_level)
-        state["roadmap"] = result["roadmap"]
+        state["roadmap"] = cast(dict[str, Any], result.get("roadmap"))
         state["roadmap_only"] = True  # Don't generate document after modifying
         state["roadmap_modified"] = True
         return state
 
     # Generate new roadmap
     result = await _generate_roadmap(state, target, user_level)
-    state["roadmap"] = result["roadmap"]
+    state["roadmap"] = cast(dict[str, Any], result.get("roadmap"))
     state["roadmap_only"] = False  # Continue to generate document
     state["roadmap_modified"] = False
 
     return state
 
 
-async def _generate_roadmap(state: AgentState, target: str, user_level: str) -> dict:
+async def _generate_roadmap(state: AgentState, target: str, user_level: str) -> dict[str, object]:
     """Generate new roadmap from scratch."""
 
     llm = get_llm()
-    intent = state.get("intent", {})
-    user_role = intent.get("user_role", user_level)
-    context = intent.get("context", "")
+    intent = state.get("intent") or {}
+    user_role = intent.get("user_role", user_level) or user_level
+    context = intent.get("context", "") or ""
 
     # Build personalized user prompt
     prompt_parts = [f"请为「{target}」生成一个适合 {user_role} 水平的学习路线图。"]
@@ -153,12 +154,13 @@ async def _generate_roadmap(state: AgentState, target: str, user_level: str) -> 
         # Use json_mode for DeepSeek compatibility
         structured_llm = llm.with_structured_output(RoadmapOutput, method="json_mode")
 
-        result: RoadmapOutput = await structured_llm.ainvoke(
+        invoke_result = await structured_llm.ainvoke(
             [
                 SystemMessage(content=PLANNER_SYSTEM_PROMPT),
                 HumanMessage(content=user_prompt),
             ]
         )
+        result = cast(RoadmapOutput, invoke_result)
 
         # Convert Pydantic model to dict for state storage
         roadmap = {
@@ -182,7 +184,7 @@ async def _generate_roadmap(state: AgentState, target: str, user_level: str) -> 
 
 async def _generate_roadmap_fallback(
     target: str, user_level: str, context: str, structured_error: Exception
-) -> dict:
+) -> dict[str, object]:
     """Fallback roadmap generation using manual JSON parsing."""
 
     llm = get_llm()
@@ -201,7 +203,8 @@ async def _generate_roadmap_fallback(
             ]
         )
 
-        raw_content = resp.content.strip()
+        content = resp.content
+        raw_content = content.strip() if isinstance(content, str) else str(content)
         # Remove markdown code blocks if present
         if raw_content.startswith("```"):
             raw_content = raw_content.strip("`").removeprefix("json").removeprefix("JSON")
@@ -260,7 +263,7 @@ async def _generate_roadmap_fallback(
         }
 
 
-async def _modify_roadmap(state: AgentState, user_level: str) -> dict:
+async def _modify_roadmap(state: AgentState, user_level: str) -> dict[str, object]:
     """Modify existing roadmap based on user request."""
 
     current_roadmap = state.get("current_roadmap")
@@ -280,7 +283,7 @@ async def _modify_roadmap(state: AgentState, user_level: str) -> dict:
         # Build current roadmap summary for context
         current_summary = _summarize_current_roadmap(current_roadmap)
 
-        result: RoadmapOutput = await structured_llm.ainvoke(
+        invoke_result = await structured_llm.ainvoke(
             [
                 SystemMessage(content=MODIFY_SYSTEM_PROMPT),
                 HumanMessage(
@@ -293,13 +296,14 @@ async def _modify_roadmap(state: AgentState, user_level: str) -> dict:
                 ),
             ]
         )
+        result = cast(RoadmapOutput, invoke_result)
 
         # Increment version
         roadmap = {
             "goal": result.goal,
             "milestones": [m.model_dump() for m in result.milestones],
             "mermaid": result.mermaid,
-            "version": current_roadmap.get("version", 1) + 1,
+            "version": int(current_roadmap.get("version", 1) or 1) + 1,
         }
 
         logger.info(
@@ -320,16 +324,26 @@ async def _modify_roadmap(state: AgentState, user_level: str) -> dict:
         return {"roadmap": current_roadmap, "error": str(e)}
 
 
-def _summarize_current_roadmap(roadmap: dict) -> str:
+def _summarize_current_roadmap(roadmap: dict[str, object]) -> str:
     """Generate a summary of the current roadmap for the modification prompt."""
 
     milestones = roadmap.get("milestones", [])
+    if not isinstance(milestones, list):
+        milestones = []
 
     milestone_descriptions = []
     for m in milestones:
-        desc = f"  阶段 {m['id']}: {m['title']}\n"
-        desc += f"    描述: {m['description']}\n"
-        desc += f"    知识点: {', '.join(m.get('topics', []))}"
+        if not isinstance(m, dict):
+            continue
+        m_id = m.get("id", 0)
+        m_title = m.get("title", "")
+        m_description = m.get("description", "")
+        m_topics = m.get("topics", [])
+        if not isinstance(m_topics, list):
+            m_topics = []
+        desc = f"  阶段 {m_id}: {m_title}\n"
+        desc += f"    描述: {m_description}\n"
+        desc += f"    知识点: {', '.join(str(t) for t in m_topics)}"
         milestone_descriptions.append(desc)
 
     return f"""目标: {roadmap.get("goal", "")}

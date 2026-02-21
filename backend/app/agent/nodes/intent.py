@@ -69,8 +69,8 @@ def _build_intent(
     confidence: float = 0.85,
     complexity: str = "moderate",
     ambiguity: str = "medium",
-    **kwargs,
-) -> dict:
+    **kwargs: object,
+) -> dict[str, object]:
     """Build intent dict with common fields.
 
     Args:
@@ -94,7 +94,7 @@ def _build_intent(
     }
 
 
-async def _analyze_entity_intent(state: AgentState) -> dict:
+async def _analyze_entity_intent(state: AgentState) -> dict[str, object]:
     """Analyze entity click intent."""
     entity_data = state.get("entity_data") or {}
     entity_name = entity_data.get("entity_name", "")
@@ -129,7 +129,7 @@ async def _analyze_entity_intent(state: AgentState) -> dict:
         )
 
 
-async def _analyze_comment_intent(state: AgentState) -> dict:
+async def _analyze_comment_intent(state: AgentState) -> dict[str, object]:
     """Analyze comment optimization intent.
 
     When user comments on selected text, generate a NEW document to explain it,
@@ -174,14 +174,14 @@ async def _analyze_comment_intent(state: AgentState) -> dict:
     )
 
 
-async def _analyze_followup_intent(state: AgentState) -> dict:
+async def _analyze_followup_intent(state: AgentState) -> dict[str, object]:
     """Analyze follow-up question intent."""
-    intent_hint = state.get("intent_hint", "follow_up")
+    intent_hint = state.get("intent_hint", "follow_up") or "follow_up"
     message = state.get("raw_message", "")
 
     return _build_intent(
         intent_hint,
-        message,
+        message or "",
         confidence=0.9,
         complexity="simple",
         ambiguity="low",

@@ -17,13 +17,12 @@ async def create_document(
     topic: str,
     content: str,
     category_path: str | None = None,
-    entities: list | None = None,
-    generation_metadata: dict | None = None,
+    entities: list[str] | None = None,
+    generation_metadata: dict[str, object] | None = None,
     parent_document_id: int | None = None,
     roadmap_id: int | None = None,
     milestone_id: int | None = None,
 ) -> Document:
-    """Create a new document and its initial version."""
     doc = Document(
         session_id=session_id,
         user_id=user_id,
@@ -40,7 +39,6 @@ async def create_document(
     db.add(doc)
     await db.flush()
 
-    # Create initial version record
     version = DocumentVersion(
         document_id=doc.id,
         version=1,
@@ -63,7 +61,6 @@ async def update_document(
     change_summary: str,
     change_type: str = "updated",
 ) -> Document:
-    """Update a document and create a new version."""
     doc = await db.get(Document, document_id)
     if not doc:
         raise ValueError(f"Document {document_id} not found")
@@ -78,7 +75,7 @@ async def update_document(
         content=content,
         change_summary=change_summary,
         change_type=change_type,
-        parent_version_id=None,  # Could track previous version
+        parent_version_id=None,
     )
     db.add(version)
     await db.flush()
@@ -88,12 +85,10 @@ async def update_document(
 
 
 async def get_document(db: AsyncSession, document_id: int) -> Document | None:
-    """Get a document by ID."""
     return await db.get(Document, document_id)
 
 
 async def find_document_by_topic(db: AsyncSession, session_id: str, topic: str) -> Document | None:
-    """Find a document by topic within a session."""
     stmt = (
         select(Document)
         .where(Document.session_id == session_id)
@@ -106,7 +101,6 @@ async def find_document_by_topic(db: AsyncSession, session_id: str, topic: str) 
 
 
 async def list_session_documents(db: AsyncSession, session_id: str) -> list[Document]:
-    """List all documents in a session."""
     stmt = (
         select(Document)
         .where(Document.session_id == session_id)
@@ -117,12 +111,8 @@ async def list_session_documents(db: AsyncSession, session_id: str) -> list[Docu
 
 
 async def update_document_entities(
-    db: AsyncSession,
-    *,
-    document_id: int,
-    entities: list[str],
+    db: AsyncSession, *, document_id: int, entities: list[str]
 ) -> Document | None:
-    """Update a document's entities list (used by background tasks)."""
     doc = await db.get(Document, document_id)
     if not doc:
         logger.warning("Document not found for entity update", doc_id=document_id)
@@ -134,11 +124,8 @@ async def update_document_entities(
 
 
 async def save_follow_ups(
-    db: AsyncSession,
-    document_id: int,
-    questions: list[dict],
+    db: AsyncSession, document_id: int, questions: list[dict[str, object]]
 ) -> list[FollowUpQuestion]:
-    """Save follow-up questions for a document."""
     records = []
     for q in questions:
         fq = FollowUpQuestion(
@@ -160,10 +147,6 @@ async def update_document_roadmap(
     roadmap_id: int | None,
     milestone_id: int | None,
 ) -> Document | None:
-    """Update a document's roadmap and milestone association.
-
-    Called after post_process classifies the document to a milestone.
-    """
     doc = await db.get(Document, document_id)
     if not doc:
         logger.warning("Document not found for roadmap update", doc_id=document_id)

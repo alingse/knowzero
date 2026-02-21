@@ -1,7 +1,7 @@
 """Session routes."""
 
 import uuid
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import delete, select
@@ -84,7 +84,7 @@ async def get_session_messages(
 async def restore_session(
     session_id: str,
     db: Annotated[AsyncSession, Depends(get_db)],
-) -> dict:
+) -> dict[str, Any]:
     """Restore session state for page refresh."""
     # Get session
     result = await db.execute(select(Session).where(Session.id == session_id))
@@ -164,7 +164,7 @@ async def chat(
     session_id: str,
     data: ChatRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
-) -> dict:
+) -> dict[str, Any]:
     """Send a chat message (placeholder for WebSocket)."""
     # TODO: Implement with WebSocket streaming
     # For now, return placeholder

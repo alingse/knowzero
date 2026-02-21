@@ -4,6 +4,7 @@ import asyncio
 import json
 import time
 from collections.abc import Callable
+from typing import Any, cast
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
@@ -11,6 +12,9 @@ from app.agent.llm import get_llm
 from app.agent.llm_utils import parse_llm_json_response
 from app.agent.state import AgentState
 from app.core.logging import get_logger
+
+# Type alias for better readability
+MilestoneDict = dict[str, Any]
 
 logger = get_logger(__name__)
 
@@ -122,7 +126,7 @@ MILESTONE_CLASSIFY_PROMPT = """\
 
 async def content_agent_node(state: AgentState) -> AgentState:
     """Generate or update document content via LLM."""
-    decision = state.get("routing_decision", {})
+    decision = state.get("routing_decision") or {}
     action = decision.get("action", "generate_new")
     mode = decision.get("mode", "standard")
 
@@ -134,13 +138,22 @@ async def content_agent_node(state: AgentState) -> AgentState:
         else:
             result = await _generate_document(state, mode)
 
-        state["document"] = result.get("document")
-        state["follow_up_questions"] = result.get("follow_up_questions", [])
-        state["change_summary"] = result.get("change_summary")
+        doc_val = result.get("document")
+        follow_up_val = result.get("follow_up_questions", [])
+        change_summary_val = result.get("change_summary")
 
-        doc = result.get("document", {})
+        state["document"] = cast(dict[str, Any], doc_val) if doc_val else None
+        state["follow_up_questions"] = (
+            cast(list[dict[str, Any]], follow_up_val) if isinstance(follow_up_val, list) else []
+        )
+        state["change_summary"] = (
+            change_summary_val if isinstance(change_summary_val, str) else None
+        )
+
+        doc = result.get("document", {}) or {}
+        doc_topic = doc.get("topic") if isinstance(doc, dict) else None
         state["messages"] = state.get("messages", []) + [
-            AIMessage(content=f"已生成文档: {doc.get('topic', '新文档')}")
+            AIMessage(content=f"已生成文档: {doc_topic if doc_topic else '新文档'}")
         ]
 
     except GeneratorExit as e:
@@ -165,10 +178,10 @@ async def content_agent_node(state: AgentState) -> AgentState:
     return state
 
 
-async def _generate_document(state: AgentState, mode: str) -> dict:
+async def _generate_document(state: AgentState, mode: str) -> dict[str, object]:
     """Generate new document using LLM."""
-    decision = state.get("routing_decision", {})
-    intent = state.get("intent", {})
+    decision = state.get("routing_decision") or {}
+    intent = state.get("intent") or {}
     # Use intent target first, fallback to decision target, then raw message, then default
     target = intent.get("target") or decision.get("target") or state.get("raw_message", "新主题")
     user_level = state.get("user_level", "beginner")
@@ -177,7 +190,7 @@ async def _generate_document(state: AgentState, mode: str) -> dict:
     logger.info("_generate_document started", target=target, mode=mode)
 
     # Build prompts based on mode
-    system, user_prompt = _build_generation_prompts(state, mode, target, user_level, intent)
+    system, user_prompt = _build_generation_prompts(state, mode, target, user_level, intent or {})
 
     try:
         start_time = time.monotonic()
@@ -189,7 +202,6 @@ async def _generate_document(state: AgentState, mode: str) -> dict:
             timeout=getattr(llm, "timeout", "not set"),
         )
 
-        # Use astream for streaming tokens
         content = ""
         async for chunk in llm.astream(
             [
@@ -197,7 +209,11 @@ async def _generate_document(state: AgentState, mode: str) -> dict:
                 HumanMessage(content=user_prompt),
             ]
         ):
-            content += chunk.content
+            chunk_content = chunk.content
+            if isinstance(chunk_content, str):
+                content += chunk_content
+            else:
+                content += str(chunk_content)
 
         elapsed = time.monotonic() - start_time
         logger.info(
@@ -236,8 +252,7 @@ async def _generate_document(state: AgentState, mode: str) -> dict:
     # Generate category path
     category_path = _generate_category_path(target)
 
-    # Entities and follow-ups are extracted in the post_process node
-    document = {
+    document: dict[str, object] = {
         "id": None,
         "topic": target,
         "content": content,
@@ -254,9 +269,8 @@ async def _generate_document(state: AgentState, mode: str) -> dict:
 
 
 def _build_comparison_prompts(
-    state: AgentState, target: str, user_level: str, intent: dict
+    state: AgentState, target: str, user_level: str, intent: dict[str, object]
 ) -> tuple[str, str]:
-    """Build prompts for comparison mode."""
     return (
         GENERATE_SYSTEM_PROMPT.format(level=user_level, context_instruction=""),
         f"请生成一篇对比分析文档：{target}",
@@ -264,9 +278,8 @@ def _build_comparison_prompts(
 
 
 def _build_standard_prompts(
-    state: AgentState, target: str, user_level: str, intent: dict
+    state: AgentState, target: str, user_level: str, intent: dict[str, object]
 ) -> tuple[str, str]:
-    """Build prompts for standard generation mode (default)."""
     intent_context = intent.get("context", "")
     if intent_context:
         context_instruction = (
@@ -281,7 +294,7 @@ def _build_standard_prompts(
 
 
 def _build_explain_selection_prompts(
-    state: AgentState, user_level: str, intent: dict
+    state: AgentState, user_level: str, intent: dict[str, object]
 ) -> tuple[str, str]:
     """Build prompts for explain_selection mode."""
     comment_data = state.get("comment_data") or {}
@@ -316,6 +329,11 @@ def _build_explain_selection_prompts(
         "different_angle": "用户希望换个角度来理解这部分内容",
     }
 
+    need_desc = (
+        need_descriptions.get(user_need, "需要进一步解释")
+        if isinstance(user_need, str)
+        else "需要进一步解释"
+    )
     system = EXPLAIN_SELECTION_SYSTEM_PROMPT.format(
         doc_topic=doc_topic,
         roadmap_context=roadmap_context,
@@ -324,31 +342,34 @@ def _build_explain_selection_prompts(
     user_prompt = (
         f"用户正在学习「{doc_topic}」，在文档中选中了这段内容：\n\n{context_snippet}\n\n"
         f"用户评论：{user_comment}\n\n"
-        f"需求分析：{need_descriptions.get(user_need, '需要进一步解释')}\n\n"
+        f"需求分析：{need_desc}\n\n"
         f"请在「{doc_topic}」的语境下生成一个新的学习文档来详细解释选中内容。"
     )
     return system, user_prompt
 
 
 def _build_roadmap_learning_prompts(
-    state: AgentState, target: str, user_level: str, intent: dict
+    state: AgentState, target: str, user_level: str, intent: dict[str, object]
 ) -> tuple[str, str]:
-    """Build prompts for roadmap_learning mode."""
     current_roadmap = state.get("current_roadmap") or {}
     milestones = current_roadmap.get("milestones", [])
+    if not isinstance(milestones, list):
+        milestones = []
     intent_context = intent.get("context", "")
     context_instruction = (
         f"6. 内容应围绕「{intent_context}」应用场景展开\n" if intent_context else ""
     )
 
-    # Find the best matching milestone for this target
     milestone_info = _find_matching_milestone(target, milestones)
     if milestone_info:
+        milestone_topics = milestone_info.get("topics", [])
+        if not isinstance(milestone_topics, list):
+            milestone_topics = []
         system = ROADMAP_LEARNING_SYSTEM_PROMPT.format(
-            roadmap_goal=current_roadmap.get("goal", ""),
-            milestone_title=milestone_info.get("title", ""),
-            milestone_description=milestone_info.get("description", ""),
-            milestone_topics=", ".join(milestone_info.get("topics", [])),
+            roadmap_goal=str(current_roadmap.get("goal", "")),
+            milestone_title=str(milestone_info.get("title", "")),
+            milestone_description=str(milestone_info.get("description", "")),
+            milestone_topics=", ".join(str(t) for t in milestone_topics),
             level=user_level,
             context_instruction=context_instruction,
         )
@@ -359,17 +380,16 @@ def _build_roadmap_learning_prompts(
     return system, f"请生成关于「{target}」的学习文档。"
 
 
-# Strategy registry for prompt builders
 _PROMPT_BUILDERS: dict[str, Callable[..., tuple[str, str]]] = {
-    "explain_selection": _build_explain_selection_prompts,
+    "explain_selection": cast(Callable[..., tuple[str, str]], _build_explain_selection_prompts),
     "comparison": _build_comparison_prompts,
     "roadmap_learning": _build_roadmap_learning_prompts,
-    # "standard" is the default, handled in _build_generation_prompts
+    "standard": _build_standard_prompts,
 }
 
 
 def _build_generation_prompts(
-    state: AgentState, mode: str, target: str, user_level: str, intent: dict
+    state: AgentState, mode: str, target: str, user_level: str, intent: dict[str, object]
 ) -> tuple[str, str]:
     """Build system and user prompts for document generation using strategy pattern.
 
@@ -378,7 +398,6 @@ def _build_generation_prompts(
     """
     builder = _PROMPT_BUILDERS.get(mode, _build_standard_prompts)
 
-    # Call builder with appropriate arguments based on mode
     # explain_selection has a different signature (no target parameter)
     if mode == "explain_selection":
         return builder(state, user_level, intent)
@@ -386,8 +405,7 @@ def _build_generation_prompts(
     return builder(state, target, user_level, intent)
 
 
-async def _update_document(state: AgentState, mode: str) -> dict:
-    """Update existing document using LLM."""
+async def _update_document(state: AgentState, mode: str) -> dict[str, object]:
     current_doc = state.get("document") or {}
     raw_message = state.get("raw_message", "")
     llm = get_llm()
@@ -398,7 +416,6 @@ async def _update_document(state: AgentState, mode: str) -> dict:
         f"原文档：\n\n{existing_content}\n\n用户反馈：{raw_message}\n\n请按照 {mode} 模式优化文档。"
     )
 
-    # Use astream for streaming tokens
     content = ""
     async for chunk in llm.astream(
         [
@@ -406,7 +423,11 @@ async def _update_document(state: AgentState, mode: str) -> dict:
             HumanMessage(content=user_prompt),
         ]
     ):
-        content += chunk.content
+        chunk_content = chunk.content
+        if isinstance(chunk_content, str):
+            content += chunk_content
+        else:
+            content += str(chunk_content)
 
     mode_descriptions = {
         "add_examples": "添加了更多示例",
@@ -438,14 +459,25 @@ async def _extract_entities_llm(content: str) -> list[str]:
                 HumanMessage(content=ENTITY_EXTRACT_PROMPT.format(content=content[:2000])),
             ]
         )
-        parsed = parse_llm_json_response(resp.content)
-        return parsed
+        # Handle different content types from LLM response
+        resp_content = resp.content
+        if isinstance(resp_content, str):
+            parsed = parse_llm_json_response(resp_content)
+            # Parsed can be dict or list, ensure we return list[str]
+            if isinstance(parsed, list):
+                return [str(item) for item in parsed]
+            else:
+                return list(parsed.values()) if parsed else []
+        else:
+            # For non-string content, try to extract as list
+            content_list = list(resp_content) if hasattr(resp_content, "__iter__") else []
+            return [str(item) for item in content_list]
     except Exception as e:
         logger.warning("Entity extraction failed", error=str(e))
         return []
 
 
-async def _generate_follow_ups(content: str) -> list[dict]:
+async def _generate_follow_ups(content: str) -> list[dict[str, object]]:
     """Generate follow-up questions using LLM."""
     try:
         llm = get_llm()
@@ -455,14 +487,33 @@ async def _generate_follow_ups(content: str) -> list[dict]:
                 HumanMessage(content=f"文档内容：\n\n{content[:3000]}"),
             ]
         )
-        parsed = parse_llm_json_response(resp.content)
-        return parsed
+        resp_content = resp.content
+        if isinstance(resp_content, str):
+            parsed = parse_llm_json_response(resp_content)
+            # Ensure we return list[dict[str, object]]
+            if isinstance(parsed, list):
+                return [
+                    dict(item) if isinstance(item, dict) else {"question": str(item)}
+                    for item in parsed
+                ]
+            else:
+                # If parsed is a dict, wrap it in a list
+                return [parsed] if parsed else []
+        else:
+            # For non-string content
+            content_list = list(resp_content) if hasattr(resp_content, "__iter__") else []
+            return [
+                dict(item) if isinstance(item, dict) else {"question": str(item)}
+                for item in content_list
+            ]
     except Exception as e:
         logger.warning("Follow-up generation failed", error=str(e))
         return []
 
 
-async def _classify_milestone(doc_topic: str, doc_summary: str, roadmap: dict | None) -> int | None:
+async def _classify_milestone(
+    doc_topic: str, doc_summary: str, roadmap: dict[str, object] | None
+) -> int | None:
     """Classify document to a milestone using LLM.
 
     Returns milestone ID or None if no roadmap/no match.
@@ -471,13 +522,21 @@ async def _classify_milestone(doc_topic: str, doc_summary: str, roadmap: dict | 
         return None
 
     milestones = roadmap.get("milestones", [])
-    if not milestones:
+    if not isinstance(milestones, list) or not milestones:
         return None
 
     try:
         llm = get_llm()
+        # Ensure milestones are dicts before processing
+        milestones_list = [m for m in milestones if isinstance(m, dict)]
+        if not milestones_list:
+            return None
+
         milestones_json = json.dumps(
-            [{k: m[k] for k in ("id", "title", "description", "topics")} for m in milestones],
+            [
+                {k: m[k] for k in ("id", "title", "description", "topics") if k in m}
+                for m in milestones_list
+            ],
             ensure_ascii=False,
             indent=2,
         )
@@ -494,7 +553,8 @@ async def _classify_milestone(doc_topic: str, doc_summary: str, roadmap: dict | 
             ]
         )
 
-        result = resp.content.strip()
+        content = resp.content
+        result = content.strip() if isinstance(content, str) else str(content)
         milestone_id = int(result)
 
         if milestone_id < 0:
@@ -509,56 +569,41 @@ async def _classify_milestone(doc_topic: str, doc_summary: str, roadmap: dict | 
         return None
 
 
-def _resolve_doc_topic(state: AgentState, comment_data: dict) -> str:
-    """Resolve the original document's topic from state context.
-
-    Fallback chain (from most to least reliable):
-    1. available_docs lookup by document_id - most reliable, finds exact document
-    2. state["document"].topic - works when user is viewing the document
-    3. intent.target - BEWARE: semantic varies by intent type:
-       - optimize_content: target is the selected text (NOT the doc topic)
-       - other intents: target is usually the learning topic
-    4. raw_message (truncated) - last resort, user's original input
-
-    This function is primarily used by explain_selection mode, where we need
-    the original document's topic (e.g., "langgraph") to provide context for
-    explaining selected text (e.g., "边（Edge）").
-    """
+def _resolve_doc_topic(state: AgentState, comment_data: dict[str, object]) -> str:
     doc_id = comment_data.get("document_id")
     if doc_id:
         available_docs = state.get("available_docs", [])
         for doc in available_docs:
             if doc.get("id") == doc_id:
-                return doc.get("title", "")
+                return str(doc.get("title", ""))
 
-    # Fallback 1: Use current document's topic if available
-    # This works when user is viewing a document and comments on selected text
     current_doc = state.get("document")
     if current_doc and current_doc.get("topic"):
-        return current_doc.get("topic", "")
+        return str(current_doc.get("topic", ""))
 
-    # Fallback 2: Use intent target or raw message
-    # NOTE: For optimize_content intent, target is the selected text itself,
-    # so this fallback may not return the correct document topic.
-    # The state["document"] fallback above should handle most cases.
-    intent = state.get("intent", {})
-    return intent.get("target") or state.get("raw_message", "")[:50]
+    intent = state.get("intent") or {}
+    target = intent.get("target") or state.get("raw_message", "")
+    return str(target)[:50] if target else ""
 
 
-def _find_matching_milestone(target: str, milestones: list[dict]) -> dict | None:
-    """Find the best matching milestone for a given target topic."""
+def _find_matching_milestone(
+    target: str, milestones: list[dict[str, object]]
+) -> dict[str, object] | None:
     if not milestones:
         return None
 
     target_lower = target.lower()
     for milestone in milestones:
-        topics = [t.lower() for t in milestone.get("topics", [])]
-        title = milestone.get("title", "").lower()
-        # Check if target matches any topic or title
+        if not isinstance(milestone, dict):
+            continue
+        milestone_topics = milestone.get("topics", [])
+        if not isinstance(milestone_topics, list):
+            milestone_topics = []
+        topics = [str(t).lower() for t in milestone_topics]
+        title = str(milestone.get("title", "")).lower()
         if target_lower in title or any(target_lower in t or t in target_lower for t in topics):
             return milestone
 
-    # No exact match, return first milestone as default
     return None
 
 

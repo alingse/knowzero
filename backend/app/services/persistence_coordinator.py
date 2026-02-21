@@ -1,8 +1,4 @@
-"""Persistence coordinator for database operations.
-
-This module coordinates database persistence operations for the agent streaming workflow.
-It separates persistence concerns from WebSocket handling and event processing.
-"""
+"""Persistence coordinator for database operations."""
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -23,7 +19,6 @@ async def persist_user_message(
     message_type: str = "chat",
     related_document_id: int | None = None,
 ) -> Message:
-    """Persist a user message to the database."""
     msg = await message_service.save_user_message(
         db,
         session_id=session_id,
@@ -43,7 +38,6 @@ async def create_placeholder_message(
     user_id: int,
     topic: str,
 ) -> Message:
-    """Create a placeholder message for document generation in progress."""
     msg = await message_service.save_assistant_message(
         db,
         session_id=session_id,
@@ -69,16 +63,13 @@ async def update_placeholder_message(
     doc_id: int,
     topic: str,
 ) -> None:
-    """Update placeholder message with completion info or create new one."""
     doc_topic = topic or "学习文档"
     if message_id:
-        # Update existing placeholder message
         await message_service.update_message_content(
             db,
             message_id=message_id,
             content=f"📚 已生成学习文档：{doc_topic}",
         )
-        # Link document to the message
         await message_service.update_message_document(
             db,
             message_id=message_id,
@@ -90,7 +81,6 @@ async def update_placeholder_message(
             doc_id=doc_id,
         )
     else:
-        # Fallback: create new message if no placeholder exists
         await message_service.save_assistant_message(
             db,
             session_id=session_id,
@@ -107,49 +97,53 @@ async def persist_document(
     *,
     session_id: str,
     user_id: int,
-    doc_data: dict,
+    doc_data: dict[str, object],
     change_summary: str | None,
     input_source: str,
     current_doc_id: int | None,
-    intent: dict | None,
-    routing: dict | None,
+    intent: dict[str, object] | None,
+    routing: dict[str, object] | None,
 ) -> tuple[int, str]:
-    """Persist document to database, returning doc_id and topic."""
-    if doc_data.get("id"):
-        # Update existing document
+    doc_id_val = doc_data.get("id")
+    if doc_id_val and isinstance(doc_id_val, int):
         db_doc = await document_service.update_document(
             db,
-            document_id=doc_data["id"],
-            content=doc_data["content"],
+            document_id=doc_id_val,
+            content=str(doc_data.get("content", "")),
             change_summary=change_summary or "更新",
         )
     else:
-        # Create new document
         parent_id = None
         if input_source == "follow_up":
             parent_id = current_doc_id
+
+        topic_val = doc_data.get("topic", "")
+        content_val = doc_data.get("content", "")
+        category_path_val = doc_data.get("category_path")
+        entities_val = doc_data.get("entities", [])
+        roadmap_id_val = doc_data.get("roadmap_id")
+        milestone_id_val = doc_data.get("milestone_id")
 
         db_doc = await document_service.create_document(
             db,
             session_id=session_id,
             user_id=user_id,
-            topic=doc_data.get("topic", ""),
-            content=doc_data.get("content", ""),
-            category_path=doc_data.get("category_path"),
-            entities=doc_data.get("entities", []),
+            topic=str(topic_val) if topic_val else "",
+            content=str(content_val) if content_val else "",
+            category_path=str(category_path_val) if category_path_val else None,
+            entities=list(entities_val) if isinstance(entities_val, list) else [],
             generation_metadata={
                 "intent": intent,
                 "routing": routing,
             },
             parent_document_id=parent_id,
-            roadmap_id=doc_data.get("roadmap_id"),
-            milestone_id=doc_data.get("milestone_id"),
+            roadmap_id=int(roadmap_id_val) if isinstance(roadmap_id_val, int) else None,
+            milestone_id=int(milestone_id_val) if isinstance(milestone_id_val, int) else None,
         )
 
     doc_id = db_doc.id
-    doc_topic = doc_data.get("topic", "学习文档")
+    doc_topic = str(doc_data.get("topic", "学习文档"))
 
-    # Update session's current_document_id to pin this document
     await session_service.update_current_document(db, session_id, doc_id)
 
     logger.info("Document persisted", doc_id=doc_id, topic=doc_topic, session_id=session_id)
@@ -164,10 +158,9 @@ async def persist_assistant_message(
     content: str,
     message_type: str,
     related_document_id: int | None = None,
-    agent_intent: dict | None = None,
-    agent_routing: dict | None = None,
+    agent_intent: dict[str, object] | None = None,
+    agent_routing: dict[str, object] | None = None,
 ) -> Message:
-    """Persist an assistant message to the database."""
     msg = await message_service.save_assistant_message(
         db,
         session_id=session_id,
@@ -182,18 +175,7 @@ async def persist_assistant_message(
     return msg
 
 
-def _validate_roadmap_data(roadmap_data: dict) -> tuple[str, list]:
-    """Validate roadmap data and return (goal, milestones_raw).
-
-    Args:
-        roadmap_data: Raw roadmap data from agent
-
-    Returns:
-        Tuple of (goal, milestones_raw)
-
-    Raises:
-        ValueError: If roadmap_data is missing required fields or has wrong types
-    """
+def _validate_roadmap_data(roadmap_data: dict[str, object]) -> tuple[str, list[object]]:
     if not isinstance(roadmap_data, dict):
         raise ValueError(f"roadmap_data must be a dict, got {type(roadmap_data)}")
 
@@ -208,32 +190,21 @@ def _validate_roadmap_data(roadmap_data: dict) -> tuple[str, list]:
     return goal, milestones_raw
 
 
-def _normalize_milestones(milestones_raw: list) -> list[RoadmapMilestoneSchema]:
-    """Normalize and validate milestone data.
-
-    Args:
-        milestones_raw: Raw milestone list from agent
-
-    Returns:
-        List of validated RoadmapMilestoneSchema objects
-    """
+def _normalize_milestones(milestones_raw: list[object]) -> list[RoadmapMilestoneSchema]:
     milestones = []
     for i, m in enumerate(milestones_raw):
         if not isinstance(m, dict):
             logger.warning(f"Skipping invalid milestone at index {i}: not a dict")
             continue
 
-        # Extract fields with defaults
         title = m.get("title", "")
         description = m.get("description", "")
         topics = m.get("topics", [])
 
-        # Validate topics is a list
         if not isinstance(topics, list):
             logger.warning(f"Milestone {i}: topics must be a list, got {type(topics)}")
             topics = []
 
-        # Create schema with validation
         try:
             milestone_schema = RoadmapMilestoneSchema(
                 id=i,
@@ -248,7 +219,6 @@ def _normalize_milestones(milestones_raw: list) -> list[RoadmapMilestoneSchema]:
                 RoadmapMilestoneSchema(id=i, title=f"阶段 {i + 1}", description="", topics=[])
             )
 
-    # Ensure we have at least one milestone
     if not milestones:
         logger.warning("No valid milestones found, creating default milestone")
         milestones = [
@@ -265,34 +235,16 @@ async def persist_roadmap(
     *,
     session_id: str,
     user_id: int | None,
-    roadmap_data: dict,
+    roadmap_data: dict[str, object],
 ) -> int:
-    """Persist a roadmap to the database.
-
-    Args:
-        db: Database session
-        session_id: Session ID
-        user_id: User ID (optional, defaults to 1 until auth is implemented)
-        roadmap_data: Roadmap data from agent (dict with 'goal', 'milestones', 'mermaid')
-
-    Returns:
-        Created roadmap ID
-
-    Raises:
-        ValueError: If roadmap_data is missing required fields
-        pydantic.ValidationError: If milestones data is invalid
-
-    Note: This function commits the transaction.
-    """
-    # Validate and extract data
     goal, milestones_raw = _validate_roadmap_data(roadmap_data)
     milestones = _normalize_milestones(milestones_raw)
 
-    # Create and persist
+    mermaid_val = roadmap_data.get("mermaid")
     roadmap_create = RoadmapCreate(
         goal=goal,
         milestones=milestones,
-        mermaid=roadmap_data.get("mermaid"),
+        mermaid=str(mermaid_val) if isinstance(mermaid_val, str) else None,
     )
 
     roadmap_id = await roadmap_service.create_roadmap(

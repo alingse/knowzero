@@ -5,8 +5,10 @@ It coordinates persistence, WebSocket communication, and event processing.
 """
 
 from collections.abc import Callable
+from typing import Any, Coroutine
 
 from fastapi import WebSocket
+from langchain_core.runnables import RunnableConfig
 
 from app.agent.state import AgentState
 from app.core.database import get_db_session
@@ -92,8 +94,8 @@ class AgentStreamProcessor:
         graph = get_graph()
         config = {"configurable": {"thread_id": self.session_id}}
 
-        # Event type handlers
-        handlers: dict[str, Callable[[dict], None]] = {
+        # Event type handlers - using Any for LangGraph event types
+        handlers: dict[str, Callable[[dict[str, Any]], Coroutine[Any, Any, None]]] = {
             "on_chain_start": self._on_chain_start,
             "on_chain_end": self._on_chain_end,
             "on_chat_model_start": self._on_chat_model_start,
@@ -104,14 +106,14 @@ class AgentStreamProcessor:
             "on_tool_error": self._on_tool_error,
         }
 
-        # Process streaming events
-        async for event in graph.astream_events(self.state, config, version="v1"):
+        # Process streaming events - type ignore for LangGraph API compatibility
+        async for event in graph.astream_events(self.state, config, version="v1"):  # type: ignore[arg-type]
             event_type = event["event"]
             handler = handlers.get(event_type)
             if handler:
-                await handler(event)
+                await handler(event)  # type: ignore[arg-type]
 
-    async def _on_chain_start(self, event: dict) -> None:
+    async def _on_chain_start(self, event: dict[str, Any]) -> None:
         """Handle chain/node start event."""
         event_name = event.get("name", "")
         node_name = event_name.split(".")[-1] if "." in event_name else event_name
@@ -142,7 +144,7 @@ class AgentStreamProcessor:
                     message_id=placeholder_msg.id,
                 )
 
-    async def _on_chain_end(self, event: dict) -> None:
+    async def _on_chain_end(self, event: dict[str, Any]) -> None:
         """Handle chain/node end event."""
         event_name = event.get("name", "")
         event_data = event.get("data", {})
@@ -154,7 +156,7 @@ class AgentStreamProcessor:
         if "output" in event_data:
             output = event_data["output"]
             if isinstance(output, dict):
-                self.state.update(output)
+                self.state.update(output)  # type: ignore[typeddict-item]
                 self.ctx.final_result.update(output)
 
                 if node_name == "content_agent" and output.get("document"):
@@ -165,7 +167,7 @@ class AgentStreamProcessor:
             else:
                 logger.debug("Non-dict output in on_chain_end", output_type=type(output).__name__)
 
-    async def _on_chat_model_start(self, event: dict) -> None:
+    async def _on_chat_model_start(self, event: dict[str, Any]) -> None:
         """Handle chat model start event."""
         metadata = event.get("metadata", {})
         if metadata.get("langgraph_node") == "post_process":
@@ -173,7 +175,7 @@ class AgentStreamProcessor:
         event_data = event.get("data", {})
         await send_node_start(self.websocket, name="LLM", model=event_data.get("model"))
 
-    async def _on_chat_model_stream(self, event: dict) -> None:
+    async def _on_chat_model_stream(self, event: dict[str, Any]) -> None:
         """Handle chat model token streaming event."""
         metadata = event.get("metadata", {})
         if metadata.get("langgraph_node") == "post_process":
@@ -187,14 +189,14 @@ class AgentStreamProcessor:
                 self.ctx.accumulated_content += chunk_str
                 await send_document_token(self.websocket, content=chunk_str)
 
-    async def _on_chat_model_end(self, event: dict) -> None:
+    async def _on_chat_model_end(self, event: dict[str, Any]) -> None:
         """Handle chat model end event."""
         metadata = event.get("metadata", {})
         if metadata.get("langgraph_node") == "post_process":
             return
         await send_node_end(self.websocket, name="LLM")
 
-    async def _on_tool_start(self, event: dict) -> None:
+    async def _on_tool_start(self, event: dict[str, Any]) -> None:
         """Handle tool start event."""
         event_name = event.get("name", "")
         event_data = event.get("data", {})
@@ -203,7 +205,7 @@ class AgentStreamProcessor:
         await send_tool_start(self.websocket, tool_name=tool_name, tool_input=str(tool_input))
         logger.info("Tool started", tool=tool_name)
 
-    async def _on_tool_end(self, event: dict) -> None:
+    async def _on_tool_end(self, event: dict[str, Any]) -> None:
         """Handle tool end event."""
         event_name = event.get("name", "")
         event_data = event.get("data", {})
@@ -212,7 +214,7 @@ class AgentStreamProcessor:
         await send_tool_end(self.websocket, tool_name=tool_name, tool_output=str(tool_output))
         logger.info("Tool ended", tool=tool_name)
 
-    async def _on_tool_error(self, event: dict) -> None:
+    async def _on_tool_error(self, event: dict[str, Any]) -> None:
         """Handle tool error event."""
         event_name = event.get("name", "")
         event_data = event.get("data", {})
@@ -221,7 +223,7 @@ class AgentStreamProcessor:
         await send_error(self.websocket, message=f"工具 {tool_name} 执行失败: {error_msg}")
         logger.error("Tool error", tool=tool_name, error=error_msg)
 
-    async def _on_content_agent_end(self, output: dict) -> None:
+    async def _on_content_agent_end(self, output: dict[str, Any]) -> None:
         """Handle content_agent completion: persist document and send to client immediately."""
         doc_data = output["document"]
 
@@ -280,7 +282,7 @@ class AgentStreamProcessor:
 
         logger.info("content_agent document persisted and sent", doc_id=doc_id)
 
-    async def _on_post_process_end(self, output: dict) -> None:
+    async def _on_post_process_end(self, output: dict[str, Any]) -> None:
         """Handle post_process completion: persist entities/follow-ups and send to client."""
         doc_id = self.ctx.doc_id
         if not doc_id:
@@ -350,7 +352,7 @@ class AgentStreamProcessor:
         config = {"configurable": {"thread_id": self.session_id}}
 
         # Read final state from checkpoint (NOT ainvoke which re-runs the graph)
-        state_snapshot = await graph.aget_state(config)
+        state_snapshot = await graph.aget_state(config)  # type: ignore[arg-type]
         result_state = state_snapshot.values if state_snapshot and state_snapshot.values else {}
 
         # Merge with results captured during streaming as fallback
@@ -405,7 +407,7 @@ class AgentStreamProcessor:
                 )
         await send_error(self.websocket, message=error_msg)
 
-    async def _handle_navigation(self, nav: dict) -> None:
+    async def _handle_navigation(self, nav: dict[str, Any]) -> None:
         """Handle navigation target."""
         await send_navigation(
             self.websocket,
@@ -423,7 +425,7 @@ class AgentStreamProcessor:
                 related_document_id=nav.get("document_id"),
             )
 
-    async def _handle_response(self, resp: dict) -> None:
+    async def _handle_response(self, resp: dict[str, Any]) -> None:
         """Handle direct response (chitchat, etc.)."""
         await send_content(self.websocket, content=resp.get("content", ""))
 

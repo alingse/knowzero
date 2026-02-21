@@ -92,7 +92,7 @@ async def route_agent_node(state: AgentState) -> AgentState:
     - Complex cases take smart path (LLM reasoning, ~500ms)
     - Output reasoning for debugging and optimization
     """
-    intent = state.get("intent", {})
+    intent = state.get("intent") or {}
     intent_type = intent.get("intent_type", "question")
     current_roadmap = state.get("current_roadmap")
     current_doc_id = state.get("current_doc_id")
@@ -169,8 +169,11 @@ async def route_agent_node(state: AgentState) -> AgentState:
 
 
 def _try_fast_route(
-    intent_type: str, current_doc_id: int | None, current_roadmap: dict | None, state: AgentState
-) -> dict | None:
+    intent_type: str,
+    current_doc_id: int | None,
+    current_roadmap: dict[str, object] | None,
+    state: AgentState,
+) -> dict[str, object] | None:
     """Attempt fast routing decision (rule matching).
 
     Returns decision dict if matched, otherwise None.
@@ -195,11 +198,11 @@ def _try_fast_route(
 
     decision = OBVIOUS_DECISIONS.get(key)
     if decision:
-        result = decision.copy()
+        result: dict[str, object] = dict(decision)
         # Add target if available
-        intent = state.get("intent", {})
-        if intent.get("target"):
-            result["target"] = intent["target"]
+        intent_val = state.get("intent", {})
+        if intent_val and intent_val.get("target"):
+            result["target"] = intent_val["target"]
         return result
 
     return None
@@ -231,12 +234,13 @@ def _build_decision_context(state: AgentState) -> dict[str, Any]:
     This is key to Agentic: give LLM enough information to make decisions.
     """
     current_roadmap = state.get("current_roadmap")
+    intent_val = state.get("intent") or {}
 
     context = {
         # User input
         "user_message": state.get("raw_message", ""),
-        "detected_intent": state.get("intent", {}),
-        "detected_target": state.get("intent", {}).get("target"),
+        "detected_intent": intent_val,
+        "detected_target": intent_val.get("target"),
         # Session state
         "has_roadmap": current_roadmap is not None,
         "current_roadmap_summary": _summarize_roadmap(current_roadmap),
@@ -253,7 +257,7 @@ def _build_decision_context(state: AgentState) -> dict[str, Any]:
     return context
 
 
-def _summarize_roadmap(roadmap: dict | None) -> str:
+def _summarize_roadmap(roadmap: dict[str, Any] | None) -> str:
     """Generate roadmap summary for LLM understanding."""
     if not roadmap:
         return "无"
@@ -272,7 +276,7 @@ def _summarize_roadmap(roadmap: dict | None) -> str:
     return f"「{roadmap.get('goal', '')}」，共 {len(milestones)} 个阶段: {milestone_summary}"
 
 
-def _get_milestone_progress(state: AgentState) -> list[dict]:
+def _get_milestone_progress(state: AgentState) -> list[dict[str, object]]:
     """Get milestone progress (if roadmap exists).
 
     This info helps LLM make smarter decisions.
@@ -287,7 +291,7 @@ def _get_milestone_progress(state: AgentState) -> list[dict]:
 # ============================================================================
 
 
-async def _llm_route_decision(context: dict[str, Any], llm) -> dict[str, Any]:
+async def _llm_route_decision(context: dict[str, Any], llm: Any) -> dict[str, Any]:
     """Use LLM for intelligent routing decision.
 
     This is the core of Agentic: LLM is not a simple classifier,
@@ -440,7 +444,7 @@ def route_by_intent(state: AgentState) -> str:
 
     Returns node name for conditional edge.
     """
-    intent = state.get("intent", {})
+    intent = state.get("intent") or {}
     intent_type = intent.get("intent_type", "question")
 
     if intent_type == "chitchat":
@@ -457,7 +461,7 @@ def route_by_decision(state: AgentState) -> str:
 
     Returns node name for conditional edge.
     """
-    decision = state.get("routing_decision", {})
+    decision = state.get("routing_decision") or {}
     action = decision.get("action", "generate_new")
 
     if action == "navigate":

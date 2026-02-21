@@ -1,5 +1,6 @@
 """FastAPI application entry point."""
 
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -15,7 +16,7 @@ logger = get_logger(__name__)
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Application lifespan manager."""
     # Startup
     configure_logging(debug=settings.DEBUG)
@@ -60,7 +61,7 @@ app.include_router(websocket.router)  # WebSocket routes
 
 
 @app.get("/health")
-async def health_check() -> dict:
+async def health_check() -> dict[str, object]:
     """Health check endpoint."""
     return {
         "status": "healthy",
@@ -70,7 +71,7 @@ async def health_check() -> dict:
 
 
 @app.get("/")
-async def root() -> dict:
+async def root() -> dict[str, object]:
     """Root endpoint."""
     return {
         "name": settings.APP_NAME,

@@ -7,16 +7,12 @@ import structlog
 
 
 def configure_logging(debug: bool = False) -> None:
-    """Configure structured logging."""
-
-    # Configure standard library logging
     logging.basicConfig(
         format="%(message)s",
         stream=sys.stdout,
         level=logging.DEBUG if debug else logging.INFO,
     )
 
-    # Configure structlog
     structlog.configure(
         processors=[
             structlog.stdlib.filter_by_level,
@@ -36,6 +32,7 @@ def configure_logging(debug: bool = False) -> None:
     )
 
 
-def get_logger(name: str):
-    """Get a structured logger."""
-    return structlog.get_logger(name)
+def get_logger(name: str) -> structlog.stdlib.BoundLogger:
+    logger = structlog.get_logger(name)
+    # structlog.get_logger returns Any, so we need to cast it
+    return logger  # type: ignore[no-any-return]

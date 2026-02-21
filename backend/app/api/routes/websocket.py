@@ -2,6 +2,7 @@
 
 import json
 from dataclasses import dataclass
+from typing import Any
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
@@ -19,20 +20,20 @@ router = APIRouter(prefix="/ws", tags=["websocket"])
 class ConnectionManager:
     """Manage WebSocket connections."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.active_connections: dict[str, WebSocket] = {}
 
-    async def connect(self, websocket: WebSocket, session_id: str):
+    async def connect(self, websocket: WebSocket, session_id: str) -> None:
         await websocket.accept()
         self.active_connections[session_id] = websocket
         logger.info("WebSocket connected", session_id=session_id)
 
-    def disconnect(self, session_id: str):
+    def disconnect(self, session_id: str) -> None:
         if session_id in self.active_connections:
             del self.active_connections[session_id]
             logger.info("WebSocket disconnected", session_id=session_id)
 
-    async def send_message(self, session_id: str, message: dict):
+    async def send_message(self, session_id: str, message: dict[str, Any]) -> None:
         if session_id in self.active_connections:
             await self.active_connections[session_id].send_json(message)
 
@@ -45,10 +46,10 @@ class SessionContext:
     """Session context for agent state building."""
 
     current_doc_id: int | None
-    current_doc: dict | None
+    current_doc: dict[str, Any] | None
     recent_docs: list[int]
     learned_topics: list[str]
-    current_roadmap: dict | None
+    current_roadmap: dict[str, Any] | None
 
 
 async def _load_session_context(session_id: str) -> SessionContext:
@@ -57,7 +58,7 @@ async def _load_session_context(session_id: str) -> SessionContext:
     current_doc = None
     recent_docs: list[int] = []
     learned_topics: list[str] = []
-    current_roadmap: dict | None = None
+    current_roadmap: dict[str, Any] | None = None
 
     async with get_db_session() as db:
         docs = await document_service.list_session_documents(db, session_id)
@@ -113,7 +114,10 @@ def _build_agent_state(
         "user_level": "beginner",
         "learned_topics": ctx.learned_topics,
         "recent_docs": ctx.recent_docs,
+        "available_docs": [],  # No available docs initially
         "current_roadmap": ctx.current_roadmap,
+        "roadmap_modified": False,
+        "roadmap_only": False,
         "messages": [],
         "intent": None,
         "routing_decision": None,
@@ -129,7 +133,7 @@ def _build_agent_state(
 
 
 @router.websocket("/{session_id}")
-async def websocket_endpoint(websocket: WebSocket, session_id: str):
+async def websocket_endpoint(websocket: WebSocket, session_id: str) -> None:
     """WebSocket endpoint for chat."""
     await manager.connect(websocket, session_id)
 

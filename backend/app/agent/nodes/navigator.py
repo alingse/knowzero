@@ -33,8 +33,10 @@ async def navigator_agent_node(state: AgentState) -> AgentState:
     routing_decision = state.get("routing_decision") or {}
 
     # Priority: routing_decision > intent
-    target_doc_id = routing_decision.get("target_doc_id") or intent.get("target_doc_id")
-    target = routing_decision.get("target") or intent.get("target", "")
+    target_doc_id = (routing_decision or {}).get("target_doc_id") or (intent or {}).get(
+        "target_doc_id"
+    )
+    target = (routing_decision or {}).get("target") or (intent or {}).get("target", "")
     session_id = state.get("session_id", "")
 
     logger.info("Navigator Agent processing", target=target, target_doc_id=target_doc_id)

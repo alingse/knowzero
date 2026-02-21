@@ -11,62 +11,27 @@ from app.schemas.roadmap import RoadmapCreate, RoadmapUpdate
 logger = get_logger(__name__)
 
 
-# ============================================================================
-# Progress Calculation
-# ============================================================================
-
-
-def calc_milestone_progress(milestone: dict, documents: list[Document]) -> float:
-    """Calculate progress based on document count.
-
-    Target: 4 documents = 100% (can exceed for mastery depth).
-
-    Returns:
-        Progress ratio (0.0 to 2.0+).
-        0 docs = 0%, 1 doc = 25%, 2 docs = 50%, 3 docs = 75%, 4 docs = 100%
-    """
+def calc_milestone_progress(milestone: dict[str, object], documents: list[Document]) -> float:
     target_docs = 4
     doc_count = len(documents)
-    return min(doc_count / target_docs, 2.0)  # Cap at 200% for display
+    return min(doc_count / target_docs, 2.0)
 
 
-def calc_milestone_status(milestone: dict, progress: float) -> str:
-    """Calculate milestone status based on document count.
-
-    No sequential dependency - milestones can be learned in any order.
-
-    Returns: "locked" | "active" | "completed"
-    """
+def calc_milestone_status(milestone: dict[str, object], progress: float) -> str:
     if progress >= 1.0:
         return "completed"
-    elif progress > 0:
+    if progress > 0:
         return "active"
-    else:
-        return "locked"  # No documents yet
+    return "locked"
 
 
 async def get_roadmap_progress(
     db: AsyncSession,
     roadmap: Roadmap,
-) -> dict:
-    """Calculate progress for all milestones in a roadmap.
-
-    Args:
-        db: Database session
-        roadmap: Roadmap model
-
-    Returns:
-        Progress data with overall progress and milestone details
-    """
-    # Get all documents associated with this roadmap
-    result = await db.execute(
-        select(Document).where(
-            Document.roadmap_id == roadmap.id,
-        )
-    )
+) -> dict[str, object]:
+    result = await db.execute(select(Document).where(Document.roadmap_id == roadmap.id))
     all_documents = result.scalars().all()
 
-    # Group documents by milestone_id
     milestone_documents: dict[int, list[Document]] = {}
     orphan_documents: list[Document] = []
 
@@ -79,18 +44,17 @@ async def get_roadmap_progress(
                 milestone_documents[milestone_id] = []
             milestone_documents[milestone_id].append(doc)
 
-    # Calculate progress for each milestone (no sequential dependency)
     milestones_data = []
     total_progress = 0.0
 
     for milestone in roadmap.milestones:
-        milestone_id = milestone.get("id")
+        m_id = milestone.get("id", 0)
+        milestone_id = int(m_id) if isinstance(m_id, (int, str)) and m_id else 0
         documents = milestone_documents.get(milestone_id, [])
 
         progress = calc_milestone_progress(milestone, documents)
         status = calc_milestone_status(milestone, progress)
 
-        # Collect covered topics
         covered_topics = set()
         for doc in documents:
             covered_topics.update(doc.entities or [])
@@ -109,7 +73,6 @@ async def get_roadmap_progress(
 
         total_progress += progress
 
-    # Calculate overall progress
     num_milestones = len(roadmap.milestones)
     overall_progress = total_progress / num_milestones if num_milestones > 0 else 0.0
 
@@ -122,11 +85,6 @@ async def get_roadmap_progress(
     }
 
 
-# ============================================================================
-# CRUD Operations
-# ============================================================================
-
-
 async def create_roadmap(
     db: AsyncSession,
     session_id: str,
@@ -134,28 +92,12 @@ async def create_roadmap(
     roadmap_data: RoadmapCreate,
     parent_roadmap_id: int | None = None,
 ) -> int:
-    """Create a new roadmap and deactivate previous active roadmaps.
-
-    Args:
-        db: Database session
-        session_id: Session ID
-        user_id: User ID
-        roadmap_data: Roadmap data
-        parent_roadmap_id: Parent roadmap ID for versioning
-
-    Returns:
-        Created roadmap ID
-
-    Note: This function commits the transaction.
-    """
-    # Determine version (parent version + 1, or 1 if no parent)
     version = 1
     if parent_roadmap_id:
         parent = await db.get(Roadmap, parent_roadmap_id)
         if parent:
             version = parent.version + 1
 
-    # Deactivate all active roadmaps for this session
     active_result = await db.execute(
         select(Roadmap).where(
             Roadmap.session_id == session_id,
@@ -166,8 +108,6 @@ async def create_roadmap(
     for roadmap in active_roadmaps:
         roadmap.is_active = False
 
-    # Create new roadmap
-    # Use default user_id = 1 when auth is not implemented
     roadmap = Roadmap(
         session_id=session_id,
         user_id=user_id or 1,
@@ -195,15 +135,6 @@ async def get_active_roadmap(
     db: AsyncSession,
     session_id: str,
 ) -> Roadmap | None:
-    """Get the active roadmap for a session.
-
-    Args:
-        db: Database session
-        session_id: Session ID
-
-    Returns:
-        Active roadmap or None
-    """
     result = await db.execute(
         select(Roadmap).where(
             Roadmap.session_id == session_id,
@@ -217,15 +148,6 @@ async def get_roadmap(
     db: AsyncSession,
     roadmap_id: int,
 ) -> Roadmap | None:
-    """Get a roadmap by ID.
-
-    Args:
-        db: Database session
-        roadmap_id: Roadmap ID
-
-    Returns:
-        Roadmap or None
-    """
     return await db.get(Roadmap, roadmap_id)
 
 
@@ -233,15 +155,6 @@ async def list_session_roadmaps(
     db: AsyncSession,
     session_id: str,
 ) -> list[Roadmap]:
-    """List all roadmaps for a session (including history).
-
-    Args:
-        db: Database session
-        session_id: Session ID
-
-    Returns:
-        List of roadmaps ordered by version descending
-    """
     result = await db.execute(
         select(Roadmap).where(Roadmap.session_id == session_id).order_by(Roadmap.version.desc())
     )
@@ -253,18 +166,6 @@ async def update_roadmap(
     roadmap_id: int,
     update_data: RoadmapUpdate,
 ) -> Roadmap | None:
-    """Update a roadmap (user edits).
-
-    Args:
-        db: Database session
-        roadmap_id: Roadmap ID
-        update_data: Update data
-
-    Returns:
-        Updated roadmap or None
-
-    Note: This function commits the transaction.
-    """
     roadmap = await db.get(Roadmap, roadmap_id)
     if not roadmap:
         return None

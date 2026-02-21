@@ -1,6 +1,7 @@
 """LLM provider configuration."""
 
 from functools import lru_cache
+from typing import Any
 
 from langchain_openai import ChatOpenAI
 
@@ -12,10 +13,9 @@ logger = get_logger(__name__)
 
 @lru_cache
 def get_llm() -> ChatOpenAI:
-    """Get configured LLM instance."""
     settings = get_settings()
 
-    kwargs: dict = {
+    kwargs: dict[str, Any] = {
         "model": settings.OPENAI_MODEL,
         "temperature": settings.OPENAI_TEMPERATURE,
     }
@@ -31,12 +31,11 @@ def get_llm() -> ChatOpenAI:
 
 @lru_cache
 def get_fast_llm() -> ChatOpenAI:
-    """Get a faster/cheaper LLM for classification tasks."""
     settings = get_settings()
 
-    kwargs: dict = {
+    kwargs: dict[str, Any] = {
         "model": settings.OPENAI_MODEL,
-        "temperature": 0.1,  # Low temperature for classification
+        "temperature": 0.1,
         "max_tokens": 256,
     }
 

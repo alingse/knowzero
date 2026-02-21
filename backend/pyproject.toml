@@ -67,3 +67,8 @@ addopts = "-v --cov=app --cov-report=term-missing"
 [tool.coverage.run]
 source = ["app"]
 omit = ["*/tests/*", "*/alembic/*"]
+
+[dependency-groups]
+dev = [
+    "mypy>=1.19.1",
+]

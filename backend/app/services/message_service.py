@@ -18,7 +18,6 @@ async def save_user_message(
     message_type: str = "chat",
     related_document_id: int | None = None,
 ) -> Message:
-    """Save a user message."""
     msg = Message(
         session_id=session_id,
         user_id=user_id,
@@ -40,11 +39,10 @@ async def save_assistant_message(
     content: str,
     message_type: str = "chat",
     related_document_id: int | None = None,
-    agent_intent: dict | None = None,
-    agent_routing: dict | None = None,
+    agent_intent: dict[str, object] | None = None,
+    agent_routing: dict[str, object] | None = None,
     tokens_used: int = 0,
 ) -> Message:
-    """Save an assistant message."""
     msg = Message(
         session_id=session_id,
         user_id=user_id,
@@ -70,7 +68,6 @@ async def save_system_message(
     message_type: str = "notification",
     related_document_id: int | None = None,
 ) -> Message:
-    """Save a system message (e.g., document generation completion)."""
     msg = Message(
         session_id=session_id,
         user_id=user_id,
@@ -86,12 +83,8 @@ async def save_system_message(
 
 
 async def update_message_content(
-    db: AsyncSession,
-    *,
-    message_id: int,
-    content: str,
+    db: AsyncSession, *, message_id: int, content: str
 ) -> Message | None:
-    """Update the content of an existing message."""
     stmt = select(Message).where(Message.id == message_id)
     result = await db.execute(stmt)
     msg = result.scalar_one_or_none()
@@ -103,12 +96,8 @@ async def update_message_content(
 
 
 async def update_message_document(
-    db: AsyncSession,
-    *,
-    message_id: int,
-    related_document_id: int,
+    db: AsyncSession, *, message_id: int, related_document_id: int
 ) -> Message | None:
-    """Update the related document of an existing message."""
     stmt = select(Message).where(Message.id == message_id)
     result = await db.execute(stmt)
     msg = result.scalar_one_or_none()
@@ -123,12 +112,7 @@ async def update_message_document(
     return msg
 
 
-async def get_recent_messages(
-    db: AsyncSession,
-    session_id: str,
-    limit: int = 20,
-) -> list[Message]:
-    """Get recent messages for a session."""
+async def get_recent_messages(db: AsyncSession, session_id: str, limit: int = 20) -> list[Message]:
     stmt = (
         select(Message)
         .where(Message.session_id == session_id)
@@ -137,16 +121,11 @@ async def get_recent_messages(
     )
     result = await db.execute(stmt)
     messages = list(result.scalars().all())
-    messages.reverse()  # Chronological order
+    messages.reverse()
     return messages
 
 
-async def delete_message(
-    db: AsyncSession,
-    *,
-    message_id: int,
-) -> bool:
-    """Delete a message by ID."""
+async def delete_message(db: AsyncSession, *, message_id: int) -> bool:
     stmt = select(Message).where(Message.id == message_id)
     result = await db.execute(stmt)
     msg = result.scalar_one_or_none()

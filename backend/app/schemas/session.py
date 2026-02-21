@@ -7,8 +7,6 @@ from pydantic import BaseModel
 
 
 class InputSource(str, Enum):
-    """Input source types."""
-
     CHAT = "chat"
     COMMENT = "comment"
     ENTITY = "entity"
@@ -17,44 +15,36 @@ class InputSource(str, Enum):
 
 
 class MessageRole(str, Enum):
-    """Who sent the message (determines avatar + alignment)."""
-
     USER = "user"
     ASSISTANT = "assistant"
     SYSTEM = "system"
 
 
 class MessageType(str, Enum):
-    """What kind of message (determines rendering style)."""
-
-    CHAT = "chat"  # Normal chat (includes former chitchat)
-    COMMENT = "comment"  # Document annotation
-    ENTITY = "entity"  # Entity click
-    FOLLOW_UP = "follow_up"  # Follow-up click
-    ENTRY = "entry"  # Entry input
-    DOCUMENT_CARD = "document_card"  # Document generation status card (visible)
-    DOCUMENT_REF = "document_ref"  # Internal document tracking (hidden)
-    NAVIGATION = "navigation"  # Navigate to existing document
-    NOTIFICATION = "notification"  # System notification
+    CHAT = "chat"
+    COMMENT = "comment"
+    ENTITY = "entity"
+    FOLLOW_UP = "follow_up"
+    ENTRY = "entry"
+    DOCUMENT_CARD = "document_card"
+    DOCUMENT_REF = "document_ref"
+    NAVIGATION = "navigation"
+    NOTIFICATION = "notification"
 
 
 class SessionCreate(BaseModel):
-    """Create session request."""
-
     title: str
     description: str | None = None
     learning_goal: str | None = None
 
 
 class SessionResponse(BaseModel):
-    """Session response."""
-
     id: str
     title: str
     description: str | None
     learning_goal: str | None
     current_document_id: int | None
-    progress: dict
+    progress: dict[str, object]
     agent_status: str = "idle"
     agent_started_at: datetime | None = None
     created_at: datetime
@@ -66,8 +56,6 @@ class SessionResponse(BaseModel):
 
 
 class MessageResponse(BaseModel):
-    """Message response."""
-
     id: int
     role: MessageRole
     content: str
@@ -80,28 +68,22 @@ class MessageResponse(BaseModel):
 
 
 class CommentData(BaseModel):
-    """Comment data for optimization."""
-
     comment: str
     selected_text: str
-    context_before: str | None = None  # Text before selection for better context
-    context_after: str | None = None  # Text after selection for better context
-    position: dict | None = None  # {start, end}
+    context_before: str | None = None
+    context_after: str | None = None
+    position: dict[str, int] | None = None
     document_id: int
     section_id: str | None = None
 
 
 class EntityData(BaseModel):
-    """Entity click data."""
-
     entity_name: str
     source_doc_id: int
     entity_type: str | None = None
 
 
 class ChatRequest(BaseModel):
-    """Chat request."""
-
     session_id: str
     message: str
     source: InputSource = InputSource.CHAT
@@ -111,8 +93,6 @@ class ChatRequest(BaseModel):
 
 
 class ChatResponse(BaseModel):
-    """Chat response."""
-
-    type: str  # thinking, content, document, follow_ups, error, done
-    data: dict | None = None
+    type: str
+    data: dict[str, object] | None = None
     message: str | None = None

@@ -1,5 +1,7 @@
 """LangGraph main graph definition with checkpointer."""
 
+from typing import Any
+
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, StateGraph
@@ -49,7 +51,9 @@ def _route_after_navigator(state: AgentState) -> str:
     return "content_agent"
 
 
-def create_knowzero_graph(checkpointer: BaseCheckpointSaver | None = None) -> CompiledStateGraph:
+def create_knowzero_graph(
+    checkpointer: BaseCheckpointSaver[Any] | None = None,
+) -> CompiledStateGraph[AgentState]:
     """Create the KnowZero Agent workflow graph.
 
     Flow:
@@ -131,7 +135,7 @@ def create_knowzero_graph(checkpointer: BaseCheckpointSaver | None = None) -> Co
 
     workflow.add_edge("chitchat_agent", END)
 
-    return workflow.compile(checkpointer=checkpointer)
+    return workflow.compile(checkpointer=checkpointer)  # type: ignore[return-value]
 
 
 # Global instances
@@ -148,7 +152,7 @@ def get_checkpointer() -> MemorySaver:
     return _checkpointer
 
 
-def get_graph() -> CompiledStateGraph:
+def get_graph() -> CompiledStateGraph[AgentState]:
     """Get or create global graph instance with checkpointer."""
     global _graph
     if _graph is None:

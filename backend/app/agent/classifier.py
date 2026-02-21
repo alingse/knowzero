@@ -4,6 +4,7 @@ import re
 import time
 from typing import Any
 
+from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from app.agent.llm_utils import parse_llm_json_response
@@ -13,25 +14,19 @@ logger = get_logger(__name__)
 
 
 class IntentClassifier:
-    """Layered intent classifier with fast-track optimization."""
-
-    # Layer 1: Strong patterns (confidence 1.0, skip LLM)
     STRONG_PATTERNS = {
-        # Knowledge/learning intents
         r"我想学|我想了解|教教我|什么是|介绍.*一下": ("new_topic", 1.0),
         r"学习路径|学习建议|学习规划|路线图|roadmap|plan|规划.*学习": ("plan", 1.0),
         r"详细说说|深入讲讲|再详细点|展开讲讲": ("follow_up", 1.0),
         r"和.*的区别|和.*不同|对比一下|比较.*和": ("comparison", 1.0),
         r"怎么办|怎么做|如何实现|给我.*例子": ("question_practical", 1.0),
         r"太抽象|太简单|没看懂|不明白|详细点": ("optimize_content", 1.0),
-        # Chitchat intents
         r"^(你好|嗨|hello|hi|嗨嗨|早上好|晚上好|下午好|早安|晚安|哈喽|hey)": ("chitchat", 1.0),
         r"^(谢谢|感谢|多谢|不客气|没关系|好的|行|可以|没问题)": ("chitchat", 1.0),
         r"^(再见|拜拜|走了|回见|bye|goodbye)": ("chitchat", 1.0),
         r"你是谁|你叫什么|介绍一下自己|你是什么|你能做什么": ("chitchat", 1.0),
     }
 
-    # Layer 2: Fuzzy patterns (confidence 0.8, may need confirmation)
     FUZZY_PATTERNS = {
         "讲详细": "follow_up",
         "说清楚": "optimize_content",
@@ -40,7 +35,6 @@ class IntentClassifier:
         "补充": "optimize_content",
     }
 
-    # LLM classification system prompt
     _LLM_CLASSIFY_SYSTEM_PROMPT = """你是 KnowZero 学习平台的意图分类器。根据用户消息，返回 JSON 对象。
 
 **意图类型判断标准**：
@@ -94,23 +88,14 @@ class IntentClassifier:
 
 只返回 JSON，不要其他内容。"""
 
-    def __init__(self, llm=None):
+    def __init__(self, llm: BaseChatModel | None = None) -> None:
         self.llm = llm
 
     async def classify(self, message: str, context: dict[str, Any]) -> dict[str, Any]:
-        """Classify user intent with layered strategy.
-
-        Layer 1: Strong rule matching (0-5ms)
-        Layer 2: Fuzzy matching (5-10ms)
-        Layer 3: LLM classification (500-2000ms)
-        """
-        # Layer 1: Strong patterns
         for pattern, (intent_type, confidence) in self.STRONG_PATTERNS.items():
             if re.search(pattern, message, re.IGNORECASE):
                 logger.debug(
-                    "Intent classified by strong pattern",
-                    pattern=pattern,
-                    intent=intent_type,
+                    "Intent classified by strong pattern", pattern=pattern, intent=intent_type
                 )
                 return {
                     "intent_type": intent_type,
@@ -120,7 +105,6 @@ class IntentClassifier:
                     "target": self._extract_target(message),
                 }
 
-        # Layer 2: Fuzzy patterns
         fuzzy_match = self._fuzzy_match(message)
         if fuzzy_match:
             return {
@@ -131,11 +115,9 @@ class IntentClassifier:
                 "target": self._extract_target(message),
             }
 
-        # Layer 3: LLM classification (if LLM available)
         if self.llm and context.get("use_llm", True):
             return await self._llm_classify(message, context)
 
-        # Fallback
         return {
             "intent_type": "question",
             "confidence": 0.5,
@@ -145,7 +127,6 @@ class IntentClassifier:
         }
 
     def _fuzzy_match(self, message: str) -> str | None:
-        """Match message against fuzzy patterns."""
         message_lower = message.lower()
         words = message_lower.split()
 
@@ -156,9 +137,6 @@ class IntentClassifier:
         return None
 
     def _extract_target(self, message: str) -> str:
-        """Extract target topic from message."""
-        # Simple extraction - can be improved with NLP
-        # Remove common prefixes
         prefixes = ["我想学", "我想了解", "什么是", "介绍一下", "详细说说"]
         result = message
         for prefix in prefixes:
@@ -167,10 +145,18 @@ class IntentClassifier:
 
         return result[:100] if result else message[:100]
 
-    async def _llm_classify(self, message: str, context: dict) -> dict[str, Any]:
-        """Use LLM for intent classification."""
+    async def _llm_classify(self, message: str, context: dict[str, Any]) -> dict[str, Any]:
         logger.info("Using LLM for intent classification", message=message[:50])
         start = time.monotonic()
+
+        if not self.llm:
+            return {
+                "intent_type": "question",
+                "confidence": 0.5,
+                "method": "fallback_no_llm",
+                "processing_time_ms": 1,
+                "target": message[:50],
+            }
 
         try:
             resp = await self.llm.ainvoke(
@@ -179,7 +165,13 @@ class IntentClassifier:
                     HumanMessage(content=message),
                 ]
             )
-            parsed = parse_llm_json_response(resp.content)
+            # The content can be str | list[str | dict[Any, Any]], we need to handle it
+            content = resp.content
+            if isinstance(content, str):
+                parsed = parse_llm_json_response(content)
+            else:
+                # Fallback for non-string content
+                parsed = {"intent_type": "question", "target": message[:50]}
             elapsed = int((time.monotonic() - start) * 1000)
             return {
                 "intent_type": parsed.get("intent_type", "question"),
@@ -204,12 +196,10 @@ class IntentClassifier:
             }
 
 
-# Global classifier instance
 _classifier: IntentClassifier | None = None
 
 
-def get_classifier(llm=None) -> IntentClassifier:
-    """Get or create global classifier instance."""
+def get_classifier(llm: BaseChatModel | None = None) -> IntentClassifier:
     global _classifier
     if _classifier is None:
         _classifier = IntentClassifier(llm)

@@ -6,8 +6,6 @@ from pydantic import BaseModel
 
 
 class FollowUpQuestionResponse(BaseModel):
-    """Follow-up question response."""
-
     id: int
     question: str
     question_type: str | None
@@ -19,8 +17,6 @@ class FollowUpQuestionResponse(BaseModel):
 
 
 class DocumentCreate(BaseModel):
-    """Create document request."""
-
     topic: str
     content: str
     category_path: str | None = None
@@ -28,24 +24,20 @@ class DocumentCreate(BaseModel):
 
 
 class DocumentUpdate(BaseModel):
-    """Update document request."""
-
     content: str | None = None
     category_path: str | None = None
 
 
 class DocumentResponse(BaseModel):
-    """Document response."""
-
     id: int
     session_id: str
     topic: str
     content: str
     version: int
     category_path: str | None
-    entities: list
-    prerequisites: list
-    related: list
+    entities: list[str]
+    prerequisites: list[str]
+    related: list[str]
     parent_document_id: int | None
     created_at: datetime
     updated_at: datetime
