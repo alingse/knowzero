@@ -8,7 +8,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.api.deps import get_db
+from app.api.deps import CurrentUser, get_db
 from app.core.logging import get_logger
 from app.models import Document, Message, Session
 from app.schemas import (
@@ -30,6 +30,7 @@ router = APIRouter(prefix="/sessions", tags=["sessions"])
 async def create_session(
     data: SessionCreate,
     db: Annotated[AsyncSession, Depends(get_db)],
+    user_id: CurrentUser,
 ) -> Session:
     """Create a new learning session."""
     session = Session(
@@ -37,7 +38,7 @@ async def create_session(
         title=data.title,
         description=data.description,
         learning_goal=data.learning_goal,
-        user_id=1,  # TODO: Get from auth
+        user_id=user_id,
     )
     db.add(session)
     await db.commit()
@@ -165,10 +166,12 @@ async def chat(
     data: ChatRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict[str, Any]:
-    """Send a chat message (placeholder for WebSocket)."""
-    # TODO: Implement with WebSocket streaming
-    # For now, return placeholder
+    """Send a chat message (HTTP fallback for WebSocket).
+
+    Note: Real-time chat should use WebSocket at /ws/{session_id}
+    This endpoint is kept for compatibility and non-streaming requests.
+    """
     return {
         "type": "thinking",
-        "message": "Chat endpoint - WebSocket implementation pending",
+        "message": "请使用 WebSocket /ws/{session_id} 进行实时对话",
     }

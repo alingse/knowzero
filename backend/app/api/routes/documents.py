@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_db
+from app.api.deps import CurrentUser, get_db
 from app.core.logging import get_logger
 from app.models import Document, FollowUpQuestion
 from app.schemas import (
@@ -24,11 +24,12 @@ router = APIRouter(prefix="/documents", tags=["documents"])
 async def create_document(
     data: DocumentCreate,
     db: Annotated[AsyncSession, Depends(get_db)],
+    user_id: CurrentUser,
 ) -> Document:
     """Create a new document."""
     document = Document(
-        session_id="temp",  # TODO: Get from request
-        user_id=1,  # TODO: Get from auth
+        session_id=data.session_id,
+        user_id=user_id,
         topic=data.topic,
         content=data.content,
         category_path=data.category_path,

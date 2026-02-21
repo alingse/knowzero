@@ -70,6 +70,37 @@ app/
 - `OPENAI_MODEL`: 模型名称 (默认 `gpt-4o-mini`)
 - `ENV`: 环境 (development/production)
 
+## 认证系统设计决策
+
+**状态**: 暂不需要认证系统
+**决策日期**: 2025-02-21
+
+### 关键决策
+
+1. **无认证模式**: 项目当前不需要实现认证系统
+2. **user_id 默认值**: 所有 user_id 默认为 1，保持兼容性
+3. **auth.py 设计**: `app/core/auth.py` 中的 `DEFAULT_USER_ID = 1` 是设计如此，**不是待修复的 bug**
+
+### 实现细节
+
+- `get_auth_user()` 和 `get_auth_user_from_ws()` 固定返回 1 是**预期行为**
+- `roadmap_service.py` 中的 `user_id or 1` 回退逻辑是**有意保留的兜底保护**
+- entities 端点缺少 user_id 的问题可以**忽略**
+
+### 代码审查忽略项
+
+以下代码审查发现的问题应被**忽略**（这是设计如此）：
+- entities 端点缺少 `user_id: CurrentUser` 依赖 → **忽略**
+- auth.py 固定返回 1 → **忽略**
+- roadmap_service.py 的 `or 1` 逻辑 → **忽略**
+
+### 未来计划
+
+如需实现真实认证，需要修改：
+1. `app/core/auth.py` - 实现 JWT/Session 验证
+2. 所有使用 `CurrentUser` 的端点 - 无需修改（依赖注入设计已就绪）
+3. 数据库模型 - 已有 `user_id` 外键，无需修改
+
 ---
 # 后端开发规范
 

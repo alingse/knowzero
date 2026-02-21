@@ -23,7 +23,7 @@ async def create_entity(
     """Create a new entity."""
     entity = Entity(
         name=data.name,
-        session_id="temp",  # TODO: Get from request
+        session_id=data.session_id,
         entity_type=data.entity_type,
         category=data.category,
     )

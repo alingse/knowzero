@@ -7,6 +7,7 @@ from typing import Any
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from app.agent.state import AgentState
+from app.core.auth import get_auth_user_from_ws
 from app.core.database import get_db_session
 from app.core.logging import get_logger
 from app.schemas import ChatRequest
@@ -100,12 +101,13 @@ def _build_agent_state(
     request: ChatRequest,
     session_id: str,
     ctx: SessionContext,
+    websocket: WebSocket,
 ) -> AgentState:
     """Build the initial agent state from request and session context."""
     return {
         "input_source": request.source,
         "raw_message": request.message,
-        "user_id": 1,  # TODO: auth
+        "user_id": get_auth_user_from_ws(websocket),  # Anonymous auth, defaults to 1
         "session_id": session_id,
         "comment_data": request.comment_data.model_dump() if request.comment_data else None,
         "entity_data": request.entity_data.model_dump() if request.entity_data else None,
@@ -173,7 +175,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str) -> None:
                     current_roadmap=None,
                 )
 
-            state = _build_agent_state(request, session_id, ctx)
+            state = _build_agent_state(request, session_id, ctx, websocket)
 
             await stream_agent_response(websocket, state)
 

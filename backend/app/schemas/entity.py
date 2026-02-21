@@ -9,6 +9,7 @@ class EntityCreate(BaseModel):
     """Create entity request."""
 
     name: str
+    session_id: str
     entity_type: str | None = None  # concept, tool, library, technique
     category: str | None = None
 

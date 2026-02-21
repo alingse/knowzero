@@ -4,11 +4,10 @@ This module provides the main orchestration for agent response streaming.
 It coordinates persistence, WebSocket communication, and event processing.
 """
 
-from collections.abc import Callable
-from typing import Any, Coroutine
+from collections.abc import Callable, Coroutine
+from typing import Any
 
 from fastapi import WebSocket
-from langchain_core.runnables import RunnableConfig
 
 from app.agent.state import AgentState
 from app.core.database import get_db_session

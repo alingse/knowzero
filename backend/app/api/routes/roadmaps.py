@@ -5,7 +5,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_db
+from app.api.deps import CurrentUser, get_db
 from app.core.logging import get_logger
 from app.schemas.roadmap import RoadmapCreate, RoadmapResponse, RoadmapUpdate
 from app.services import roadmap_service
@@ -19,15 +19,13 @@ async def create_roadmap(
     data: RoadmapCreate,
     session_id: str,
     db: Annotated[AsyncSession, Depends(get_db)],
+    user_id: CurrentUser,
 ) -> dict[str, Any]:
-    """Create a new roadmap (used by Agent).
-
-    Note: user_id is temporarily optional and defaults to 1 until auth is implemented.
-    """
+    """Create a new roadmap (used by Agent)."""
     roadmap_id = await roadmap_service.create_roadmap(
         db,
         session_id=session_id,
-        user_id=None,  # Will default to 1 in service layer
+        user_id=user_id,
         roadmap_data=data,
     )
     roadmap = await roadmap_service.get_roadmap(db, roadmap_id)

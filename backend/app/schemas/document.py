@@ -19,6 +19,7 @@ class FollowUpQuestionResponse(BaseModel):
 class DocumentCreate(BaseModel):
     topic: str
     content: str
+    session_id: str
     category_path: str | None = None
     parent_document_id: int | None = None
 
