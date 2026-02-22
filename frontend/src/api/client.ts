@@ -72,6 +72,9 @@ export const documentsApi = {
       method: "PATCH",
       body: JSON.stringify(data),
     }),
+
+  getRandom: (limit: number = 8) =>
+    fetchJson<Document[]>(`/documents/random?limit=${limit}`),
 };
 
 // Entities

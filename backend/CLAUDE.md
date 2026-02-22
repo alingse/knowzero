@@ -237,6 +237,7 @@ async def get_document(
 - 统一用 `HTTPException` 处理错误
 - `response_model` 用 Pydantic schema
 - Query 用 `select().where()`
+- **路由顺序**: 固定路径（如 `/random`、`/search`）必须定义在路径参数路由（如 `/{document_id}`）**之前**，否则 FastAPI 会将固定路径的字符串当作路径参数解析，导致 422 验证错误
 
 ## 4. Service 层
 

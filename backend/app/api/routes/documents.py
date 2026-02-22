@@ -2,7 +2,7 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,6 +15,7 @@ from app.schemas import (
     DocumentUpdate,
     FollowUpQuestionResponse,
 )
+from app.services import document_service
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/documents", tags=["documents"])
@@ -40,6 +41,16 @@ async def create_document(
     await db.refresh(document)
     logger.info("Document created", document_id=document.id, topic=document.topic)
     return document
+
+
+@router.get("/random", response_model=list[DocumentResponse])
+async def get_random_documents(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user_id: CurrentUser,
+    limit: Annotated[int, Query(ge=1, le=20)] = 8,
+) -> list[Document]:
+    """Get random documents for homepage grid display."""
+    return await document_service.get_random_documents(db, limit=limit, user_id=user_id)
 
 
 @router.get("/{document_id}", response_model=DocumentResponse)

@@ -1,7 +1,8 @@
 """Document service for CRUD operations."""
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.core.logging import get_logger
 from app.models.document import Document, DocumentVersion, FollowUpQuestion
@@ -161,3 +162,21 @@ async def update_document_roadmap(
         milestone_id=milestone_id,
     )
     return doc
+
+
+async def get_random_documents(
+    db: AsyncSession,
+    *,
+    limit: int = 8,
+    user_id: int = 1,
+) -> list[Document]:
+    """Get random documents for the homepage grid display."""
+    stmt = (
+        select(Document)
+        .options(selectinload(Document.follow_up_questions))
+        .where(Document.user_id == user_id)
+        .order_by(func.random())
+        .limit(limit)
+    )
+    result = await db.execute(stmt)
+    return list(result.scalars().all())
