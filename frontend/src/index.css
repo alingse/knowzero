@@ -1,88 +1,129 @@
-/* Use system fonts with local fallbacks for better performance in China
-   - Songti SC / STSong: macOS system serif font for Chinese
-   - SimSun: Windows system serif font for Chinese
-   - Noto Serif CJK SC: Common Linux serif font for Chinese
-   - Fallback to Georgia/Times for non-CJK content */
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/**
+ * KnowZero 配色系统：「书房」主题
+ * 
+ * 设计理念：
+ * - 书卷气：温暖的纸张质感，墨色文字，如同翻阅一本精装书
+ * - 科技感：靛青主色，清透而有层次
+ * - AI 感：薄荷青作为点缀，代表智能与生机
+ * - 亲和力：奶油色背景，不刺眼，适合长时间阅读
+ */
+
 @layer base {
   :root {
-    /* 主色调 - 紫罗兰 */
-    --primary: 258 90% 66%;
+    /* === 核心色 === */
+    
+    /* 主色：靛青 - 如古籍封面的靛蓝，沉稳而智慧 */
+    --primary: 210 55% 45%;
     --primary-foreground: 0 0% 100%;
     
-    /* 强调色 - 琥珀金 */
-    --accent: 45 100% 60%;
-    --accent-foreground: 240 10% 12%;
+    /* 强调色：琥珀金 - 如书页边缘的金色，温暖而优雅 */
+    --accent: 32 95% 55%;
+    --accent-foreground: 220 20% 12%;
     
-    /* 背景系统 - 暖白 */
-    --background: 0 0% 100%;
-    --foreground: 240 10% 12%;
+    /* === 中性色 === */
     
-    --card: 0 0% 100%;
-    --card-foreground: 240 10% 12%;
+    /* 背景：羊皮纸白 - 如高质量书籍的内页，微暖不伤眼 */
+    --background: 42 35% 97%;
+    --foreground: 220 20% 15%;
     
+    /* 卡片：米纸白 - 略亮于背景，形成层次 */
+    --card: 42 25% 99%;
+    --card-foreground: 220 20% 15%;
+    
+    /* 浮层：纯白 */
     --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 12%;
+    --popover-foreground: 220 20% 15%;
     
-    --secondary: 250 40% 96%;
-    --secondary-foreground: 240 10% 12%;
+    /* 次级：宣纸灰 - 淡淡的米色 */
+    --secondary: 40 20% 93%;
+    --secondary-foreground: 220 20% 15%;
     
-    --muted: 240 5% 96%;
-    --muted-foreground: 240 4% 46%;
+    /* 弱化：淡墨灰 - 用于辅助文字 */
+    --muted: 40 15% 90%;
+    --muted-foreground: 220 10% 45%;
     
-    --border: 240 6% 90%;
-    --input: 240 6% 90%;
-    --ring: 258 90% 66%;
+    /* 边框：烟墨 - 极淡的墨色 */
+    --border: 40 15% 85%;
+    --input: 40 15% 88%;
+    --ring: 210 55% 45%;
     
-    --destructive: 0 84% 60%;
+    /* === 功能色 === */
+    
+    /* 错误：朱砂红 - 传统印泥色 */
+    --destructive: 0 65% 55%;
     --destructive-foreground: 0 0% 100%;
     
-    --radius: 0.625rem;
+    /* 成功：竹青 - 生机与成长 */
+    --success: 145 45% 42%;
+    --success-foreground: 0 0% 100%;
+    
+    /* 警告：藤黄 - 醒目的暖黄 */
+    --warning: 38 85% 52%;
+    --warning-foreground: 220 20% 12%;
+    
+    /* 信息：薄荷青 - AI 与智能的隐喻 */
+    --info: 175 55% 45%;
+    --info-foreground: 0 0% 100%;
+    
+    /* 圆角：略大，柔和亲切 */
+    --radius: 0.75rem;
 
-    /* 字体变量 - 使用本地字体，避免 Google Fonts 在国内的加载问题 */
-    --font-display: "Songti SC", "STSong", "SimSun", "Noto Serif CJK SC", Georgia, "Times New Roman", serif;
+    /* === 字体变量 === */
+    --font-display: "Noto Serif SC", Georgia, "Times New Roman", serif;
     --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     --font-mono: "JetBrains Mono", Menlo, Monaco, Consolas, monospace;
-
-    /* 功能色 */
-    --success: 160 84% 39%;
-    --success-foreground: 0 0% 100%;
-    --warning: 38 92% 50%;
-    --warning-foreground: 240 10% 12%;
   }
 
+  /* === 暗色模式：夜读书房 === */
   .dark {
-    /* 暗色模式 - 深蓝灰 */
-    --background: 240 10% 8%;
-    --foreground: 0 0% 95%;
+    /* 背景：深墨蓝 - 如夜晚的书房 */
+    --background: 220 18% 10%;
+    --foreground: 40 20% 95%;
     
-    --card: 240 10% 10%;
-    --card-foreground: 0 0% 95%;
+    /* 卡片：墨青 - 略浅于背景 */
+    --card: 220 15% 13%;
+    --card-foreground: 40 20% 95%;
     
-    --popover: 240 10% 10%;
-    --popover-foreground: 0 0% 95%;
+    /* 浮层 */
+    --popover: 220 15% 11%;
+    --popover-foreground: 40 20% 95%;
     
-    --primary: 258 90% 76%;
-    --primary-foreground: 240 10% 8%;
+    /* 主色：亮靛青 - 保持识别度 */
+    --primary: 210 65% 60%;
+    --primary-foreground: 220 20% 10%;
     
-    --secondary: 250 30% 16%;
-    --secondary-foreground: 0 0% 95%;
+    /* 次级：深石墨 */
+    --secondary: 220 12% 20%;
+    --secondary-foreground: 40 20% 95%;
     
-    --muted: 240 5% 15%;
-    --muted-foreground: 240 5% 65%;
+    /* 弱化：淡银灰 */
+    --muted: 220 12% 18%;
+    --muted-foreground: 220 10% 60%;
     
-    --accent: 45 100% 55%;
-    --accent-foreground: 240 10% 8%;
+    /* 强调色：暖琥珀 - 暗色中更显温暖 */
+    --accent: 35 95% 60%;
+    --accent-foreground: 220 20% 10%;
     
-    --border: 240 5% 20%;
-    --input: 240 5% 20%;
-    --ring: 258 90% 76%;
+    /* 边框：烟墨 */
+    --border: 220 12% 22%;
+    --input: 220 12% 22%;
+    --ring: 210 65% 60%;
     
-    --destructive: 0 62% 50%;
+    /* 功能色微调 */
+    --destructive: 0 60% 60%;
     --destructive-foreground: 0 0% 100%;
+    --success: 145 50% 50%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 80% 55%;
+    --warning-foreground: 220 20% 12%;
+    --info: 175 60% 55%;
+    --info-foreground: 0 0% 100%;
   }
 }
 
@@ -95,9 +136,10 @@
     font-family: var(--font-sans);
   }
   
-  /* 标题使用衬线字体 */
+  /* 标题使用衬线字体，更有书卷气 */
   h1, h2, h3, h4, h5, h6, .font-display {
     font-family: var(--font-display);
+    @apply tracking-tight;
   }
   
   /* 代码使用等宽字体 */
@@ -106,75 +148,100 @@
   }
 }
 
-/* Custom scrollbar */
+/* Custom scrollbar - 温润如玉 */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  @apply bg-muted;
+  @apply bg-transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply rounded-full bg-muted-foreground/30;
+  @apply rounded-full bg-muted-foreground/20;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  @apply bg-muted-foreground/50;
+  @apply bg-muted-foreground/35;
 }
 
 /* Markdown content styles */
 .markdown-content h1 {
-  @apply mb-4 text-2xl font-bold;
+  @apply mb-5 text-2xl font-bold text-foreground;
   font-family: var(--font-display);
 }
 
 .markdown-content h2 {
-  @apply mb-3 mt-6 text-xl font-semibold;
+  @apply mb-4 mt-8 text-xl font-semibold text-foreground;
   font-family: var(--font-display);
 }
 
 .markdown-content h3 {
-  @apply mb-2 mt-4 text-lg font-medium;
+  @apply mb-3 mt-6 text-lg font-medium text-foreground;
 }
 
 .markdown-content p {
-  @apply mb-4 leading-relaxed;
+  @apply mb-5 leading-[1.8] text-foreground/90;
 }
 
 .markdown-content ul {
-  @apply mb-4 list-inside list-disc;
+  @apply mb-5 list-inside list-disc space-y-1.5;
 }
 
 .markdown-content ol {
-  @apply mb-4 list-inside list-decimal;
+  @apply mb-5 list-inside list-decimal space-y-1.5;
+}
+
+.markdown-content li {
+  @apply text-foreground/85;
 }
 
 .markdown-content code {
-  @apply rounded bg-muted px-1.5 py-0.5 text-sm;
+  @apply rounded-md bg-secondary px-1.5 py-0.5 text-sm text-foreground/80;
   font-family: var(--font-mono);
 }
 
 .markdown-content pre {
-  @apply mb-4 overflow-x-auto rounded-lg bg-muted p-4;
+  @apply mb-5 overflow-x-auto rounded-lg bg-secondary/70 p-4 border border-border/50;
 }
 
 .markdown-content pre code {
-  @apply bg-transparent p-0;
+  @apply bg-transparent p-0 text-sm;
 }
 
 .markdown-content blockquote {
-  @apply border-l-4 border-border pl-4 italic text-muted-foreground;
+  @apply border-l-[3px] border-primary/30 pl-5 italic text-muted-foreground my-5 py-1 bg-secondary/30 rounded-r-lg;
 }
 
 .markdown-content a {
-  @apply text-primary underline hover:text-primary/80;
+  @apply text-primary underline underline-offset-2 decoration-primary/30 hover:text-primary/80 hover:decoration-primary/60 transition-colors;
+}
+
+.markdown-content hr {
+  @apply my-8 border-border;
+}
+
+.markdown-content table {
+  @apply w-full mb-5 text-sm border-collapse;
+}
+
+.markdown-content th,
+.markdown-content td {
+  @apply px-4 py-3 border border-border text-left;
+}
+
+.markdown-content th {
+  @apply bg-secondary font-medium text-foreground/80;
+}
+
+.markdown-content tr:nth-child(even) {
+  @apply bg-secondary/30;
 }
 
 /* Entity highlight */
 .entity-highlight {
-  @apply cursor-pointer font-semibold text-primary hover:underline;
+  @apply cursor-pointer font-semibold text-primary hover:underline underline-offset-2 decoration-primary/40 transition-all;
 }
 
 /* Prevent layout shift during streaming */
@@ -189,14 +256,8 @@
 
 /* Smooth streaming cursor animation */
 @keyframes blink {
-  0%,
-  50% {
-    opacity: 1;
-  }
-  51%,
-  100% {
-    opacity: 0;
-  }
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
 }
 
 .streaming-cursor {
@@ -216,7 +277,7 @@
 
 /* Document list item hover effect */
 .document-list-item {
-  transition: all 0.15s ease;
+  transition: all 0.2s ease;
 }
 
 .document-list-item:hover {
@@ -224,68 +285,115 @@
 }
 
 .document-list-item.active {
-  background-color: hsl(var(--primary) / 0.1);
+  background-color: hsl(var(--primary) / 0.08);
   border-left-color: hsl(var(--primary));
 }
 
 /* Document icon animation */
 @keyframes document-pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.7;
-  }
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
 }
 
 .document-icon-new {
   animation: document-pulse 2s infinite;
 }
 
-/* Gradient text utility */
+/* === 工具类 === */
+
+/* Gradient text - 温润渐变 */
 .gradient-text {
-  @apply bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent;
+  @apply bg-clip-text text-transparent bg-gradient-to-r from-primary via-primary to-accent;
 }
 
-/* Animated gradient background */
+/* Paper texture background */
+.paper-texture {
+  background-color: hsl(var(--background));
+  background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z' fill='%239C92AC' fill-opacity='0.03' fill-rule='evenodd'/%3E%3C/svg%3E");
+}
+
+/* Animated gradient background - 柔和流动 */
 @keyframes gradient-shift {
-  0%, 100% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
 }
 
 .animate-gradient {
   background-size: 200% 200%;
-  animation: gradient-shift 8s ease infinite;
+  animation: gradient-shift 15s ease infinite;
 }
 
 /* Floating animation for hero elements */
 @keyframes float {
-  0%, 100% {
-    transform: translateY(0px);
-  }
-  50% {
-    transform: translateY(-10px);
-  }
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
 }
 
 .animate-float {
   animation: float 6s ease-in-out infinite;
-  will-change: transform;
 }
 
 .animate-float-delayed {
   animation: float 6s ease-in-out infinite;
   animation-delay: -3s;
-  will-change: transform;
 }
 
-.animate-float-delayed-2 {
-  animation: float 6s ease-in-out infinite;
-  animation-delay: -2s;
-  will-change: transform;
+/* Shimmer effect for loading states */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    hsl(var(--muted)) 25%,
+    hsl(var(--muted-foreground) / 0.08) 50%,
+    hsl(var(--muted)) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* Ink spread effect - 墨迹扩散 */
+@keyframes ink-spread {
+  0% { transform: scale(0); opacity: 0.3; }
+  100% { transform: scale(4); opacity: 0; }
+}
+
+.ink-spread::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(circle, hsl(var(--primary) / 0.2) 0%, transparent 70%);
+  animation: ink-spread 0.6s ease-out;
+  pointer-events: none;
+}
+
+/* Soft shadow - 柔和阴影 */
+.shadow-soft {
+  box-shadow: 
+    0 1px 2px hsl(var(--foreground) / 0.02),
+    0 4px 8px hsl(var(--foreground) / 0.03),
+    0 8px 16px hsl(var(--foreground) / 0.03);
+}
+
+.shadow-soft-lg {
+  box-shadow: 
+    0 1px 3px hsl(var(--foreground) / 0.02),
+    0 4px 12px hsl(var(--foreground) / 0.04),
+    0 12px 24px hsl(var(--foreground) / 0.04);
+}
+
+/* Card hover lift - 卡片悬停 */
+.card-lift {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.card-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 
+    0 4px 12px hsl(var(--foreground) / 0.05),
+    0 16px 32px hsl(var(--foreground) / 0.06);
 }
