@@ -18,6 +18,7 @@ from app.agent.nodes import (
     route_agent_node,
 )
 from app.agent.nodes.route import route_by_decision, route_by_intent
+from app.agent.nodes.topic import topic_agent_node
 from app.agent.state import AgentState
 from app.core.logging import get_logger
 
@@ -74,6 +75,7 @@ def create_knowzero_graph(
     workflow.add_node("input_normalizer", input_normalizer_node)
     workflow.add_node("intent_agent", intent_agent_node)
     workflow.add_node("route_agent", route_agent_node)
+    workflow.add_node("topic_agent", topic_agent_node)
     workflow.add_node("content_agent", content_agent_node)
     workflow.add_node("navigator_agent", navigator_agent_node)
     workflow.add_node("chitchat_agent", chitchat_agent_node)
@@ -102,6 +104,7 @@ def create_knowzero_graph(
         {
             "navigator_agent": "navigator_agent",
             "planner_agent": "planner_agent",
+            "topic_agent": "topic_agent",
             "content_agent": "content_agent",
         },
     )
@@ -117,6 +120,9 @@ def create_knowzero_graph(
             "content_agent": "content_agent",
         },
     )
+
+    # After topic_agent, always continue to content_agent for first document
+    workflow.add_edge("topic_agent", "content_agent")
 
     workflow.add_edge("content_agent", "post_process")
     workflow.add_edge("post_process", END)

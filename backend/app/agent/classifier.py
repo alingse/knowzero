@@ -35,21 +35,41 @@ class IntentClassifier:
         "补充": "optimize_content",
     }
 
-    _LLM_CLASSIFY_SYSTEM_PROMPT = """你是 KnowZero 学习平台的意图分类器。根据用户消息，返回 JSON 对象。
+    _LLM_CLASSIFY_SYSTEM_PROMPT = """你是 KnowZero 学习平台的意图分类器。根据用户消息和会话状态，返回 JSON 对象。
+
+**重要判断规则**（按优先级）：
+
+1. **首次输入技术实体词**（最高优先级）：
+   - 当"是否为首次有效输入"=是 时，用户输入一个技术名词（如"Redis"、"Python"、"TiDB"）
+   - 如果没有明确问句特征（无"是什么"、"怎么用"、"如何"等疑问词），应识别为 **new_topic**
+   - 如果有明确问句特征（如"Redis是什么？"），则识别为 **question**
+   - 原理：首次抛出技术名词，通常表示想系统学习该技术
+
+2. **闲聊识别**：
+   - "你能干什么"、"你是谁"、"你好"、"hello" 等 → **chitchat**
+   - 询问系统功能、自我介绍、打招呼 → **chitchat**
+   - 闲聊不算作"有效输入"，不影响后续的首次判断
+
+3. **明确规划意图**：
+   - "给我规划"、"生成路线图"、"roadmap"、"学习路线"等 → **plan**
+
+4. **new_topic vs question 的区分**：
+   - new_topic：用户想系统学习一个主题（有明确学习意图）
+   - question：用户想获得某个具体问题的答案（有明确问句）
 
 **意图类型判断标准**：
 
-1. **new_topic** - 系统性学习新主题（需要生成学习路线图）
+1. **new_topic** - 系统性学习新主题
    - 用户想从零开始学习某个技术/概念
-   - 表达方式："XX for YY"、"我想学 XX"、"XX 入门"
-   - 示例："tidb for backend"、"python for data science"、"kubernetes 入门"
-   - 关键特征：有明确的技术主题 + 应用场景/角色定位
+   - 表达方式："XX for YY"、"我想学 XX"、"XX 入门"、或直接输入技术名词
+   - 示例："tidb for backend"、"python for data science"、"kubernetes 入门"、"Redis"
+   - 关键特征：有明确的技术主题 + 应用场景/角色定位，或首次输入技术实体词
 
 2. **plan** - 明确要求学习规划/路线图
    - 用户直接要求规划、路线图、学习路径
    - 示例："给我制定一个学习计划"、"XX 的学习路线"
 
-3. **question** - 简单事实性问答（不需要生成文档）
+3. **question** - 简单事实性问答
    - 单个知识点的问题，可以用1-2句话回答
    - 示例："TiDB 是什么？"、"SQL 怎么写？"
 
@@ -78,11 +98,12 @@ class IntentClassifier:
 **返回格式**：
 ```json
 {
-  "intent_type": "new_topic | question | plan | follow_up | comparison | navigate | question_practical | optimize_content",
+  "intent_type": "new_topic | question | plan | follow_up | comparison | navigate | question_practical | optimize_content | chitchat",
   "target": "提取的核心主题（如：tidb、python、kubernetes）",
+  "is_tech_entity": true/false,
   "user_role": "beginner | intermediate | expert（默认 beginner）",
   "context": "应用场景（如：backend、data science、web development）",
-  "reasoning": "分类原因"
+  "reasoning": "判断原因，特别说明是否触发了首次输入规则"
 }
 ```
 
@@ -158,11 +179,23 @@ class IntentClassifier:
                 "target": message[:50],
             }
 
+        # Build contextual user prompt with session state
+        has_roadmap = context.get("has_roadmap", False)
+        has_documents = context.get("has_documents", False)
+        is_first_meaningful_input = not has_roadmap and not has_documents
+
+        contextual_message = f"""用户消息：{message}
+
+会话状态：
+- 是否有学习路线图：{"是" if has_roadmap else "否"}
+- 是否有历史文档：{"是" if has_documents else "否"}
+- 是否为首次有效输入：{"是" if is_first_meaningful_input else "否"}"""
+
         try:
             resp = await self.llm.ainvoke(
                 [
                     SystemMessage(content=self._LLM_CLASSIFY_SYSTEM_PROMPT),
-                    HumanMessage(content=message),
+                    HumanMessage(content=contextual_message),
                 ]
             )
             # The content can be str | list[str | dict[Any, Any]], we need to handle it
@@ -179,6 +212,7 @@ class IntentClassifier:
                 "method": "llm",
                 "processing_time_ms": elapsed,
                 "target": parsed.get("target", self._extract_target(message)),
+                "is_tech_entity": parsed.get("is_tech_entity", False),
                 "user_role": parsed.get("user_role", "beginner"),
                 "context": parsed.get("context", ""),
                 "reasoning": parsed.get("reasoning", ""),

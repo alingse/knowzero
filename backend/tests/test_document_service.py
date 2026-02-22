@@ -177,14 +177,10 @@ async def test_get_random_documents(
         topic="Random Test",
         content="content",
     )
-    await document_service.save_follow_ups(
-        test_session, doc.id, [{"question": "Q1?"}]
-    )
+    await document_service.save_follow_ups(test_session, doc.id, [{"question": "Q1?"}])
     await test_session.commit()
 
-    docs = await document_service.get_random_documents(
-        test_session, limit=20, user_id=seed_user.id
-    )
+    docs = await document_service.get_random_documents(test_session, limit=20, user_id=seed_user.id)
     assert len(docs) >= 1
     # Access follow_up_questions outside session — must not raise MissingGreenlet
     for d in docs:

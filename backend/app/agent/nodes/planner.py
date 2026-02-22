@@ -105,17 +105,18 @@ async def planner_agent_node(state: AgentState) -> AgentState:
     """
     decision = state.get("routing_decision") or {}
     mode = decision.get("mode", "roadmap_generate")
-    # Use intent target first, fallback to raw message, then default
-    intent = state.get("intent") or {}
-    target = decision.get("target") or intent.get("target") or state.get("raw_message", "新主题")
+    # Use resolved learning target
+    target = _resolve_learning_target(state)
     user_level = state.get("user_level", "beginner")
     current_roadmap = state.get("current_roadmap")
+    generate_doc_after = decision.get("generate_doc_after_roadmap", False)
 
     logger.info(
         "Planner Agent processing",
         mode=mode,
         target=target,
         has_current_roadmap=current_roadmap is not None,
+        generate_doc_after=generate_doc_after,
     )
 
     # Check if this is a modify request
@@ -129,10 +130,78 @@ async def planner_agent_node(state: AgentState) -> AgentState:
     # Generate new roadmap
     result = await _generate_roadmap(state, target, user_level)
     state["roadmap"] = cast(dict[str, Any], result.get("roadmap"))
-    state["roadmap_only"] = False  # Continue to generate document
+
+    # Decide whether to continue generating a document after roadmap:
+    # 1. generate_doc_after_roadmap=True (first tech entity) → continue to content_agent
+    # 2. User explicitly requested roadmap only → stop after roadmap
+    # 3. Default → continue to content_agent
+    if generate_doc_after:
+        state["roadmap_only"] = False
+        logger.info("First tech entity: will generate document after roadmap")
+    elif _is_roadmap_only_request(state):
+        state["roadmap_only"] = True
+        logger.info("Roadmap-only request: will not generate document")
+    else:
+        state["roadmap_only"] = False
+
     state["roadmap_modified"] = False
 
     return state
+
+
+def _is_roadmap_only_request(state: AgentState) -> bool:
+    """Check if user only wants a roadmap without generating a document."""
+    intent = state.get("intent") or {}
+    intent_type = intent.get("intent_type", "")
+    user_message = state.get("raw_message", "")
+
+    # Explicit plan intent
+    if intent_type == "plan":
+        return True
+
+    # Message contains roadmap-related instruction keywords
+    roadmap_keywords = ["roadmap", "路线图", "学习路线", "给我规划", "制定计划", "生成路线"]
+    return bool(any(kw in user_message.lower() for kw in roadmap_keywords))
+
+
+def _resolve_learning_target(state: AgentState) -> str:
+    """Resolve the actual learning target, filtering out instruction keywords."""
+    intent = state.get("intent") or {}
+    decision = state.get("routing_decision") or {}
+    current_roadmap = state.get("current_roadmap")
+    user_message = state.get("raw_message", "")
+
+    # 1. Prefer target from routing decision or intent
+    target = decision.get("target") or intent.get("target", "")
+
+    # 2. If target looks like an instruction, try to extract the real topic
+    instruction_keywords = [
+        "roadmap",
+        "路线图",
+        "学习路线",
+        "规划",
+        "计划",
+        "给我生成",
+        "请你生成",
+        "制定",
+        "生成",
+    ]
+    is_instruction_like = any(kw in (target or "").lower() for kw in instruction_keywords)
+
+    if is_instruction_like:
+        # Prefer current roadmap's goal
+        if current_roadmap:
+            return current_roadmap.get("goal", "学习规划")
+
+        # Try to extract topic from user message by removing instruction keywords
+        cleaned = user_message
+        for kw in instruction_keywords:
+            cleaned = cleaned.lower().replace(kw.lower(), "")
+        cleaned = cleaned.strip(" ，。？！,.?!")
+        if cleaned and len(cleaned) > 1:
+            return cleaned
+
+    return target or state.get("raw_message", "新主题")
 
 
 async def _generate_roadmap(state: AgentState, target: str, user_level: str) -> dict[str, object]:

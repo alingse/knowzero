@@ -51,6 +51,7 @@ class SessionContext:
     recent_docs: list[int]
     learned_topics: list[str]
     current_roadmap: dict[str, Any] | None
+    session_topic: str | None  # Current learning topic from Session.learning_goal
 
 
 async def _load_session_context(session_id: str) -> SessionContext:
@@ -60,8 +61,16 @@ async def _load_session_context(session_id: str) -> SessionContext:
     recent_docs: list[int] = []
     learned_topics: list[str] = []
     current_roadmap: dict[str, Any] | None = None
+    session_topic: str | None = None
 
     async with get_db_session() as db:
+        # Load session to get learning_goal (session_topic)
+        from app.models.session import Session as SessionModel
+
+        session = await db.get(SessionModel, session_id)
+        if session:
+            session_topic = session.learning_goal
+
         docs = await document_service.list_session_documents(db, session_id)
         if docs:
             current_doc_id = docs[0].id
@@ -94,6 +103,7 @@ async def _load_session_context(session_id: str) -> SessionContext:
         recent_docs=recent_docs,
         learned_topics=learned_topics,
         current_roadmap=current_roadmap,
+        session_topic=session_topic,
     )
 
 
@@ -120,6 +130,8 @@ def _build_agent_state(
         "current_roadmap": ctx.current_roadmap,
         "roadmap_modified": False,
         "roadmap_only": False,
+        "session_topic": ctx.session_topic,  # Current learning topic
+        "pending_session_update": None,  # No pending update initially
         "messages": [],
         "intent": None,
         "routing_decision": None,
@@ -173,6 +185,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str) -> None:
                     recent_docs=[],
                     learned_topics=[],
                     current_roadmap=None,
+                    session_topic=None,
                 )
 
             state = _build_agent_state(request, session_id, ctx, websocket)

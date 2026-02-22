@@ -46,7 +46,13 @@ async def intent_agent_node(state: AgentState) -> AgentState:
             reasoning="Entry point - simple new topic",
         )
     else:  # chat
-        intent = await classifier.classify(message, {})
+        context = {
+            "use_llm": True,
+            "has_roadmap": state.get("current_roadmap") is not None,
+            "has_documents": bool(state.get("recent_docs")),
+            "session_topic": state.get("session_topic"),
+        }
+        intent = await classifier.classify(message, context)
         intent["complexity"] = _estimate_complexity(message)
         intent["ambiguity"] = _estimate_ambiguity(message)
 

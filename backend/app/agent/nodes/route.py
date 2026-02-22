@@ -127,18 +127,35 @@ async def route_agent_node(state: AgentState) -> AgentState:
 
     # ========== Override: First topic must generate roadmap ==========
     # If this is a first topic (no roadmap, no documents), override LLM's decision
-    if intent_type == "new_topic" and not current_roadmap and not state.get("recent_docs"):
+    is_first_meaningful_input = not current_roadmap and not state.get("recent_docs")
+
+    if intent_type == "new_topic" and is_first_meaningful_input:
+        is_tech_entity = intent.get("is_tech_entity", False)
+        target = intent.get("target", "")
+
         logger.info(
             "Overriding LLM decision: first topic must generate roadmap",
             original_mode=llm_decision.get("mode"),
             original_action=llm_decision.get("action"),
+            is_tech_entity=is_tech_entity,
         )
         # Override to plan action with roadmap_generate mode
         llm_decision["action"] = "plan"
         llm_decision["mode"] = "roadmap_generate"
-        llm_decision["reasoning"] = (
-            "首次学习新主题，自动生成学习路线图。原决策: " + llm_decision.get("reasoning", "")
-        )
+        if target:
+            llm_decision["target"] = target
+
+        # First tech entity: generate roadmap + document
+        if is_tech_entity:
+            llm_decision["generate_doc_after_roadmap"] = True
+            llm_decision["reasoning"] = (
+                f"首次输入技术概念'{target}'，生成学习路线图并生成首个文档。"
+                f"原决策: {llm_decision.get('reasoning', '')}"
+            )
+        else:
+            llm_decision["reasoning"] = (
+                "首次学习新主题，自动生成学习路线图。原决策: " + llm_decision.get("reasoning", "")
+            )
 
     # ========== Override: Navigate without target_doc_id should generate_new ==========
     # If LLM chose navigate but didn't provide a valid target_doc_id, fallback to generate_new
@@ -468,4 +485,6 @@ def route_by_decision(state: AgentState) -> str:
         return "navigator_agent"
     if action == "plan":
         return "planner_agent"
+    if action == "establish_topic":
+        return "topic_agent"
     return "content_agent"

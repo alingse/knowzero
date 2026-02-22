@@ -26,6 +26,13 @@ class AgentState(TypedDict):
     roadmap_modified: bool
     roadmap_only: bool
 
+    # Session topic: the current learning theme (e.g., "Redis", "Python")
+    # Stored in Session.learning_goal, used to guide all learning activities
+    session_topic: str | None
+
+    # Pending session update to be persisted by websocket handler
+    pending_session_update: dict[str, Any] | None
+
     messages: Annotated[list[BaseMessage], add_messages]
 
     intent: dict[str, Any] | None
