@@ -48,6 +48,7 @@ export interface Document {
   prerequisites: number[];
   related: number[];
   parent_document_id?: number;
+  follow_up_questions?: FollowUpQuestion[];
   created_at: string;
   updated_at: string;
 }

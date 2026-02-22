@@ -1,6 +1,6 @@
 // WebSocket client for real-time chat.
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 
 import type { ChatRequest, StreamResponse } from "@/types";
 
@@ -14,6 +14,9 @@ interface UseWebSocketOptions {
   onError?: (error: Event) => void;
 }
 
+const MAX_RECONNECT_ATTEMPTS = 5;
+const BASE_RECONNECT_DELAY = 1000;
+
 export function useWebSocket({
   sessionId,
   onMessage,
@@ -25,41 +28,69 @@ export function useWebSocket({
   const [status, setStatus] = useState<ConnectionStatus>("disconnected");
   const [isLoading, setIsLoading] = useState(false);
 
-  useEffect(() => {
+  // Store callbacks in refs to avoid re-triggering the effect
+  const onMessageRef = useRef(onMessage);
+  const onConnectRef = useRef(onConnect);
+  const onDisconnectRef = useRef(onDisconnect);
+  const onErrorRef = useRef(onError);
+
+  // Keep refs in sync
+  onMessageRef.current = onMessage;
+  onConnectRef.current = onConnect;
+  onDisconnectRef.current = onDisconnect;
+  onErrorRef.current = onError;
+
+  // Reconnection state
+  const reconnectAttemptsRef = useRef(0);
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const intentionalCloseRef = useRef(false);
+
+  const connect = useCallback(() => {
     if (!sessionId) return;
 
-    const wsUrl = `ws://${window.location.host}/ws/${sessionId}`;
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const wsUrl = `${protocol}//${window.location.host}/ws/${sessionId}`;
     const ws = new WebSocket(wsUrl);
 
     ws.onopen = () => {
       setStatus("connected");
-      onConnect?.();
+      reconnectAttemptsRef.current = 0;
+      onConnectRef.current?.();
     };
 
     ws.onclose = () => {
       setStatus("disconnected");
       setIsLoading(false);
-      onDisconnect?.();
+      onDisconnectRef.current?.();
+
+      // Auto-reconnect with exponential backoff
+      if (
+        !intentionalCloseRef.current &&
+        reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS
+      ) {
+        const delay = BASE_RECONNECT_DELAY * Math.pow(2, reconnectAttemptsRef.current);
+        reconnectAttemptsRef.current += 1;
+        reconnectTimeoutRef.current = setTimeout(connect, delay);
+      }
     };
 
     ws.onerror = (error) => {
       setStatus("error");
       setIsLoading(false);
-      onError?.(error);
+      onErrorRef.current?.(error);
     };
 
     ws.onmessage = (event) => {
       try {
         const response: StreamResponse = JSON.parse(event.data);
 
-        // Update loading state based on response type
         if (response.type === "thinking") {
           setIsLoading(true);
         } else if (response.type === "done" || response.type === "error") {
           setIsLoading(false);
         }
 
-        onMessage?.(response);
+        onMessageRef.current?.(response);
       } catch (e) {
         console.error("Failed to parse WebSocket message:", e);
       }
@@ -67,12 +98,25 @@ export function useWebSocket({
 
     wsRef.current = ws;
     setStatus("connecting");
+  }, [sessionId]);
+
+  useEffect(() => {
+    if (!sessionId) return;
+
+    intentionalCloseRef.current = false;
+    reconnectAttemptsRef.current = 0;
+    connect();
 
     return () => {
-      ws.close();
+      intentionalCloseRef.current = true;
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
+      }
+      wsRef.current?.close();
       wsRef.current = null;
     };
-  }, [sessionId]);
+  }, [sessionId, connect]);
 
   const sendMessage = (request: ChatRequest) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -84,6 +128,7 @@ export function useWebSocket({
   };
 
   const disconnect = () => {
+    intentionalCloseRef.current = true;
     wsRef.current?.close();
   };
 

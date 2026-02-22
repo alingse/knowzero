@@ -1,9 +1,10 @@
-import { BookOpen, FileText, Plus, Clock } from "lucide-react";
+import { FileText, Plus, Clock } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { format } from "date-fns";
 import { zhCN } from "date-fns/locale";
 
 import { Button } from "@/components/ui/button";
+import { Logo } from "@/components/Logo";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
@@ -49,10 +50,12 @@ export function Sidebar({ className, onDocumentSelect }: SidebarProps) {
   return (
     <aside className={cn("flex h-full w-72 flex-col border-r bg-card", className)}>
       {/* Header */}
-      <div className="flex h-14 items-center border-b px-4">
-        <BookOpen className="mr-2 h-5 w-5 text-primary" />
-        <span className="font-semibold">KnowZero</span>
-      </div>
+      <button
+        onClick={handleNewSession}
+        className="flex h-14 items-center border-b px-4 w-full hover:bg-accent/50 transition-colors"
+      >
+        <Logo />
+      </button>
 
       {/* New Session Button */}
       <div className="p-4">

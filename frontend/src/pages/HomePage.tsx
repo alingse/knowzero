@@ -1,9 +1,10 @@
 import { useMutation } from "@tanstack/react-query";
-import { BookOpen, Sparkles } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
+import { Logo } from "@/components/Logo";
 import { DocumentGrid } from "@/components/DocumentGrid";
 import { Input } from "@/components/ui/input";
 import { sessionsApi } from "@/api/client";
@@ -36,12 +37,14 @@ export function HomePage() {
       {/* Top Navigation Bar */}
       <header className="border-b bg-background/80 backdrop-blur-sm sticky top-0 z-10">
         <div className="flex h-16 items-center px-6">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-md">
-              <BookOpen className="h-5 w-5" />
+          <button
+            onClick={() => navigate("/")}
+            className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+          >
+            <div className="text-2xl">
+              <Logo />
             </div>
-            <span className="text-xl font-bold">KnowZero</span>
-          </div>
+          </button>
         </div>
       </header>
 

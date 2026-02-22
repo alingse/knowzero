@@ -109,8 +109,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         currentDocument: selectedDoc,
         // Update follow-up questions from the selected document
         followUpQuestions:
-          (selectedDoc as Document & { follow_up_questions?: FollowUpQuestion[] })
-            .follow_up_questions || [],
+          selectedDoc.follow_up_questions || [],
       });
     }
   },
@@ -136,7 +135,6 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   setLoading: (loading) => set({ isLoading: loading }),
   setError: (error) => set({ error }),
   setFollowUpQuestions: (questions) => {
-    console.log("[sessionStore] setFollowUpQuestions called:", questions.length, "questions");
     set({ followUpQuestions: questions });
   },
   updateDocumentEntities: (entities) =>
