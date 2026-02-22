@@ -150,6 +150,7 @@ export function SessionPage() {
     sendMessage,
     isConnected,
     isLoading: isAgentLoading,
+    status: connectionStatus,
   } = useWebSocket({
     sessionId: sessionId || "",
     onMessage: handleWebSocketMessage,
@@ -211,7 +212,10 @@ export function SessionPage() {
 
   return (
     <Layout>
-      <Sidebar onDocumentSelect={() => setViewMode("document")} />
+      <Sidebar 
+        onDocumentSelect={() => setViewMode("document")} 
+        connectionStatus={connectionStatus}
+      />
       <MainContent>
         <div className="flex flex-1 flex-col">
           {/* Roadmap Bar */}

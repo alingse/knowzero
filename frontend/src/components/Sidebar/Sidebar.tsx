@@ -1,4 +1,4 @@
-import { FileText, Plus, Clock } from "lucide-react";
+import { FileText, Plus, Clock, Wifi, WifiOff, Loader2, AlertCircle } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { format } from "date-fns";
 import { zhCN } from "date-fns/locale";
@@ -10,12 +10,47 @@ import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { useSessionStore } from "@/stores/sessionStore";
 
+type ConnectionStatus = "connecting" | "connected" | "disconnected" | "error";
+
 interface SidebarProps {
   className?: string;
   onDocumentSelect?: () => void;
+  connectionStatus?: ConnectionStatus;
 }
 
-export function Sidebar({ className, onDocumentSelect }: SidebarProps) {
+const statusConfig: Record<ConnectionStatus, { 
+  icon: React.ReactNode; 
+  label: string; 
+  color: string;
+  animate?: boolean;
+}> = {
+  connected: { 
+    icon: <Wifi className="h-3.5 w-3.5" />, 
+    label: "已连接", 
+    color: "text-green-600 dark:text-green-400",
+    animate: false,
+  },
+  connecting: { 
+    icon: <Loader2 className="h-3.5 w-3.5 animate-spin" />, 
+    label: "连接中...", 
+    color: "text-amber-600 dark:text-amber-400",
+    animate: true,
+  },
+  disconnected: { 
+    icon: <WifiOff className="h-3.5 w-3.5" />, 
+    label: "未连接", 
+    color: "text-muted-foreground",
+    animate: false,
+  },
+  error: { 
+    icon: <AlertCircle className="h-3.5 w-3.5" />, 
+    label: "连接错误", 
+    color: "text-red-600 dark:text-red-400",
+    animate: false,
+  },
+};
+
+export function Sidebar({ className, onDocumentSelect, connectionStatus = "disconnected" }: SidebarProps) {
   const navigate = useNavigate();
   const { sessionId } = useParams<{ sessionId: string }>();
 
@@ -46,6 +81,8 @@ export function Sidebar({ className, onDocumentSelect }: SidebarProps) {
   const sortedDocuments = [...documents].sort(
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
   );
+
+  const status = statusConfig[connectionStatus];
 
   return (
     <aside className={cn("flex h-full w-72 flex-col border-r bg-card", className)}>
@@ -83,8 +120,8 @@ export function Sidebar({ className, onDocumentSelect }: SidebarProps) {
             </div>
 
             {sortedDocuments.length === 0 ? (
-              <div className="mt-2 px-2 py-3 text-sm text-muted-foreground">
-                <p>暂无文档</p>
+              <div className="mt-2 px-2 py-3 text-sm text-muted-foreground bg-muted/50 rounded-md">
+                <p className="font-medium text-foreground/80">暂无文档</p>
                 <p className="mt-1 text-xs">在聊天中生成第一个文档</p>
               </div>
             ) : (
@@ -129,11 +166,14 @@ export function Sidebar({ className, onDocumentSelect }: SidebarProps) {
 
       <Separator />
 
-      {/* Footer */}
+      {/* Footer - Connection Status */}
       <div className="p-4">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <div className="h-2 w-2 rounded-full bg-green-500" />
-          已连接
+        <div className={cn(
+          "flex items-center gap-2 text-sm",
+          status.color
+        )}>
+          {status.icon}
+          <span>{status.label}</span>
         </div>
       </div>
     </aside>

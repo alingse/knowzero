@@ -1,51 +1,88 @@
+/* Use system fonts with local fallbacks for better performance in China
+   - Songti SC / STSong: macOS system serif font for Chinese
+   - SimSun: Windows system serif font for Chinese
+   - Noto Serif CJK SC: Common Linux serif font for Chinese
+   - Fallback to Georgia/Times for non-CJK content */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
+    /* 主色调 - 紫罗兰 */
+    --primary: 258 90% 66%;
+    --primary-foreground: 0 0% 100%;
+    
+    /* 强调色 - 琥珀金 */
+    --accent: 45 100% 60%;
+    --accent-foreground: 240 10% 12%;
+    
+    /* 背景系统 - 暖白 */
     --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --foreground: 240 10% 12%;
+    
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 240 10% 12%;
+    
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
-    --radius: 0.5rem;
+    --popover-foreground: 240 10% 12%;
+    
+    --secondary: 250 40% 96%;
+    --secondary-foreground: 240 10% 12%;
+    
+    --muted: 240 5% 96%;
+    --muted-foreground: 240 4% 46%;
+    
+    --border: 240 6% 90%;
+    --input: 240 6% 90%;
+    --ring: 258 90% 66%;
+    
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    
+    --radius: 0.625rem;
+
+    /* 字体变量 - 使用本地字体，避免 Google Fonts 在国内的加载问题 */
+    --font-display: "Songti SC", "STSong", "SimSun", "Noto Serif CJK SC", Georgia, "Times New Roman", serif;
+    --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-mono: "JetBrains Mono", Menlo, Monaco, Consolas, monospace;
+
+    /* 功能色 */
+    --success: 160 84% 39%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 240 10% 12%;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    /* 暗色模式 - 深蓝灰 */
+    --background: 240 10% 8%;
+    --foreground: 0 0% 95%;
+    
+    --card: 240 10% 10%;
+    --card-foreground: 0 0% 95%;
+    
+    --popover: 240 10% 10%;
+    --popover-foreground: 0 0% 95%;
+    
+    --primary: 258 90% 76%;
+    --primary-foreground: 240 10% 8%;
+    
+    --secondary: 250 30% 16%;
+    --secondary-foreground: 0 0% 95%;
+    
+    --muted: 240 5% 15%;
+    --muted-foreground: 240 5% 65%;
+    
+    --accent: 45 100% 55%;
+    --accent-foreground: 240 10% 8%;
+    
+    --border: 240 5% 20%;
+    --input: 240 5% 20%;
+    --ring: 258 90% 76%;
+    
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 0 0% 100%;
   }
 }
 
@@ -54,7 +91,18 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
+    font-family: var(--font-sans);
+  }
+  
+  /* 标题使用衬线字体 */
+  h1, h2, h3, h4, h5, h6, .font-display {
+    font-family: var(--font-display);
+  }
+  
+  /* 代码使用等宽字体 */
+  code, pre, kbd, .font-mono {
+    font-family: var(--font-mono);
   }
 }
 
@@ -79,10 +127,12 @@
 /* Markdown content styles */
 .markdown-content h1 {
   @apply mb-4 text-2xl font-bold;
+  font-family: var(--font-display);
 }
 
 .markdown-content h2 {
   @apply mb-3 mt-6 text-xl font-semibold;
+  font-family: var(--font-display);
 }
 
 .markdown-content h3 {
@@ -102,7 +152,8 @@
 }
 
 .markdown-content code {
-  @apply rounded bg-muted px-1.5 py-0.5 font-mono text-sm;
+  @apply rounded bg-muted px-1.5 py-0.5 text-sm;
+  font-family: var(--font-mono);
 }
 
 .markdown-content pre {
@@ -190,4 +241,51 @@
 
 .document-icon-new {
   animation: document-pulse 2s infinite;
+}
+
+/* Gradient text utility */
+.gradient-text {
+  @apply bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent;
+}
+
+/* Animated gradient background */
+@keyframes gradient-shift {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+.animate-gradient {
+  background-size: 200% 200%;
+  animation: gradient-shift 8s ease infinite;
+}
+
+/* Floating animation for hero elements */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+  will-change: transform;
+}
+
+.animate-float-delayed {
+  animation: float 6s ease-in-out infinite;
+  animation-delay: -3s;
+  will-change: transform;
+}
+
+.animate-float-delayed-2 {
+  animation: float 6s ease-in-out infinite;
+  animation-delay: -2s;
+  will-change: transform;
 }
