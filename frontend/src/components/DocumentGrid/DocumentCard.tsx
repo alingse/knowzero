@@ -23,17 +23,17 @@ export function DocumentCard({ document }: DocumentCardProps) {
   return (
     <button
       onClick={handleClick}
-      className="text-left p-5 rounded-xl border bg-card hover:bg-accent/50 hover:shadow-md transition-all duration-200 h-36 flex flex-col group"
+      className="group flex h-36 flex-col rounded-xl border bg-card p-5 text-left transition-all duration-200 hover:bg-accent/50 hover:shadow-md"
     >
-      <div className="flex items-start gap-3 flex-1 min-w-0">
-        <div className="mt-0.5 flex-shrink-0 w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+      <div className="flex min-w-0 flex-1 items-start gap-3">
+        <div className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-primary/10 transition-colors group-hover:bg-primary/20">
           <FileText className="h-4 w-4 text-primary" />
         </div>
-        <div className="min-w-0 flex-1 flex flex-col">
-          <h3 className="font-display font-medium text-base truncate group-hover:text-primary transition-colors">
+        <div className="flex min-w-0 flex-1 flex-col">
+          <h3 className="font-display truncate text-base font-medium transition-colors group-hover:text-primary">
             {document.topic}
           </h3>
-          <p className="text-sm text-muted-foreground mt-2 line-clamp-2 flex-1 leading-relaxed">
+          <p className="mt-2 line-clamp-2 flex-1 text-sm leading-relaxed text-muted-foreground">
             {contentPreview}
           </p>
         </div>

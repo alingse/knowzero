@@ -17,39 +17,46 @@ interface SidebarProps {
   connectionStatus?: ConnectionStatus;
 }
 
-const statusConfig: Record<ConnectionStatus, { 
-  icon: React.ReactNode; 
-  label: string; 
-  color: string;
-  animate?: boolean;
-}> = {
-  connected: { 
-    icon: <Wifi className="h-3.5 w-3.5" />, 
-    label: "已连接", 
+const statusConfig: Record<
+  ConnectionStatus,
+  {
+    icon: React.ReactNode;
+    label: string;
+    color: string;
+    animate?: boolean;
+  }
+> = {
+  connected: {
+    icon: <Wifi className="h-3.5 w-3.5" />,
+    label: "已连接",
     color: "text-green-600 dark:text-green-400",
     animate: false,
   },
-  connecting: { 
-    icon: <Loader2 className="h-3.5 w-3.5 animate-spin" />, 
-    label: "连接中...", 
+  connecting: {
+    icon: <Loader2 className="h-3.5 w-3.5 animate-spin" />,
+    label: "连接中...",
     color: "text-amber-600 dark:text-amber-400",
     animate: true,
   },
-  disconnected: { 
-    icon: <WifiOff className="h-3.5 w-3.5" />, 
-    label: "未连接", 
+  disconnected: {
+    icon: <WifiOff className="h-3.5 w-3.5" />,
+    label: "未连接",
     color: "text-muted-foreground",
     animate: false,
   },
-  error: { 
-    icon: <AlertCircle className="h-3.5 w-3.5" />, 
-    label: "连接错误", 
+  error: {
+    icon: <AlertCircle className="h-3.5 w-3.5" />,
+    label: "连接错误",
     color: "text-red-600 dark:text-red-400",
     animate: false,
   },
 };
 
-export function Sidebar({ className, onDocumentSelect, connectionStatus = "disconnected" }: SidebarProps) {
+export function Sidebar({
+  className,
+  onDocumentSelect,
+  connectionStatus = "disconnected",
+}: SidebarProps) {
   const navigate = useNavigate();
   const { sessionId } = useParams<{ sessionId: string }>();
 
@@ -73,7 +80,7 @@ export function Sidebar({ className, onDocumentSelect, connectionStatus = "disco
       {/* Header */}
       <button
         onClick={handleNewSession}
-        className="flex h-14 items-center border-b px-4 w-full hover:bg-accent/50 transition-colors"
+        className="flex h-14 w-full items-center border-b px-4 transition-colors hover:bg-accent/50"
       >
         <Logo />
       </button>
@@ -97,9 +104,7 @@ export function Sidebar({ className, onDocumentSelect, connectionStatus = "disco
               <FileText className="h-4 w-4" />
               会话文档
               {documents.length > 0 && (
-                <span className="ml-auto text-xs text-muted-foreground">
-                  {documents.length}
-                </span>
+                <span className="ml-auto text-xs text-muted-foreground">{documents.length}</span>
               )}
             </div>
 
@@ -117,10 +122,7 @@ export function Sidebar({ className, onDocumentSelect, connectionStatus = "disco
 
       {/* Footer - Connection Status */}
       <div className="p-4">
-        <div className={cn(
-          "flex items-center gap-2 text-sm",
-          status.color
-        )}>
+        <div className={cn("flex items-center gap-2 text-sm", status.color)}>
           {status.icon}
           <span>{status.label}</span>
         </div>

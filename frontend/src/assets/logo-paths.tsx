@@ -68,17 +68,8 @@ export const LOGO_SVG_PATHS: ReactElement = (
     />
 
     {/* Magic sparkles - uses primary color accent for brand identity */}
-    <path
-      className="fill-primary/60"
-      d="M5 24 L6 22.5 L7 24 L6 25.5 Z"
-    />
-    <path
-      className="fill-accent/50"
-      d="M2.5 20.5 L3.2 19.5 L3.9 20.5 L3.2 21.5 Z"
-    />
-    <path
-      className="fill-primary/40"
-      d="M3.5 27 L4 26.2 L4.5 27 L4 27.8 Z"
-    />
+    <path className="fill-primary/60" d="M5 24 L6 22.5 L7 24 L6 25.5 Z" />
+    <path className="fill-accent/50" d="M2.5 20.5 L3.2 19.5 L3.9 20.5 L3.2 21.5 Z" />
+    <path className="fill-primary/40" d="M3.5 27 L4 26.2 L4.5 27 L4 27.8 Z" />
   </>
 );

@@ -12,7 +12,12 @@ interface RoadmapBarProps {
   className?: string;
 }
 
-export function RoadmapBar({ progress, isExpanded: controlledExpanded, onToggle, className }: RoadmapBarProps) {
+export function RoadmapBar({
+  progress,
+  isExpanded: controlledExpanded,
+  onToggle,
+  className,
+}: RoadmapBarProps) {
   const [internalExpanded, setInternalExpanded] = useState(false);
   const isExpanded = controlledExpanded ?? internalExpanded;
 

@@ -12,9 +12,9 @@
  * Progress level thresholds.
  */
 export const PROGRESS_THRESHOLD = {
-  COMPLETED: 1.0,   // 100%
-  PROFICIENT: 1.5,  // 150%
-  MASTERED: 2.0,    // 200%
+  COMPLETED: 1.0, // 100%
+  PROFICIENT: 1.5, // 150%
+  MASTERED: 2.0, // 200%
 } as const;
 
 /**
@@ -23,15 +23,15 @@ export const PROGRESS_THRESHOLD = {
  */
 export function getProgressButtonColor(progress: number): string {
   if (progress >= PROGRESS_THRESHOLD.MASTERED) {
-    return "border-purple-500 bg-purple-500 text-white";  // 200%+: 精通
+    return "border-purple-500 bg-purple-500 text-white"; // 200%+: 精通
   }
   if (progress >= PROGRESS_THRESHOLD.PROFICIENT) {
-    return "border-blue-500 bg-blue-500 text-white";   // 150%+: 熟练
+    return "border-blue-500 bg-blue-500 text-white"; // 150%+: 熟练
   }
   if (progress >= PROGRESS_THRESHOLD.COMPLETED) {
-    return "border-green-500 bg-green-500 text-white";  // 100%+: 完成
+    return "border-green-500 bg-green-500 text-white"; // 100%+: 完成
   }
-  return "border-primary bg-primary text-primary-foreground";  // 进行中
+  return "border-primary bg-primary text-primary-foreground"; // 进行中
 }
 
 /**
@@ -40,15 +40,15 @@ export function getProgressButtonColor(progress: number): string {
  */
 export function getProgressTextColor(progress: number): string {
   if (progress >= PROGRESS_THRESHOLD.MASTERED) {
-    return "text-purple-500";  // 200%+: 精通
+    return "text-purple-500"; // 200%+: 精通
   }
   if (progress >= PROGRESS_THRESHOLD.PROFICIENT) {
-    return "text-blue-500";   // 150%+: 熟练
+    return "text-blue-500"; // 150%+: 熟练
   }
   if (progress >= PROGRESS_THRESHOLD.COMPLETED) {
-    return "text-green-500";  // 100%+: 完成
+    return "text-green-500"; // 100%+: 完成
   }
-  return "text-primary";  // 进行中
+  return "text-primary"; // 进行中
 }
 
 /**

@@ -15,11 +15,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   getProgressButtonColor,
   getCompletedCardStyle,
@@ -27,19 +23,19 @@ import {
   getCompletedBadgeStyle,
 } from "@/utils/roadmapColors";
 
-import type { RoadmapProgress, RoadmapMilestoneProgress, MilestoneDocument, GenerationModeValue } from "@/types";
+import type {
+  RoadmapProgress,
+  RoadmapMilestoneProgress,
+  MilestoneDocument,
+  MilestoneGenerateParams,
+} from "@/types";
 import { GenerationMode } from "@/types";
 
 interface FishboneTimelineProps {
   progress: RoadmapProgress;
   currentMilestoneId?: number;
   onMilestoneClick?: (milestoneId: number) => void;
-  onGenerateDocument?: (
-    milestone: RoadmapMilestoneProgress,
-    sessionTopic: string,
-    mode: GenerationModeValue,
-    question?: string
-  ) => void;
+  onGenerateDocument?: (params: MilestoneGenerateParams) => void;
   onViewDocuments?: (milestoneId: number) => void;
   className?: string;
 }
@@ -53,14 +49,14 @@ function DocumentTags({ docs }: { docs: MilestoneDocument[] }) {
   const remaining = docs.length - 4;
 
   return (
-    <div className="flex flex-wrap items-center gap-1.5 mt-2">
+    <div className="mt-2 flex flex-wrap items-center gap-1.5">
       {displayDocs.map((doc) => (
         <span
           key={doc.id}
           className={cn(
             "inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-medium",
-            "bg-background/80 border shadow-sm",
-            "text-muted-foreground hover:text-foreground transition-colors"
+            "border bg-background/80 shadow-sm",
+            "text-muted-foreground transition-colors hover:text-foreground"
           )}
           title={doc.topic}
         >
@@ -69,9 +65,7 @@ function DocumentTags({ docs }: { docs: MilestoneDocument[] }) {
         </span>
       ))}
       {remaining > 0 && (
-        <span className="text-[10px] text-muted-foreground px-1">
-          +{remaining} 篇
-        </span>
+        <span className="px-1 text-[10px] text-muted-foreground">+{remaining} 篇</span>
       )}
     </div>
   );
@@ -87,12 +81,7 @@ function MilestonePopoverContent({
 }: {
   milestone: RoadmapMilestoneProgress;
   sessionGoal: string;
-  onGenerateDocument?: (
-    milestone: RoadmapMilestoneProgress,
-    sessionTopic: string,
-    mode: GenerationModeValue,
-    question?: string
-  ) => void;
+  onGenerateDocument?: (params: MilestoneGenerateParams) => void;
   onViewDocuments?: (milestoneId: number) => void;
   onClose: () => void;
 }) {
@@ -100,18 +89,31 @@ function MilestonePopoverContent({
   const [question, setQuestion] = useState("");
 
   const handleGenerateNext = () => {
-    onGenerateDocument?.(milestone, sessionGoal, GenerationMode.STANDARD);
+    onGenerateDocument?.({
+      milestone,
+      sessionTopic: sessionGoal,
+      mode: GenerationMode.STANDARD,
+    });
     onClose();
   };
 
   const handleAdvancedLearning = () => {
-    onGenerateDocument?.(milestone, sessionGoal, GenerationMode.ADVANCED);
+    onGenerateDocument?.({
+      milestone,
+      sessionTopic: sessionGoal,
+      mode: GenerationMode.ADVANCED,
+    });
     onClose();
   };
 
   const handleQuestionSubmit = () => {
     if (question.trim()) {
-      onGenerateDocument?.(milestone, sessionGoal, GenerationMode.STANDARD, question.trim());
+      onGenerateDocument?.({
+        milestone,
+        sessionTopic: sessionGoal,
+        mode: GenerationMode.STANDARD,
+        question: question.trim(),
+      });
       onClose();
     }
   };
@@ -128,20 +130,15 @@ function MilestonePopoverContent({
 
   // Get next document preview topic based on count
   const getNextDocPreview = () => {
-    const previews = [
-      "基础概念入门",
-      "深入核心机制",
-      "进阶应用与实践",
-      "实战案例综合练习",
-    ];
+    const previews = ["基础概念入门", "深入核心机制", "进阶应用与实践", "实战案例综合练习"];
     return previews[docCount] || "进阶拓展内容";
   };
 
   return (
     <div className="w-72 p-1">
       {/* Header */}
-      <div className="mb-3 pb-2 border-b">
-        <div className="flex items-center gap-2 mb-1">
+      <div className="mb-3 border-b pb-2">
+        <div className="mb-1 flex items-center gap-2">
           <span
             className={cn(
               "flex h-5 w-5 items-center justify-center rounded-full text-xs",
@@ -150,29 +147,31 @@ function MilestonePopoverContent({
               isCompleted && "bg-green-500 text-white"
             )}
           >
-            {isCompleted ? <Check className="h-3 w-3" /> : isLocked ? <Lock className="h-3 w-3" /> : docCount}
+            {isCompleted ? (
+              <Check className="h-3 w-3" />
+            ) : isLocked ? (
+              <Lock className="h-3 w-3" />
+            ) : (
+              docCount
+            )}
           </span>
-          <h4 className="font-semibold text-sm">{milestone.title}</h4>
+          <h4 className="text-sm font-semibold">{milestone.title}</h4>
         </div>
-        <p className="text-xs text-muted-foreground">
-          {milestone.description}
-        </p>
+        <p className="text-xs text-muted-foreground">{milestone.description}</p>
       </div>
 
       {/* Document list */}
       {milestone.documents.length > 0 && (
         <div className="mb-3 space-y-1.5">
-          <p className="text-xs font-medium text-muted-foreground">
-            已生成文档 ({docCount}篇):
-          </p>
-          <div className="space-y-1 max-h-24 overflow-y-auto">
+          <p className="text-xs font-medium text-muted-foreground">已生成文档 ({docCount}篇):</p>
+          <div className="max-h-24 space-y-1 overflow-y-auto">
             {milestone.documents.map((doc, docIdx) => (
               <div
                 key={doc.id}
-                className="flex items-center gap-2 text-xs px-2 py-1 rounded bg-muted/50"
+                className="flex items-center gap-2 rounded bg-muted/50 px-2 py-1 text-xs"
               >
-                <span className="text-muted-foreground font-mono">{docIdx + 1}.</span>
-                <FileText className="h-3 w-3 text-muted-foreground shrink-0" />
+                <span className="font-mono text-muted-foreground">{docIdx + 1}.</span>
+                <FileText className="h-3 w-3 shrink-0 text-muted-foreground" />
                 <span className="truncate">{doc.topic}</span>
               </div>
             ))}
@@ -184,11 +183,7 @@ function MilestonePopoverContent({
       <div className="space-y-1.5">
         {/* Locked: Generate first doc */}
         {isLocked && (
-          <Button
-            size="sm"
-            className="w-full justify-start gap-2 h-8"
-            onClick={handleGenerateNext}
-          >
+          <Button size="sm" className="h-8 w-full justify-start gap-2" onClick={handleGenerateNext}>
             <PlayCircle className="h-4 w-4" />
             开始学习
             <span className="ml-auto text-xs opacity-70">生成第1篇</span>
@@ -201,7 +196,7 @@ function MilestonePopoverContent({
             <Button
               variant="outline"
               size="sm"
-              className="w-full justify-start gap-2 h-8"
+              className="h-8 w-full justify-start gap-2"
               onClick={handleViewDocuments}
             >
               <BookOpen className="h-4 w-4" />
@@ -211,7 +206,7 @@ function MilestonePopoverContent({
             {docCount < 4 && (
               <Button
                 size="sm"
-                className="w-full justify-start gap-2 h-8"
+                className="h-8 w-full justify-start gap-2"
                 onClick={handleGenerateNext}
               >
                 <Plus className="h-4 w-4" />
@@ -228,7 +223,7 @@ function MilestonePopoverContent({
             <Button
               variant="outline"
               size="sm"
-              className="w-full justify-start gap-2 h-8"
+              className="h-8 w-full justify-start gap-2"
               onClick={handleViewDocuments}
             >
               <BookOpen className="h-4 w-4" />
@@ -238,7 +233,7 @@ function MilestonePopoverContent({
             <Button
               variant="secondary"
               size="sm"
-              className="w-full justify-start gap-2 h-8"
+              className="h-8 w-full justify-start gap-2"
               onClick={handleAdvancedLearning}
             >
               <Rocket className="h-4 w-4" />
@@ -252,14 +247,14 @@ function MilestonePopoverContent({
           <Button
             variant="ghost"
             size="sm"
-            className="w-full justify-start gap-2 h-8 text-muted-foreground hover:text-foreground"
+            className="h-8 w-full justify-start gap-2 text-muted-foreground hover:text-foreground"
             onClick={() => setShowQuestionInput(true)}
           >
             <MessageCircle className="h-4 w-4" />
             针对此主题提问...
           </Button>
         ) : (
-          <div className="space-y-2 pt-2 border-t">
+          <div className="space-y-2 border-t pt-2">
             <Input
               placeholder="输入你的问题..."
               value={question}
@@ -273,7 +268,7 @@ function MilestonePopoverContent({
             <div className="flex gap-2">
               <Button
                 size="sm"
-                className="flex-1 h-7 text-xs"
+                className="h-7 flex-1 text-xs"
                 onClick={handleQuestionSubmit}
                 disabled={!question.trim()}
               >
@@ -282,7 +277,7 @@ function MilestonePopoverContent({
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-7 text-xs px-2"
+                className="h-7 px-2 text-xs"
                 onClick={() => {
                   setShowQuestionInput(false);
                   setQuestion("");
@@ -306,16 +301,18 @@ export function FishboneTimeline({
   onViewDocuments,
   className,
 }: FishboneTimelineProps) {
-  const completedCount = progress.milestones.filter(
-    (m) => m.status === "completed"
-  ).length;
+  const completedCount = progress.milestones.filter((m) => m.status === "completed").length;
 
   const [openPopoverId, setOpenPopoverId] = useState<number | null>(null);
 
   const handleMilestoneClick = useCallback(
     (milestone: RoadmapMilestoneProgress) => {
       if (milestone.status === "locked" && onGenerateDocument) {
-        onGenerateDocument(milestone, progress.goal, GenerationMode.STANDARD);
+        onGenerateDocument({
+          milestone,
+          sessionTopic: progress.goal,
+          mode: GenerationMode.STANDARD,
+        });
       } else {
         onMilestoneClick?.(milestone.id);
       }
@@ -329,7 +326,7 @@ export function FishboneTimeline({
       <div className="flex items-center justify-between px-1">
         <div className="flex items-center gap-2">
           <Target className="h-4 w-4 text-primary" />
-          <h3 className="font-semibold text-sm">{progress.goal}</h3>
+          <h3 className="text-sm font-semibold">{progress.goal}</h3>
         </div>
         <div className="text-xs text-muted-foreground">
           {completedCount} / {progress.milestones.length} 完成
@@ -349,26 +346,23 @@ export function FishboneTimeline({
             const hasDocuments = milestone.documents.length > 0;
 
             return (
-              <div key={milestone.id} className="flex gap-3 group">
+              <div key={milestone.id} className="group flex gap-3">
                 {/* Left: timeline track */}
-                <div className="flex flex-col items-center w-8 shrink-0">
+                <div className="flex w-8 shrink-0 flex-col items-center">
                   {/* Node with Popover */}
                   <Popover
                     open={openPopoverId === milestone.id}
-                    onOpenChange={(open) =>
-                      setOpenPopoverId(open ? milestone.id : null)
-                    }
+                    onOpenChange={(open) => setOpenPopoverId(open ? milestone.id : null)}
                   >
                     <PopoverTrigger asChild>
                       <button
                         type="button"
                         onClick={(e) => e.stopPropagation()}
                         className={cn(
-                          "relative flex h-7 w-7 items-center justify-center rounded-full border-2 transition-all cursor-pointer",
+                          "relative flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border-2 transition-all",
                           isLocked &&
                             "border-muted-foreground/30 bg-muted text-muted-foreground hover:border-muted-foreground/50",
-                          isActive &&
-                            "border-primary bg-primary text-primary-foreground shadow-sm",
+                          isActive && "border-primary bg-primary text-primary-foreground shadow-sm",
                           isCompleted && getProgressButtonColor(milestone.progress),
                           isCurrent && "ring-2 ring-primary ring-offset-1"
                         )}
@@ -400,11 +394,9 @@ export function FishboneTimeline({
 
                   {/* Connector line */}
                   {!isLast && (
-                    <div className="relative flex-1 w-0.5 min-h-[24px] my-1">
+                    <div className="relative my-1 min-h-[24px] w-0.5 flex-1">
                       <div className="absolute inset-0 bg-border" />
-                      {!isLocked && (
-                        <div className="absolute inset-0 bg-primary" />
-                      )}
+                      {!isLocked && <div className="absolute inset-0 bg-primary" />}
                     </div>
                   )}
                 </div>
@@ -416,7 +408,7 @@ export function FishboneTimeline({
                     onClick={() => handleMilestoneClick(milestone)}
                     className={cn(
                       "w-full rounded-lg border p-2.5 text-left transition-all",
-                      "hover:shadow-sm hover:border-primary/20",
+                      "hover:border-primary/20 hover:shadow-sm",
                       isLocked && "border-muted bg-muted/30 opacity-70",
                       isActive && "border-primary/30 bg-primary/5",
                       isCompleted && getCompletedCardStyle(milestone.progress),
@@ -425,10 +417,10 @@ export function FishboneTimeline({
                   >
                     {/* Title row */}
                     <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-2 min-w-0">
+                      <div className="flex min-w-0 items-center gap-2">
                         <h4
                           className={cn(
-                            "text-sm font-medium truncate",
+                            "truncate text-sm font-medium",
                             isLocked && "text-muted-foreground",
                             isActive && "text-primary",
                             isCompleted && getCompletedTitleColor(milestone.progress)
@@ -436,13 +428,11 @@ export function FishboneTimeline({
                         >
                           {milestone.title}
                         </h4>
-                        {isActive && (
-                          <ChevronRight className="h-3.5 w-3.5 shrink-0 text-primary" />
-                        )}
+                        {isActive && <ChevronRight className="h-3.5 w-3.5 shrink-0 text-primary" />}
                       </div>
                       <span
                         className={cn(
-                          "shrink-0 text-[10px] px-1.5 py-0.5 rounded-full font-medium",
+                          "shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium",
                           isLocked && "bg-muted text-muted-foreground",
                           isActive && "bg-primary/10 text-primary",
                           isCompleted && getCompletedBadgeStyle(milestone.progress)
@@ -453,12 +443,12 @@ export function FishboneTimeline({
                     </div>
 
                     {/* Description */}
-                    <p className="mt-1 text-xs text-muted-foreground line-clamp-1">
+                    <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">
                       {milestone.description}
                     </p>
 
                     {/* Status indicator */}
-                    <div className="flex items-center gap-2 mt-1.5">
+                    <div className="mt-1.5 flex items-center gap-2">
                       {isLocked && (
                         <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
                           <PlayCircle className="h-3 w-3" />

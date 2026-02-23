@@ -5,11 +5,10 @@ import type { DisplayMessage } from "@/components/Chat/MessagesList";
 import { useSessionStore } from "@/stores/sessionStore";
 import type {
   ChatRequest,
-  GenerationModeValue,
   InputSource,
   MessageTypeValue,
   Roadmap,
-  RoadmapMilestoneProgress,
+  MilestoneGenerateParams,
 } from "@/types";
 import { GenerationMode, MessageType } from "@/types";
 
@@ -130,13 +129,10 @@ export function useSessionMessages({
   );
 
   const handleMilestoneClick = useCallback(
-    (
-      milestone: RoadmapMilestoneProgress,
-      sessionTopic: string,
-      mode: GenerationModeValue = GenerationMode.STANDARD,
-      question?: string
-    ) => {
+    (params: MilestoneGenerateParams) => {
       if (!sessionId || !isConnected) return;
+
+      const { milestone, sessionTopic, mode, question } = params;
 
       // Create message based on mode and question
       let message: string;

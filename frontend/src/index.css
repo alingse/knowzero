@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;600;700&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;600;700&display=swap");
 
 @tailwind base;
 @tailwind components;
@@ -17,60 +17,60 @@
 @layer base {
   :root {
     /* === 核心色 === */
-    
+
     /* 主色：靛青 - 如古籍封面的靛蓝，沉稳而智慧 */
     --primary: 210 55% 45%;
     --primary-foreground: 0 0% 100%;
-    
+
     /* 强调色：琥珀金 - 如书页边缘的金色，温暖而优雅 */
     --accent: 32 95% 55%;
     --accent-foreground: 220 20% 12%;
-    
+
     /* === 中性色 === */
-    
+
     /* 背景：羊皮纸白 - 如高质量书籍的内页，微暖不伤眼 */
     --background: 42 35% 97%;
     --foreground: 220 20% 15%;
-    
+
     /* 卡片：米纸白 - 略亮于背景，形成层次 */
     --card: 42 25% 99%;
     --card-foreground: 220 20% 15%;
-    
+
     /* 浮层：纯白 */
     --popover: 0 0% 100%;
     --popover-foreground: 220 20% 15%;
-    
+
     /* 次级：宣纸灰 - 淡淡的米色 */
     --secondary: 40 20% 93%;
     --secondary-foreground: 220 20% 15%;
-    
+
     /* 弱化：淡墨灰 - 用于辅助文字 */
     --muted: 40 15% 90%;
     --muted-foreground: 220 10% 45%;
-    
+
     /* 边框：烟墨 - 极淡的墨色 */
     --border: 40 15% 85%;
     --input: 40 15% 88%;
     --ring: 210 55% 45%;
-    
+
     /* === 功能色 === */
-    
+
     /* 错误：朱砂红 - 传统印泥色 */
     --destructive: 0 65% 55%;
     --destructive-foreground: 0 0% 100%;
-    
+
     /* 成功：竹青 - 生机与成长 */
     --success: 145 45% 42%;
     --success-foreground: 0 0% 100%;
-    
+
     /* 警告：藤黄 - 醒目的暖黄 */
     --warning: 38 85% 52%;
     --warning-foreground: 220 20% 12%;
-    
+
     /* 信息：薄荷青 - AI 与智能的隐喻 */
     --info: 175 55% 45%;
     --info-foreground: 0 0% 100%;
-    
+
     /* 圆角：略大，柔和亲切 */
     --radius: 0.75rem;
 
@@ -85,36 +85,36 @@
     /* 背景：深墨蓝 - 如夜晚的书房 */
     --background: 220 18% 10%;
     --foreground: 40 20% 95%;
-    
+
     /* 卡片：墨青 - 略浅于背景 */
     --card: 220 15% 13%;
     --card-foreground: 40 20% 95%;
-    
+
     /* 浮层 */
     --popover: 220 15% 11%;
     --popover-foreground: 40 20% 95%;
-    
+
     /* 主色：亮靛青 - 保持识别度 */
     --primary: 210 65% 60%;
     --primary-foreground: 220 20% 10%;
-    
+
     /* 次级：深石墨 */
     --secondary: 220 12% 20%;
     --secondary-foreground: 40 20% 95%;
-    
+
     /* 弱化：淡银灰 */
     --muted: 220 12% 18%;
     --muted-foreground: 220 10% 60%;
-    
+
     /* 强调色：暖琥珀 - 暗色中更显温暖 */
     --accent: 35 95% 60%;
     --accent-foreground: 220 20% 10%;
-    
+
     /* 边框：烟墨 */
     --border: 220 12% 22%;
     --input: 220 12% 22%;
     --ring: 210 65% 60%;
-    
+
     /* 功能色微调 */
     --destructive: 0 60% 60%;
     --destructive-foreground: 0 0% 100%;
@@ -135,15 +135,24 @@
     @apply bg-background text-foreground antialiased;
     font-family: var(--font-sans);
   }
-  
+
   /* 标题使用衬线字体，更有书卷气 */
-  h1, h2, h3, h4, h5, h6, .font-display {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6,
+  .font-display {
     font-family: var(--font-display);
     @apply tracking-tight;
   }
-  
+
   /* 代码使用等宽字体 */
-  code, pre, kbd, .font-mono {
+  code,
+  pre,
+  kbd,
+  .font-mono {
     font-family: var(--font-mono);
   }
 }
@@ -203,7 +212,7 @@
 }
 
 .markdown-content pre {
-  @apply mb-5 overflow-x-auto rounded-lg bg-secondary/70 p-4 border border-border/50;
+  @apply mb-5 overflow-x-auto rounded-lg border border-border/50 bg-secondary/70 p-4;
 }
 
 .markdown-content pre code {
@@ -211,11 +220,11 @@
 }
 
 .markdown-content blockquote {
-  @apply border-l-[3px] border-primary/30 pl-5 italic text-muted-foreground my-5 py-1 bg-secondary/30 rounded-r-lg;
+  @apply my-5 rounded-r-lg border-l-[3px] border-primary/30 bg-secondary/30 py-1 pl-5 italic text-muted-foreground;
 }
 
 .markdown-content a {
-  @apply text-primary underline underline-offset-2 decoration-primary/30 hover:text-primary/80 hover:decoration-primary/60 transition-colors;
+  @apply text-primary underline decoration-primary/30 underline-offset-2 transition-colors hover:text-primary/80 hover:decoration-primary/60;
 }
 
 .markdown-content hr {
@@ -223,12 +232,12 @@
 }
 
 .markdown-content table {
-  @apply w-full mb-5 text-sm border-collapse;
+  @apply mb-5 w-full border-collapse text-sm;
 }
 
 .markdown-content th,
 .markdown-content td {
-  @apply px-4 py-3 border border-border text-left;
+  @apply border border-border px-4 py-3 text-left;
 }
 
 .markdown-content th {
@@ -241,7 +250,7 @@
 
 /* Entity highlight */
 .entity-highlight {
-  @apply cursor-pointer font-semibold text-primary hover:underline underline-offset-2 decoration-primary/40 transition-all;
+  @apply cursor-pointer font-semibold text-primary decoration-primary/40 underline-offset-2 transition-all hover:underline;
 }
 
 /* Prevent layout shift during streaming */
@@ -256,8 +265,14 @@
 
 /* Smooth streaming cursor animation */
 @keyframes blink {
-  0%, 50% { opacity: 1; }
-  51%, 100% { opacity: 0; }
+  0%,
+  50% {
+    opacity: 1;
+  }
+  51%,
+  100% {
+    opacity: 0;
+  }
 }
 
 .streaming-cursor {
@@ -291,8 +306,13 @@
 
 /* Document icon animation */
 @keyframes document-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
 }
 
 .document-icon-new {
@@ -303,7 +323,7 @@
 
 /* Gradient text - 温润渐变 */
 .gradient-text {
-  @apply bg-clip-text text-transparent bg-gradient-to-r from-primary via-primary to-accent;
+  @apply bg-gradient-to-r from-primary via-primary to-accent bg-clip-text text-transparent;
 }
 
 /* Paper texture background */
@@ -314,8 +334,13 @@
 
 /* Animated gradient background - 柔和流动 */
 @keyframes gradient-shift {
-  0%, 100% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
 }
 
 .animate-gradient {
@@ -325,8 +350,13 @@
 
 /* Floating animation for hero elements */
 @keyframes float {
-  0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-8px); }
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
 }
 
 .animate-float {
@@ -340,8 +370,12 @@
 
 /* Shimmer effect for loading states */
 @keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
 }
 
 .shimmer {
@@ -357,12 +391,18 @@
 
 /* Ink spread effect - 墨迹扩散 */
 @keyframes ink-spread {
-  0% { transform: scale(0); opacity: 0.3; }
-  100% { transform: scale(4); opacity: 0; }
+  0% {
+    transform: scale(0);
+    opacity: 0.3;
+  }
+  100% {
+    transform: scale(4);
+    opacity: 0;
+  }
 }
 
 .ink-spread::after {
-  content: '';
+  content: "";
   position: absolute;
   inset: 0;
   border-radius: inherit;
@@ -373,14 +413,14 @@
 
 /* Soft shadow - 柔和阴影 */
 .shadow-soft {
-  box-shadow: 
+  box-shadow:
     0 1px 2px hsl(var(--foreground) / 0.02),
     0 4px 8px hsl(var(--foreground) / 0.03),
     0 8px 16px hsl(var(--foreground) / 0.03);
 }
 
 .shadow-soft-lg {
-  box-shadow: 
+  box-shadow:
     0 1px 3px hsl(var(--foreground) / 0.02),
     0 4px 12px hsl(var(--foreground) / 0.04),
     0 12px 24px hsl(var(--foreground) / 0.04);
@@ -388,12 +428,14 @@
 
 /* Card hover lift - 卡片悬停 */
 .card-lift {
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  transition:
+    transform 0.3s ease,
+    box-shadow 0.3s ease;
 }
 
 .card-lift:hover {
   transform: translateY(-2px);
-  box-shadow: 
+  box-shadow:
     0 4px 12px hsl(var(--foreground) / 0.05),
     0 16px 32px hsl(var(--foreground) / 0.06);
 }

@@ -13,7 +13,9 @@ interface UseWebSocketHandlerOptions {
   // Streaming
   setStreamingContent: React.Dispatch<React.SetStateAction<string>>;
   setStreamingTitle: React.Dispatch<React.SetStateAction<string>>;
-  setExecutionEvents: React.Dispatch<React.SetStateAction<import("@/components/Chat/ExecutionProgress").ExecutionEvent[]>>;
+  setExecutionEvents: React.Dispatch<
+    React.SetStateAction<import("@/components/Chat/ExecutionProgress").ExecutionEvent[]>
+  >;
   flushTokenBuffer: () => void;
   appendTokenBatched: (content: string) => void;
   // Placeholder
@@ -92,7 +94,12 @@ export function useWebSocketHandler({
           if (nodeName) {
             setExecutionEvents((prev) => [
               ...prev,
-              { id: `node-${Date.now()}`, type: "node_start", name: nodeName, timestamp: Date.now() },
+              {
+                id: `node-${Date.now()}`,
+                type: "node_start",
+                name: nodeName,
+                timestamp: Date.now(),
+              },
             ]);
             if (placeholderIdRef.current) {
               const displayNameMap: Record<string, string> = {
@@ -118,7 +125,12 @@ export function useWebSocketHandler({
           if (nodeEndName) {
             setExecutionEvents((prev) => [
               ...prev,
-              { id: `node-end-${Date.now()}`, type: "node_end", name: nodeEndName, timestamp: Date.now() },
+              {
+                id: `node-end-${Date.now()}`,
+                type: "node_end",
+                name: nodeEndName,
+                timestamp: Date.now(),
+              },
             ]);
           }
           break;
@@ -129,7 +141,13 @@ export function useWebSocketHandler({
           if (toolName) {
             setExecutionEvents((prev) => [
               ...prev,
-              { id: `tool-${Date.now()}`, type: "tool_start", tool: toolName, data: response.data?.input, timestamp: Date.now() },
+              {
+                id: `tool-${Date.now()}`,
+                type: "tool_start",
+                tool: toolName,
+                data: response.data?.input,
+                timestamp: Date.now(),
+              },
             ]);
           }
           break;
@@ -140,7 +158,13 @@ export function useWebSocketHandler({
           if (toolEndName) {
             setExecutionEvents((prev) => [
               ...prev,
-              { id: `tool-end-${Date.now()}`, type: "tool_end", tool: toolEndName, data: response.data?.output, timestamp: Date.now() },
+              {
+                id: `tool-end-${Date.now()}`,
+                type: "tool_end",
+                tool: toolEndName,
+                data: response.data?.output,
+                timestamp: Date.now(),
+              },
             ]);
           }
           break;
@@ -149,7 +173,12 @@ export function useWebSocketHandler({
         case "progress":
           setExecutionEvents((prev) => [
             ...prev,
-            { id: `progress-${Date.now()}`, type: "progress", data: response.data, timestamp: Date.now() },
+            {
+              id: `progress-${Date.now()}`,
+              type: "progress",
+              data: response.data,
+              timestamp: Date.now(),
+            },
           ]);
           if (response.data?.message && placeholderIdRef.current) {
             updatePlaceholder(placeholderIdRef.current, response.data.message as string);
@@ -209,7 +238,9 @@ export function useWebSocketHandler({
           const currentDoc = useSessionStore.getState().currentDocument;
           const shouldUpdateEntities =
             entitiesData?.entities &&
-            (!entitiesData.document_id || !currentDoc || entitiesData.document_id === currentDoc?.id);
+            (!entitiesData.document_id ||
+              !currentDoc ||
+              entitiesData.document_id === currentDoc?.id);
           if (shouldUpdateEntities) {
             updateDocumentEntities(entitiesData.entities!);
           }
@@ -259,9 +290,13 @@ export function useWebSocketHandler({
         }
 
         case "navigation": {
-          const navData = response.data as { document_id?: number | null; message?: string } | undefined;
+          const navData = response.data as
+            | { document_id?: number | null; message?: string }
+            | undefined;
           if (navData?.document_id) {
-            const targetDoc = useSessionStore.getState().documents.find((d) => d.id === navData.document_id);
+            const targetDoc = useSessionStore
+              .getState()
+              .documents.find((d) => d.id === navData.document_id);
             if (targetDoc) {
               setCurrentDocument(targetDoc);
               setViewMode("document");

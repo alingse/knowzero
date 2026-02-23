@@ -64,10 +64,7 @@ export function useWebSocket({
       onDisconnectRef.current?.();
 
       // Auto-reconnect with exponential backoff
-      if (
-        !intentionalCloseRef.current &&
-        reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS
-      ) {
+      if (!intentionalCloseRef.current && reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
         const delay = BASE_RECONNECT_DELAY * Math.pow(2, reconnectAttemptsRef.current);
         reconnectAttemptsRef.current += 1;
         reconnectTimeoutRef.current = setTimeout(connect, delay);

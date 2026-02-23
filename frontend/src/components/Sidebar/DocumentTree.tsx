@@ -23,7 +23,11 @@ interface DocumentTreeProps {
 // 找到文档的顶级根节点 ID（沿着 parent_document_id 一直往上找）
 // 使用迭代而非递归，避免栈溢出风险
 // 导出以供其他组件使用
-export function findRootId(docId: number, docMap: Map<number, Document>, maxDepth = 100): number | null {
+export function findRootId(
+  docId: number,
+  docMap: Map<number, Document>,
+  maxDepth = 100
+): number | null {
   let currentId = docId;
   let depth = 0;
 
@@ -82,9 +86,7 @@ function buildDocumentTree(documents: Document[]): DocumentTreeNode[] {
   });
 
   // 按创建时间排序（新的在前）
-  rootNodes.sort(
-    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-  );
+  rootNodes.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   rootNodes.forEach((node) => {
     node.children.sort(
       (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
@@ -95,10 +97,7 @@ function buildDocumentTree(documents: Document[]): DocumentTreeNode[] {
 }
 
 // 检查节点或其子节点是否被选中
-function isNodeOrChildrenSelected(
-  node: DocumentTreeNode,
-  selectedId: number | null
-): boolean {
+function isNodeOrChildrenSelected(node: DocumentTreeNode, selectedId: number | null): boolean {
   if (selectedId === null) return false;
   if (node.id === selectedId) return true;
   return node.children.some((child) => child.id === selectedId);
@@ -156,18 +155,13 @@ export function DocumentTree({
   }, []);
 
   // 渲染单个文档项
-  const renderDocumentItem = (
-    node: DocumentTreeNode,
-    level: number = 0
-  ): React.ReactNode => {
+  const renderDocumentItem = (node: DocumentTreeNode, level: number = 0): React.ReactNode => {
     const isRoot = level === 0;
     const isExpanded = expandedNodes.has(node.id);
     const isSelected = selectedDocumentId === node.id;
     const hasChildren = node.children.length > 0;
     const isChildSelected =
-      hasChildren &&
-      !isExpanded &&
-      isNodeOrChildrenSelected(node, selectedDocumentId);
+      hasChildren && !isExpanded && isNodeOrChildrenSelected(node, selectedDocumentId);
 
     return (
       <div key={node.id} className="w-full">
@@ -178,12 +172,12 @@ export function DocumentTree({
           className={cn(
             "group w-full rounded-md text-left text-sm transition-colors",
             "focus:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-            "py-2 px-2",
+            "px-2 py-2",
             isSelected
               ? "bg-accent font-medium text-accent-foreground"
               : isChildSelected
-              ? "bg-accent/50 text-accent-foreground/90"
-              : "text-foreground hover:bg-accent hover:text-accent-foreground",
+                ? "bg-accent/50 text-accent-foreground/90"
+                : "text-foreground hover:bg-accent hover:text-accent-foreground",
             isStreaming && "cursor-not-allowed opacity-50",
             !isRoot && "ml-4 border-l border-border/50 pl-3"
           )}
@@ -194,7 +188,7 @@ export function DocumentTree({
               <button
                 onClick={(e) => toggleExpanded(node.id, e)}
                 className={cn(
-                  "mt-0.5 flex-shrink-0 p-0.5 rounded-sm transition-colors",
+                  "mt-0.5 flex-shrink-0 rounded-sm p-0.5 transition-colors",
                   "hover:bg-accent-foreground/10",
                   isSelected || isChildSelected
                     ? "text-accent-foreground"
@@ -219,8 +213,8 @@ export function DocumentTree({
                 isSelected
                   ? "text-primary"
                   : isChildSelected
-                  ? "text-primary/70"
-                  : "text-muted-foreground group-hover:text-foreground"
+                    ? "text-primary/70"
+                    : "text-muted-foreground group-hover:text-foreground"
               )}
             />
 
@@ -247,7 +241,7 @@ export function DocumentTree({
 
   if (documents.length === 0) {
     return (
-      <div className="mt-2 px-2 py-3 text-sm text-muted-foreground bg-muted/50 rounded-md">
+      <div className="mt-2 rounded-md bg-muted/50 px-2 py-3 text-sm text-muted-foreground">
         <p className="font-medium text-foreground/80">暂无文档</p>
         <p className="mt-1 text-xs">在聊天中生成第一个文档</p>
       </div>
@@ -255,8 +249,6 @@ export function DocumentTree({
   }
 
   return (
-    <div className="mt-2 space-y-1">
-      {documentTree.map((node) => renderDocumentItem(node))}
-    </div>
+    <div className="mt-2 space-y-1">{documentTree.map((node) => renderDocumentItem(node))}</div>
   );
 }

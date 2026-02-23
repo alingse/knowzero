@@ -25,26 +25,24 @@ function FeatureCard({
   return (
     <div
       className={cn(
-        "group relative p-6 rounded-xl border bg-card/80 backdrop-blur-sm",
-        "hover:bg-card hover:shadow-soft-lg",
-        "transition-all duration-300 card-lift",
-        "opacity-0 animate-fade-in-up"
+        "group relative rounded-xl border bg-card/80 p-6 backdrop-blur-sm",
+        "hover:shadow-soft-lg hover:bg-card",
+        "card-lift transition-all duration-300",
+        "animate-fade-in-up opacity-0"
       )}
       style={{ animationDelay: `${delay}ms`, animationFillMode: "forwards" }}
     >
       {/* Decorative corner */}
-      <div className="absolute top-0 right-0 w-16 h-16 opacity-0 group-hover:opacity-100 transition-opacity duration-500">
-        <div className="absolute top-3 right-3 w-6 h-[1px] bg-primary/30" />
-        <div className="absolute top-3 right-3 w-[1px] h-6 bg-primary/30" />
+      <div className="absolute right-0 top-0 h-16 w-16 opacity-0 transition-opacity duration-500 group-hover:opacity-100">
+        <div className="absolute right-3 top-3 h-[1px] w-6 bg-primary/30" />
+        <div className="absolute right-3 top-3 h-6 w-[1px] bg-primary/30" />
       </div>
-      
-      <div className="mb-4 inline-flex items-center justify-center w-11 h-11 rounded-xl bg-primary/8 text-primary group-hover:scale-110 group-hover:bg-primary/12 transition-all duration-300">
+
+      <div className="bg-primary/8 group-hover:bg-primary/12 mb-4 inline-flex h-11 w-11 items-center justify-center rounded-xl text-primary transition-all duration-300 group-hover:scale-110">
         {icon}
       </div>
-      <h3 className="font-display font-semibold text-lg mb-2.5 text-foreground">{title}</h3>
-      <p className="text-sm text-muted-foreground leading-relaxed">
-        {description}
-      </p>
+      <h3 className="font-display mb-2.5 text-lg font-semibold text-foreground">{title}</h3>
+      <p className="text-sm leading-relaxed text-muted-foreground">{description}</p>
     </div>
   );
 }
@@ -52,19 +50,19 @@ function FeatureCard({
 // Animated background with subtle paper texture feel
 function AnimatedBackground() {
   return (
-    <div className="absolute inset-0 overflow-hidden pointer-events-none paper-texture">
+    <div className="paper-texture pointer-events-none absolute inset-0 overflow-hidden">
       {/* Soft gradient orbs - 柔和的渐变光晕 */}
-      <div className="absolute top-0 left-1/4 w-[600px] h-[600px] bg-gradient-radial from-primary/5 via-transparent to-transparent rounded-full blur-3xl animate-float" />
-      <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-gradient-radial from-accent/5 via-transparent to-transparent rounded-full blur-3xl animate-float-delayed" />
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-gradient-radial from-secondary/30 via-transparent to-transparent rounded-full blur-3xl" />
-      
+      <div className="bg-gradient-radial animate-float absolute left-1/4 top-0 h-[600px] w-[600px] rounded-full from-primary/5 via-transparent to-transparent blur-3xl" />
+      <div className="bg-gradient-radial animate-float-delayed absolute bottom-0 right-1/4 h-[500px] w-[500px] rounded-full from-accent/5 via-transparent to-transparent blur-3xl" />
+      <div className="bg-gradient-radial absolute left-1/2 top-1/2 h-[800px] w-[800px] -translate-x-1/2 -translate-y-1/2 rounded-full from-secondary/30 via-transparent to-transparent blur-3xl" />
+
       {/* Subtle grid pattern - 淡雅的网格 */}
-      <div 
+      <div
         className="absolute inset-0 opacity-[0.015]"
         style={{
           backgroundImage: `linear-gradient(to right, hsl(var(--foreground)) 1px, transparent 1px),
                            linear-gradient(to bottom, hsl(var(--foreground)) 1px, transparent 1px)`,
-          backgroundSize: '60px 60px',
+          backgroundSize: "60px 60px",
         }}
       />
     </div>
@@ -125,7 +123,7 @@ export function HomePage() {
 
   const suggestions = [
     "Python 入门",
-    "机器学习基础", 
+    "机器学习基础",
     "中国古代史",
     "微观经济学",
     "认知心理学",
@@ -133,16 +131,16 @@ export function HomePage() {
   ];
 
   return (
-    <div className="min-h-screen relative bg-background">
+    <div className="relative min-h-screen bg-background">
       {/* Animated Background */}
       <AnimatedBackground />
 
       {/* Top Navigation Bar */}
-      <header className="relative border-b border-border/50 bg-background/80 backdrop-blur-md sticky top-0 z-50">
-        <div className="flex h-16 items-center px-6 max-w-7xl mx-auto">
+      <header className="relative sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-md">
+        <div className="mx-auto flex h-16 max-w-7xl items-center px-6">
           <button
             onClick={() => navigate("/")}
-            className="flex items-center gap-3 hover:opacity-75 transition-opacity"
+            className="flex items-center gap-3 transition-opacity hover:opacity-75"
           >
             <Logo size="md" />
           </button>
@@ -155,26 +153,25 @@ export function HomePage() {
         <div className="mx-auto max-w-4xl text-center">
           {/* Title - 更有书卷气的排版 */}
           <div className="mb-6">
-            <h1 className="font-display text-5xl md:text-6xl font-bold tracking-tight mb-4">
-              从零开始，{" "}
-              <span className="gradient-text">构建你的知识网络</span>
+            <h1 className="font-display mb-4 text-5xl font-bold tracking-tight md:text-6xl">
+              从零开始， <span className="gradient-text">构建你的知识网络</span>
             </h1>
           </div>
 
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-12 leading-relaxed">
+          <p className="mx-auto mb-12 max-w-2xl text-lg leading-relaxed text-muted-foreground">
             KnowZero 将 AI 的智慧与学习的艺术融为一体，
             <br className="hidden sm:block" />
             陪伴你在知识的海洋中从容探索
           </p>
 
           {/* Input Form - 优雅的玻璃态 */}
-          <form onSubmit={handleSubmit} className="max-w-2xl mx-auto mb-12">
+          <form onSubmit={handleSubmit} className="mx-auto mb-12 max-w-2xl">
             <div
               className={cn(
-                "relative p-2 rounded-2xl transition-all duration-300",
-                "bg-card/90 backdrop-blur-xl border shadow-soft-lg",
+                "relative rounded-2xl p-2 transition-all duration-300",
+                "shadow-soft-lg border bg-card/90 backdrop-blur-xl",
                 isFocused
-                  ? "border-primary/30 shadow-soft-lg ring-1 ring-primary/10"
+                  ? "shadow-soft-lg border-primary/30 ring-1 ring-primary/10"
                   : "border-border/60 hover:border-primary/20"
               )}
             >
@@ -192,7 +189,7 @@ export function HomePage() {
                   onFocus={() => setIsFocused(true)}
                   onBlur={() => setIsFocused(false)}
                   placeholder="今天想探索什么主题？"
-                  className="flex-1 border-0 bg-transparent shadow-none focus-visible:ring-0 text-lg placeholder:text-muted-foreground/50 h-14"
+                  className="h-14 flex-1 border-0 bg-transparent text-lg shadow-none placeholder:text-muted-foreground/50 focus-visible:ring-0"
                   disabled={createSession.isPending}
                 />
                 <Button
@@ -200,14 +197,14 @@ export function HomePage() {
                   size="lg"
                   disabled={!topic.trim() || createSession.isPending}
                   className={cn(
-                    "px-6 h-12 rounded-xl font-medium transition-all duration-300",
-                    "bg-primary hover:bg-primary/90 text-primary-foreground",
-                    "disabled:opacity-50 shadow-soft"
+                    "h-12 rounded-xl px-6 font-medium transition-all duration-300",
+                    "bg-primary text-primary-foreground hover:bg-primary/90",
+                    "shadow-soft disabled:opacity-50"
                   )}
                 >
                   {createSession.isPending ? (
                     <span className="flex items-center gap-2">
-                      <span className="h-4 w-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground" />
                       准备中...
                     </span>
                   ) : (
@@ -222,13 +219,13 @@ export function HomePage() {
 
             {/* Quick suggestions - 标签样式 */}
             <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
-              <span className="text-xs text-muted-foreground/70 mr-1">探索：</span>
+              <span className="mr-1 text-xs text-muted-foreground/70">探索：</span>
               {suggestions.map((suggestion) => (
                 <button
                   key={suggestion}
                   type="button"
                   onClick={() => setTopic(suggestion)}
-                  className="text-xs px-3 py-1.5 rounded-full bg-secondary/70 hover:bg-secondary text-secondary-foreground transition-colors duration-200 border border-transparent hover:border-border"
+                  className="rounded-full border border-transparent bg-secondary/70 px-3 py-1.5 text-xs text-secondary-foreground transition-colors duration-200 hover:border-border hover:bg-secondary"
                 >
                   {suggestion}
                 </button>
@@ -237,10 +234,10 @@ export function HomePage() {
           </form>
 
           {/* Decorative Line */}
-          <DecorativeLine className="max-w-xs mx-auto mb-12 opacity-60" />
+          <DecorativeLine className="mx-auto mb-12 max-w-xs opacity-60" />
 
           {/* Feature Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-20">
+          <div className="mb-20 grid grid-cols-1 gap-5 md:grid-cols-3">
             {features.map((feature, i) => (
               <FeatureCard
                 key={feature.title}
@@ -258,16 +255,14 @@ export function HomePage() {
       </main>
 
       {/* Footer - 简洁优雅 */}
-      <footer className="relative py-10 border-t border-border/50 bg-secondary/20">
-        <div className="max-w-6xl mx-auto px-6">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+      <footer className="relative border-t border-border/50 bg-secondary/20 py-10">
+        <div className="mx-auto max-w-6xl px-6">
+          <div className="flex flex-col items-center justify-between gap-4 md:flex-row">
             <div className="flex items-center gap-2 text-muted-foreground/60">
               <Feather className="h-4 w-4" />
               <span className="text-sm">书卷多情似故人，晨昏忧乐每相亲</span>
             </div>
-            <p className="text-sm text-muted-foreground/50">
-              © 2025 KnowZero · AI 驱动的知识探索
-            </p>
+            <p className="text-sm text-muted-foreground/50">© 2025 KnowZero · AI 驱动的知识探索</p>
           </div>
         </div>
       </footer>

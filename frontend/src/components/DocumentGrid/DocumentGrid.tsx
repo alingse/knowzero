@@ -16,9 +16,9 @@ export function DocumentGrid() {
   });
 
   return (
-    <div className="w-full max-w-6xl mx-auto mt-8">
+    <div className="mx-auto mt-8 w-full max-w-6xl">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Compass className="h-5 w-5 text-primary" />
           <h2 className="font-display text-xl font-semibold">探索更多内容</h2>
@@ -58,16 +58,12 @@ export function DocumentGrid() {
             icon={<BookOpen className="h-12 w-12" />}
             title="还没有文档"
             description="成为第一个创建学习文档的人吧！"
-            action={
-              <Button onClick={() => navigate("/")}>
-                开始创建
-              </Button>
-            }
+            action={<Button onClick={() => navigate("/")}>开始创建</Button>}
           />
         </div>
       ) : (
         // Data Display
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {data?.map((doc) => (
             <DocumentCard key={doc.id} document={doc} />
           ))}

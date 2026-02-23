@@ -34,6 +34,14 @@ export const GenerationMode = {
 
 export type GenerationModeValue = (typeof GenerationMode)[keyof typeof GenerationMode];
 
+/** Parameters for milestone document generation callback. */
+export interface MilestoneGenerateParams {
+  milestone: RoadmapMilestoneProgress;
+  sessionTopic: string;
+  mode: GenerationModeValue;
+  question?: string;
+}
+
 export interface Message {
   id: number;
   role: "user" | "assistant" | "system";

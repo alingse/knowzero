@@ -26,10 +26,7 @@ export function SessionPage() {
   const queryClient = useQueryClient();
   const initialQuery = location.state?.initialQuery as string | undefined;
 
-  const {
-    context: aiContext,
-    setContext: setAIContext,
-  } = useAIAssistant("chat");
+  const { context: aiContext, setContext: setAIContext } = useAIAssistant("chat");
 
   // View mode: document | roadmap
   const [viewMode, setViewMode] = useState<"document" | "roadmap">("document");
@@ -64,12 +61,8 @@ export function SessionPage() {
     appendTokenBatched,
   } = useStreamingContent();
 
-  const {
-    placeholderIdRef,
-    addPlaceholder,
-    updatePlaceholder,
-    removePlaceholder,
-  } = usePlaceholderMessages();
+  const { placeholderIdRef, addPlaceholder, updatePlaceholder, removePlaceholder } =
+    usePlaceholderMessages();
 
   const handleWebSocketMessage = useWebSocketHandler({
     sessionId,
@@ -172,11 +165,7 @@ export function SessionPage() {
   });
 
   // Text selection for comment mode
-  const {
-    selectedText,
-    setSelectedText,
-    selectionPosition,
-  } = useTextSelection({
+  const { selectedText, setSelectedText, selectionPosition } = useTextSelection({
     documentContent: currentDocument?.content,
     setAIContext,
   });
@@ -213,8 +202,8 @@ export function SessionPage() {
 
   return (
     <Layout>
-      <Sidebar 
-        onDocumentSelect={() => setViewMode("document")} 
+      <Sidebar
+        onDocumentSelect={() => setViewMode("document")}
         connectionStatus={connectionStatus}
       />
       <MainContent>

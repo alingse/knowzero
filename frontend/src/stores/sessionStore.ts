@@ -108,8 +108,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         selectedDocumentId: documentId,
         currentDocument: selectedDoc,
         // Update follow-up questions from the selected document
-        followUpQuestions:
-          selectedDoc.follow_up_questions || [],
+        followUpQuestions: selectedDoc.follow_up_questions || [],
       });
     }
   },

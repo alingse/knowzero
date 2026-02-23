@@ -73,8 +73,7 @@ export const documentsApi = {
       body: JSON.stringify(data),
     }),
 
-  getRandom: (limit: number = 8) =>
-    fetchJson<Document[]>(`/documents/random?limit=${limit}`),
+  getRandom: (limit: number = 8) => fetchJson<Document[]>(`/documents/random?limit=${limit}`),
 };
 
 // Entities
