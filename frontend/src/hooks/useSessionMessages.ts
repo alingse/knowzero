@@ -57,6 +57,11 @@ export function useSessionMessages({
         };
       }
 
+      // Pass current_doc_id for follow_up and entity requests
+      if ((context?.type === "follow_up" || context?.type === "entity") && currentDocument?.id) {
+        requestData.current_doc_id = currentDocument.id;
+      }
+
       sendMessage(requestData);
     },
     [sessionId, isConnected, addMessage, currentDocument?.id, sendMessage]
@@ -64,9 +69,10 @@ export function useSessionMessages({
 
   const handleFollowUpClick = useCallback(
     (question: { question: string }) => {
+      if (!currentDocument?.id) return;
       handleSendMessage(question.question, { type: "follow_up" });
     },
-    [handleSendMessage]
+    [handleSendMessage, currentDocument?.id]
   );
 
   const handleEntityClick = useCallback(

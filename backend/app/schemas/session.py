@@ -87,6 +87,7 @@ class ChatRequest(BaseModel):
     session_id: str
     message: str
     source: InputSource = InputSource.CHAT
+    current_doc_id: int | None = None  # Current document ID for follow_up/entity context
     comment_data: CommentData | None = None
     entity_data: EntityData | None = None
     intent_hint: str | None = None

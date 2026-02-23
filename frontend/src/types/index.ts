@@ -140,6 +140,7 @@ export interface ChatRequest {
   session_id: string;
   message: string;
   source: InputSource;
+  current_doc_id?: number | null; // Current document ID for follow_up/entity context
   comment_data?: {
     comment: string;
     selected_text: string;

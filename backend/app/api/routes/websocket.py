@@ -54,8 +54,15 @@ class SessionContext:
     session_topic: str | None  # Current learning topic from Session.learning_goal
 
 
-async def _load_session_context(session_id: str) -> SessionContext:
-    """Load session context from DB for agent state building."""
+async def _load_session_context(
+    session_id: str, preferred_doc_id: int | None = None
+) -> SessionContext:
+    """Load session context from DB for agent state building.
+
+    Args:
+        session_id: The session ID
+        preferred_doc_id: Optional preferred current document ID (e.g., from follow_up request)
+    """
     current_doc_id = None
     current_doc = None
     recent_docs: list[int] = []
@@ -73,15 +80,23 @@ async def _load_session_context(session_id: str) -> SessionContext:
 
         docs = await document_service.list_session_documents(db, session_id)
         if docs:
-            current_doc_id = docs[0].id
+            # Build doc_map for O(1) lookup instead of O(n) linear search
+            doc_map = {d.id: d for d in docs}
+
+            # Use preferred_doc_id if provided and exists, otherwise fall back to most recent
+            target_doc = doc_map.get(preferred_doc_id, docs[0]) if preferred_doc_id else docs[0]
+            if not target_doc:
+                target_doc = docs[0]
+
+            current_doc_id = target_doc.id
             recent_docs = [d.id for d in docs[:10]]
             learned_topics = [d.topic for d in docs]
             current_doc = {
-                "id": docs[0].id,
-                "topic": docs[0].topic,
-                "content": docs[0].content,
-                "category_path": docs[0].category_path,
-                "version": docs[0].version,
+                "id": target_doc.id,
+                "topic": target_doc.topic,
+                "content": target_doc.content,
+                "category_path": target_doc.category_path,
+                "version": target_doc.version,
             }
 
         # Load active roadmap for the session
@@ -114,6 +129,8 @@ def _build_agent_state(
     websocket: WebSocket,
 ) -> AgentState:
     """Build the initial agent state from request and session context."""
+    # Use current_doc_id from request if provided (e.g., follow_up), otherwise fall back to context
+    current_doc_id = request.current_doc_id or ctx.current_doc_id
     return {
         "input_source": request.source,
         "raw_message": request.message,
@@ -122,7 +139,7 @@ def _build_agent_state(
         "comment_data": request.comment_data.model_dump() if request.comment_data else None,
         "entity_data": request.entity_data.model_dump() if request.entity_data else None,
         "intent_hint": request.intent_hint,
-        "current_doc_id": ctx.current_doc_id,
+        "current_doc_id": current_doc_id,
         "user_level": "beginner",
         "learned_topics": ctx.learned_topics,
         "recent_docs": ctx.recent_docs,
@@ -174,9 +191,9 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str) -> None:
                 message_preview=request.message[:50],
             )
 
-            # Load context from DB
+            # Load context from DB (with preferred doc ID from request)
             try:
-                ctx = await _load_session_context(session_id)
+                ctx = await _load_session_context(session_id, request.current_doc_id)
             except Exception as e:
                 logger.warning("Context loading failed", error=str(e))
                 ctx = SessionContext(

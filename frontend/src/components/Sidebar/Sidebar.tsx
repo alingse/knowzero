@@ -1,7 +1,5 @@
-import { FileText, Plus, Clock, Wifi, WifiOff, Loader2, AlertCircle } from "lucide-react";
+import { FileText, Plus, Wifi, WifiOff, Loader2, AlertCircle } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
-import { format } from "date-fns";
-import { zhCN } from "date-fns/locale";
 
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/Logo";
@@ -9,6 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { useSessionStore } from "@/stores/sessionStore";
+import { DocumentTree } from "./DocumentTree";
 
 type ConnectionStatus = "connecting" | "connected" | "disconnected" | "error";
 
@@ -67,21 +66,6 @@ export function Sidebar({ className, onDocumentSelect, connectionStatus = "disco
     onDocumentSelect?.();
   };
 
-  // Format date for display
-  const formatDate = (dateString: string) => {
-    try {
-      const normalized = dateString.endsWith("Z") ? dateString : dateString + "Z";
-      return format(new Date(normalized), "MM-dd HH:mm", { locale: zhCN });
-    } catch {
-      return "";
-    }
-  };
-
-  // Sort documents by creation date (newest first)
-  const sortedDocuments = [...documents].sort(
-    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-  );
-
   const status = statusConfig[connectionStatus];
 
   return (
@@ -112,54 +96,19 @@ export function Sidebar({ className, onDocumentSelect, connectionStatus = "disco
             <div className="flex items-center gap-2 px-2 py-2 text-sm font-medium text-muted-foreground">
               <FileText className="h-4 w-4" />
               会话文档
-              {sortedDocuments.length > 0 && (
+              {documents.length > 0 && (
                 <span className="ml-auto text-xs text-muted-foreground">
-                  {sortedDocuments.length}
+                  {documents.length}
                 </span>
               )}
             </div>
 
-            {sortedDocuments.length === 0 ? (
-              <div className="mt-2 px-2 py-3 text-sm text-muted-foreground bg-muted/50 rounded-md">
-                <p className="font-medium text-foreground/80">暂无文档</p>
-                <p className="mt-1 text-xs">在聊天中生成第一个文档</p>
-              </div>
-            ) : (
-              <div className="mt-2 space-y-1">
-                {sortedDocuments.map((doc) => (
-                  <button
-                    key={doc.id}
-                    onClick={() => handleDocumentClick(doc.id)}
-                    disabled={isStreaming}
-                    className={cn(
-                      "w-full rounded-md px-2 py-2 text-left text-sm transition-colors",
-                      "hover:bg-accent hover:text-accent-foreground",
-                      "focus:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                      selectedDocumentId === doc.id
-                        ? "bg-accent font-medium text-accent-foreground"
-                        : "text-foreground",
-                      isStreaming && "cursor-not-allowed opacity-50"
-                    )}
-                  >
-                    <div className="flex items-start gap-2">
-                      <FileText
-                        className={cn(
-                          "mt-0.5 h-4 w-4 flex-shrink-0",
-                          selectedDocumentId === doc.id ? "text-primary" : "text-muted-foreground"
-                        )}
-                      />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate leading-tight">{doc.topic}</p>
-                        <div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
-                          <Clock className="h-3 w-3" />
-                          <span>{formatDate(doc.created_at)}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
+            <DocumentTree
+              documents={documents}
+              selectedDocumentId={selectedDocumentId}
+              isStreaming={isStreaming}
+              onDocumentSelect={handleDocumentClick}
+            />
           </div>
         )}
       </ScrollArea>

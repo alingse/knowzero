@@ -53,20 +53,20 @@ async def send_document_complete(
     content: str | None,
     category_path: str | None = None,
     entities: list[str] | None = None,
+    parent_document_id: int | None = None,
 ) -> None:
-    await _send_event(
-        websocket,
-        "document",
-        {
-            "id": doc_id,
-            "session_id": session_id,
-            "topic": topic,
-            "content": content,
-            "category_path": category_path,
-            "entities": entities or [],
-        },
-    )
-    logger.info("Document complete sent", doc_id=doc_id, topic=topic)
+    document_data: dict[str, object] = {
+        "id": doc_id,
+        "session_id": session_id,
+        "topic": topic,
+        "content": content,
+        "category_path": category_path,
+        "entities": entities or [],
+    }
+    if parent_document_id is not None:
+        document_data["parent_document_id"] = parent_document_id
+    await _send_event(websocket, "document", document_data)
+    logger.info("Document complete sent", doc_id=doc_id, topic=topic, parent_id=parent_document_id)
 
 
 async def send_roadmap(websocket: WebSocket, *, roadmap: dict[str, object]) -> None:

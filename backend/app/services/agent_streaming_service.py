@@ -260,6 +260,11 @@ class AgentStreamProcessor:
             )
 
         # Send document to client immediately (entities come later from post_process)
+        # For follow_up requests, the parent is the current_doc_id from state
+        parent_id: int | None = None
+        if self.state.get("input_source") == "follow_up":
+            parent_id = self.state.get("current_doc_id")
+        
         await send_document_complete(
             self.websocket,
             doc_id=doc_id,
@@ -268,6 +273,7 @@ class AgentStreamProcessor:
             content=doc_data.get("content"),
             category_path=doc_data.get("category_path"),
             entities=[],
+            parent_document_id=parent_id,
         )
 
         # Save doc_id for post_process to use
