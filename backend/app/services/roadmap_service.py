@@ -72,6 +72,9 @@ async def get_roadmap_progress(
         for doc in documents:
             covered_topics.update(doc.entities or [])
 
+        # Build document list with details
+        documents_data = [{"id": doc.id, "topic": doc.topic} for doc in documents]
+
         milestones_data.append(
             {
                 "id": milestone_id,
@@ -81,7 +84,7 @@ async def get_roadmap_progress(
                 "progress": progress,
                 "document_count": len(documents),
                 "covered_topics": list(covered_topics),
-                "document_ids": [doc.id for doc in documents],
+                "documents": documents_data,
             }
         )
 

@@ -150,9 +150,7 @@ async def topic_planner_node(state: AgentState) -> AgentState:
 # ============================================================================
 
 
-async def _handle_establish_topic(
-    state: AgentState, target: str, user_level: str
-) -> AgentState:
+async def _handle_establish_topic(state: AgentState, target: str, user_level: str) -> AgentState:
     """处理首次建立主题.
 
     职责：
@@ -190,9 +188,7 @@ async def _handle_establish_topic(
     return state
 
 
-async def _handle_generate_roadmap(
-    state: AgentState, target: str, user_level: str
-) -> AgentState:
+async def _handle_generate_roadmap(state: AgentState, target: str, user_level: str) -> AgentState:
     """处理重新生成路线图（保留现有 session_topic）.
 
     使用场景：
@@ -266,13 +262,13 @@ def _clean_topic(target: str) -> str:
     cleaned = target
     for prefix in prefixes:
         if cleaned.startswith(prefix):
-            cleaned = cleaned[len(prefix):].strip()
+            cleaned = cleaned[len(prefix) :].strip()
 
     # 移除常见后缀
     suffixes = ["入门", "基础", "教程", "指南"]
     for suffix in suffixes:
         if cleaned.endswith(suffix):
-            cleaned = cleaned[:-len(suffix)].strip()
+            cleaned = cleaned[: -len(suffix)].strip()
 
     return cleaned or target
 
@@ -313,9 +309,7 @@ def _is_roadmap_only_request(state: AgentState) -> bool:
 # ============================================================================
 
 
-async def _generate_roadmap(
-    state: AgentState, target: str, user_level: str
-) -> dict[str, Any]:
+async def _generate_roadmap(state: AgentState, target: str, user_level: str) -> dict[str, Any]:
     """调用 LLM 生成路线图."""
     llm = get_llm()
     intent = state.get("intent") or {}

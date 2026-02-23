@@ -3,8 +3,15 @@ import { useCallback } from "react";
 import type { AIInteractionContext } from "@/components/AIAssistant";
 import type { DisplayMessage } from "@/components/Chat/MessagesList";
 import { useSessionStore } from "@/stores/sessionStore";
-import type { ChatRequest, InputSource, MessageTypeValue, Roadmap, RoadmapMilestoneProgress } from "@/types";
-import { MessageType } from "@/types";
+import type {
+  ChatRequest,
+  GenerationModeValue,
+  InputSource,
+  MessageTypeValue,
+  Roadmap,
+  RoadmapMilestoneProgress,
+} from "@/types";
+import { GenerationMode, MessageType } from "@/types";
 
 interface UseSessionMessagesOptions {
   sessionId: string | undefined;
@@ -123,11 +130,23 @@ export function useSessionMessages({
   );
 
   const handleMilestoneClick = useCallback(
-    (milestone: RoadmapMilestoneProgress, sessionTopic: string) => {
+    (
+      milestone: RoadmapMilestoneProgress,
+      sessionTopic: string,
+      mode: GenerationModeValue = GenerationMode.STANDARD,
+      question?: string
+    ) => {
       if (!sessionId || !isConnected) return;
 
-      // Create a message to generate document for this milestone
-      const message = `学习「${sessionTopic}」的「${milestone.title}」章节`;
+      // Create message based on mode and question
+      let message: string;
+      if (question) {
+        message = `关于「${milestone.title}」: ${question}`;
+      } else if (mode === GenerationMode.ADVANCED) {
+        message = `进阶学习「${sessionTopic}」的「${milestone.title}」章节`;
+      } else {
+        message = `学习「${sessionTopic}」的「${milestone.title}」章节`;
+      }
 
       const userMessage: DisplayMessage = {
         id: Date.now(),
@@ -138,11 +157,22 @@ export function useSessionMessages({
       };
       addMessage(userMessage);
 
+      // Build milestone context for backend
       const requestData: ChatRequest = {
         session_id: sessionId,
         message,
         source: "chat",
         intent_hint: "milestone_learning",
+        milestone_context: {
+          milestone_id: milestone.id,
+          milestone_title: milestone.title,
+          document_index: milestone.document_count + 1, // Next document to generate
+          existing_documents: milestone.documents.map((d) => ({
+            id: d.id,
+            topic: d.topic,
+          })),
+          mode,
+        },
       };
 
       sendMessage(requestData);
@@ -153,6 +183,16 @@ export function useSessionMessages({
     [sessionId, isConnected, addMessage, sendMessage, setViewMode]
   );
 
+  const handleViewMilestoneDocuments = useCallback(
+    (_milestoneId: number) => {
+      // Find documents for this milestone and show them
+      // This could navigate to a filtered document view
+      // For now, we'll just switch to document view
+      setViewMode("document");
+    },
+    [setViewMode]
+  );
+
   return {
     handleSendMessage,
     handleFollowUpClick,
@@ -160,5 +200,6 @@ export function useSessionMessages({
     handleDocumentClick,
     handleRoadmapUpdate,
     handleMilestoneClick,
+    handleViewMilestoneDocuments,
   };
 }

@@ -26,6 +26,14 @@ export const MessageType = {
 
 export type MessageTypeValue = (typeof MessageType)[keyof typeof MessageType];
 
+// 文档生成模式
+export const GenerationMode = {
+  STANDARD: "standard",
+  ADVANCED: "advanced",
+} as const;
+
+export type GenerationModeValue = (typeof GenerationMode)[keyof typeof GenerationMode];
+
 export interface Message {
   id: number;
   role: "user" | "assistant" | "system";
@@ -93,6 +101,11 @@ export interface RoadmapMilestone {
   topics: string[];
 }
 
+export interface MilestoneDocument {
+  id: number;
+  topic: string;
+}
+
 export interface RoadmapMilestoneProgress {
   id: number;
   title: string;
@@ -101,7 +114,7 @@ export interface RoadmapMilestoneProgress {
   progress: number; // 0 to 1
   document_count: number;
   covered_topics: string[];
-  document_ids: number[];
+  documents: MilestoneDocument[];
 }
 
 export interface RoadmapProgress {
@@ -157,6 +170,14 @@ export interface ChatRequest {
     entity_type?: string;
   };
   intent_hint?: string;
+  // Milestone learning context for document generation
+  milestone_context?: {
+    milestone_id: number;
+    milestone_title: string;
+    document_index: number; // Which document to generate (1-4 or 5+ for advanced)
+    existing_documents: { id: number; topic: string }[];
+    mode: GenerationModeValue; // standard = normal progression, advanced = deep dive
+  };
 }
 
 export interface StreamResponse {

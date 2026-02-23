@@ -33,6 +33,10 @@ class AgentState(TypedDict):
     # Pending session update to be persisted by websocket handler
     pending_session_update: dict[str, Any] | None
 
+    # Milestone document generation context
+    # Contains: milestone_id, document_index, existing_documents, mode
+    generation_context: dict[str, Any] | None
+
     messages: Annotated[list[BaseMessage], add_messages]
 
     intent: dict[str, Any] | None

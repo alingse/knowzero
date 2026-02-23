@@ -1,12 +1,12 @@
 """Session schemas."""
 
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
-class InputSource(str, Enum):
+class InputSource(StrEnum):
     CHAT = "chat"
     COMMENT = "comment"
     ENTITY = "entity"
@@ -14,13 +14,20 @@ class InputSource(str, Enum):
     ENTRY = "entry"
 
 
-class MessageRole(str, Enum):
+class GenerationMode(StrEnum):
+    """文档生成模式。"""
+
+    STANDARD = "standard"
+    ADVANCED = "advanced"
+
+
+class MessageRole(StrEnum):
     USER = "user"
     ASSISTANT = "assistant"
     SYSTEM = "system"
 
 
-class MessageType(str, Enum):
+class MessageType(StrEnum):
     CHAT = "chat"
     COMMENT = "comment"
     ENTITY = "entity"
@@ -83,6 +90,23 @@ class EntityData(BaseModel):
     entity_type: str | None = None
 
 
+class ExistingDocument(BaseModel):
+    """已有文档的简要信息。"""
+
+    id: int
+    topic: str
+
+
+class MilestoneContext(BaseModel):
+    """Context for milestone-based document generation."""
+
+    milestone_id: int
+    milestone_title: str
+    document_index: int = Field(gt=0, le=100, description="Document index to generate (1-based)")
+    existing_documents: list[ExistingDocument]
+    mode: GenerationMode = GenerationMode.STANDARD
+
+
 class ChatRequest(BaseModel):
     session_id: str
     message: str
@@ -91,6 +115,7 @@ class ChatRequest(BaseModel):
     comment_data: CommentData | None = None
     entity_data: EntityData | None = None
     intent_hint: str | None = None
+    milestone_context: MilestoneContext | None = None  # Context for milestone learning
 
 
 class ChatResponse(BaseModel):

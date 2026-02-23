@@ -131,6 +131,18 @@ def _build_agent_state(
     """Build the initial agent state from request and session context."""
     # Use current_doc_id from request if provided (e.g., follow_up), otherwise fall back to context
     current_doc_id = request.current_doc_id or ctx.current_doc_id
+
+    # Build generation context from milestone_context
+    generation_context = None
+    if request.milestone_context:
+        generation_context = {
+            "milestone_id": request.milestone_context.milestone_id,
+            "milestone_title": request.milestone_context.milestone_title,
+            "document_index": request.milestone_context.document_index,
+            "existing_documents": request.milestone_context.existing_documents,
+            "mode": request.milestone_context.mode,
+        }
+
     return {
         "input_source": request.source,
         "raw_message": request.message,
@@ -149,6 +161,7 @@ def _build_agent_state(
         "roadmap_only": False,
         "session_topic": ctx.session_topic,  # Current learning topic
         "pending_session_update": None,  # No pending update initially
+        "generation_context": generation_context,  # Milestone generation context
         "messages": [],
         "intent": None,
         "routing_decision": None,

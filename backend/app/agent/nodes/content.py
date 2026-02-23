@@ -12,11 +12,21 @@ from app.agent.llm import get_llm
 from app.agent.llm_utils import parse_llm_json_response
 from app.agent.state import AgentState
 from app.core.logging import get_logger
+from app.schemas.session import GenerationMode
 
 # Type alias for better readability
 MilestoneDict = dict[str, Any]
 
 logger = get_logger(__name__)
+
+
+# 文档递进指南，描述每个文档索引对应的内容方向
+PROGRESSION_GUIDE = {
+    1: "第1篇：基础概念入门，建立知识框架",
+    2: "第2篇：深入核心机制，详细原理讲解",
+    3: "第3篇：进阶应用与最佳实践",
+    4: "第4篇：实战案例综合练习",
+}
 
 GENERATE_SYSTEM_PROMPT = """\
 你是 KnowZero 学习平台的内容生成引擎。根据用户的学习需求，生成结构化的学习文档。
@@ -38,12 +48,17 @@ ROADMAP_LEARNING_SYSTEM_PROMPT = """\
 当前里程碑：{milestone_title} - {milestone_description}
 里程碑知识点：{milestone_topics}
 
+这是该里程碑的第 {document_index}/4 篇学习文档。
+
+{existing_docs_context}
+
 要求：
 1. 使用 Markdown 格式
 2. 内容应紧密围绕当前里程碑的知识点
 3. 内容准确、易懂，适合 {level} 水平的学习者
 4. 在文档中自然地提到相关概念（这些会成为实体词）
 5. 包含与里程碑知识点相关的实践示例
+6. 内容必须递进，不要与已有文档重复
 {context_instruction}
 输出格式要求：
 直接输出 Markdown 文档内容，不要包含额外的说明。"""
@@ -357,20 +372,60 @@ def _build_roadmap_learning_prompts(
         milestones = []
     intent_context = intent.get("context", "")
     context_instruction = (
-        f"6. 内容应围绕「{intent_context}」应用场景展开\n" if intent_context else ""
+        f"7. 内容应围绕「{intent_context}」应用场景展开\n" if intent_context else ""
     )
+
+    # Get document generation context
+    generation_context = state.get("generation_context") or {}
+    document_index = generation_context.get("document_index", 1)
+    existing_docs = generation_context.get("existing_documents", [])
+    generation_mode = generation_context.get("mode", GenerationMode.STANDARD)
 
     milestone_info = _find_matching_milestone(target, milestones)
     if milestone_info:
         milestone_topics = milestone_info.get("topics", [])
         if not isinstance(milestone_topics, list):
             milestone_topics = []
+
+        # Build existing documents context
+        existing_docs_context = ""
+        if existing_docs:
+            existing_titles = [
+                doc.get("topic", f"文档{i + 1}") for i, doc in enumerate(existing_docs)
+            ]
+            # Build doc list more efficiently using list comprehension and join
+            doc_list_lines = [f"- 文档{i}: {title}\n" for i, title in enumerate(existing_titles, 1)]
+            doc_list = "".join(doc_list_lines)
+
+            if generation_mode == GenerationMode.ADVANCED:
+                existing_docs_context = f"""已有文档（禁止重复这些主题）：
+{doc_list}
+用户要求【进阶学习】，请分析已有内容，给出一个【进阶学习的 target topic】：
+- 必须是该 milestone 的深入延伸
+- 绝对不能与上述文档主题重复
+- 难度更高，适合已掌握基础的用户
+"""
+            else:
+                # Standard progression based on document index
+                guide = PROGRESSION_GUIDE.get(document_index, "继续深入讲解")
+                existing_docs_context = f"""已有文档（禁止重复这些主题）：
+{doc_list}
+内容递进要求（{guide}）：
+- 必须在已有文档基础上递进，不要重复基础概念
+- 假设用户已掌握已有文档的内容
+- 聚焦于更深入或更实用的知识点
+"""
+        else:
+            existing_docs_context = "这是该里程碑的第一篇文档，请提供基础入门内容。"
+
         system = ROADMAP_LEARNING_SYSTEM_PROMPT.format(
             roadmap_goal=str(current_roadmap.get("goal", "")),
             milestone_title=str(milestone_info.get("title", "")),
             milestone_description=str(milestone_info.get("description", "")),
             milestone_topics=", ".join(str(t) for t in milestone_topics),
             level=user_level,
+            document_index=document_index,
+            existing_docs_context=existing_docs_context,
             context_instruction=context_instruction,
         )
     else:
