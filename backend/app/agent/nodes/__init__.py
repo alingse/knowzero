@@ -5,8 +5,8 @@ from app.agent.nodes.content import content_agent_node, post_process_node
 from app.agent.nodes.input_normalizer import input_normalizer_node
 from app.agent.nodes.intent import intent_agent_node
 from app.agent.nodes.navigator import navigator_agent_node
-from app.agent.nodes.planner import planner_agent_node
 from app.agent.nodes.route import route_agent_node
+from app.agent.nodes.topic_planner import planner_agent_node, topic_planner_node
 
 __all__ = [
     "input_normalizer_node",
@@ -16,5 +16,6 @@ __all__ = [
     "post_process_node",
     "navigator_agent_node",
     "chitchat_agent_node",
-    "planner_agent_node",
+    "planner_agent_node",  # 向后兼容
+    "topic_planner_node",
 ]

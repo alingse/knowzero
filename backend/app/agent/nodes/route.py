@@ -24,7 +24,7 @@ class RouteDecision(BaseModel):
 
     action: str = Field(description="Next action: generate_new | update_doc | navigate | plan")
     mode: str = Field(
-        description="Execution mode: standard | roadmap_learning | "
+        description="Execution mode: standard | roadmap_learning | establish_topic | "
         "roadmap_generate | roadmap_modify | explain_selection | comparison"
     )
     target: str | None = Field(default=None, description="Learning target if applicable")
@@ -47,11 +47,11 @@ OBVIOUS_DECISIONS = {
         "mode": "standard",
         "reasoning": "New topic without roadmap, generate standalone document",
     },
-    # Follow-up with current document
+    # Follow-up: always generate new document (not update existing)
     ("follow_up", "has_current_doc"): {
-        "action": "update_doc",
-        "mode": "expand",
-        "reasoning": "Follow-up on current document",
+        "action": "generate_new",
+        "mode": "standard",
+        "reasoning": "Follow-up generates new document related to current context",
     },
     # Follow-up without current document
     ("follow_up", None): {
@@ -130,32 +130,24 @@ async def route_agent_node(state: AgentState) -> AgentState:
     is_first_meaningful_input = not current_roadmap and not state.get("recent_docs")
 
     if intent_type == "new_topic" and is_first_meaningful_input:
-        is_tech_entity = intent.get("is_tech_entity", False)
         target = intent.get("target", "")
 
         logger.info(
-            "Overriding LLM decision: first topic must generate roadmap",
+            "Overriding LLM decision: first topic establishment",
             original_mode=llm_decision.get("mode"),
             original_action=llm_decision.get("action"),
-            is_tech_entity=is_tech_entity,
         )
-        # Override to plan action with roadmap_generate mode
+        # Override to plan action with establish_topic mode
+        # This will: set session_topic + generate roadmap + generate first document
         llm_decision["action"] = "plan"
-        llm_decision["mode"] = "roadmap_generate"
+        llm_decision["mode"] = "establish_topic"
         if target:
             llm_decision["target"] = target
 
-        # First tech entity: generate roadmap + document
-        if is_tech_entity:
-            llm_decision["generate_doc_after_roadmap"] = True
-            llm_decision["reasoning"] = (
-                f"首次输入技术概念'{target}'，生成学习路线图并生成首个文档。"
-                f"原决策: {llm_decision.get('reasoning', '')}"
-            )
-        else:
-            llm_decision["reasoning"] = (
-                "首次学习新主题，自动生成学习路线图。原决策: " + llm_decision.get("reasoning", "")
-            )
+        llm_decision["reasoning"] = (
+            f"首次学习'{target}'，建立主题、生成路线图并创建首个学习文档。"
+            f"原决策: {llm_decision.get('reasoning', '')}"
+        )
 
     # ========== Override: Navigate without target_doc_id should generate_new ==========
     # If LLM chose navigate but didn't provide a valid target_doc_id, fallback to generate_new
@@ -328,13 +320,14 @@ async def _llm_route_decision(context: dict[str, Any], llm: Any) -> dict[str, An
 **可用的模式**：
 - **standard**: 标准生成（无路线图上下文）
 - **roadmap_learning**: 在路线图内学习（生成文档并自动关联到里程碑）
-- **roadmap_generate**: 生成新路线图（首次）
-- **roadmap_modify**: 修改现有路线图
+- **establish_topic**: 首次建立学习主题（设置主题 + 生成路线图 + 生成首个文档）
+- **roadmap_generate**: 在现有主题下重新生成路线图
+- **roadmap_modify**: 修改现有路线图（不生成文档）
 - **explain_selection**: 解释用户选中的文本
 - **comparison**: 对比分析
 
 **决策原则**（按优先级排列）：
-1. 用户首次表达系统性学习需求（new_topic），且没有路线图 → action=plan, mode=roadmap_generate
+1. 用户首次表达系统性学习需求（new_topic），且没有路线图 → action=plan, mode=establish_topic
 2. 用户已有路线图，且表达调整意图（太简单、太基础、调整等）→ action=plan, mode=roadmap_modify
 3. 用户已有路线图，学习具体知识点 → action=generate_new, mode=roadmap_learning
 4. 用户没有路线图，学习具体知识点 → action=generate_new, mode=standard
@@ -484,7 +477,5 @@ def route_by_decision(state: AgentState) -> str:
     if action == "navigate":
         return "navigator_agent"
     if action == "plan":
-        return "planner_agent"
-    if action == "establish_topic":
-        return "topic_agent"
+        return "planner_agent"  # 统一由 TopicPlanner 处理所有 topic/roadmap 相关操作
     return "content_agent"

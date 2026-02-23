@@ -129,6 +129,33 @@ VITE_API_URL=http://localhost:8000
 - `docs/persistence-design.md` - 持久化设计
 - `docs/langgraph-persistence.md` - LangGraph 状态持久化
 
+## Agent 架构
+
+### TopicPlanner (主题规划师)
+
+`app/agent/nodes/topic_planner.py` - 统一管理学习主题和路线图的核心 Agent。
+
+**职责**：
+- **establish_topic**: 首次建立学习主题，设置 `session_topic`，生成路线图，继续生成首个文档
+- **roadmap_generate**: 在现有主题下重新生成路线图
+- **roadmap_modify**: 根据用户反馈调整现有路线图（不生成文档）
+
+**工作流**：
+```
+用户首次输入 → route_agent (mode=establish_topic) → TopicPlanner
+    → 设置 session_topic → 生成 roadmap → 继续到 content_agent (首个文档)
+
+用户"太简单" → route_agent (mode=roadmap_modify) → TopicPlanner
+    → 修改 roadmap → 返回更新后的 roadmap (不生成文档)
+
+用户"重新规划" → route_agent (mode=roadmap_generate) → TopicPlanner
+    → 重新生成 roadmap → 根据标志决定是否生成文档
+```
+
+**向后兼容**：
+- `planner_agent_node` 是 `topic_planner_node` 的别名
+- 旧代码使用 `planner_agent_node` 仍可正常工作
+
 ## 开发注意事项
 
 1. 后端 API 端口默认 8000，前端 Vite 默认 5173，Vite 代理将 `/api` 请求转发到后端
