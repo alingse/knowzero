@@ -10,6 +10,10 @@ from app.schemas.roadmap import RoadmapCreate, RoadmapUpdate
 
 logger = get_logger(__name__)
 
+# Milestone status thresholds
+MILESTONE_COMPLETION_THRESHOLD = 4
+MILESTONE_ACTIVATION_THRESHOLD = 1
+
 
 def calc_milestone_progress(milestone: dict[str, object], documents: list[Document]) -> float:
     target_docs = 4
@@ -17,10 +21,19 @@ def calc_milestone_progress(milestone: dict[str, object], documents: list[Docume
     return min(doc_count / target_docs, 2.0)
 
 
-def calc_milestone_status(milestone: dict[str, object], progress: float) -> str:
-    if progress >= 1.0:
+def calc_milestone_status(milestone: dict[str, object], doc_count: int) -> str:
+    """Calculate milestone status based on document count.
+
+    Args:
+        milestone: Milestone data dictionary
+        doc_count: Number of documents associated with this milestone
+
+    Returns:
+        Status string: "completed", "active", or "locked"
+    """
+    if doc_count >= MILESTONE_COMPLETION_THRESHOLD:
         return "completed"
-    if progress > 0:
+    if doc_count >= MILESTONE_ACTIVATION_THRESHOLD:
         return "active"
     return "locked"
 
@@ -53,7 +66,7 @@ async def get_roadmap_progress(
         documents = milestone_documents.get(milestone_id, [])
 
         progress = calc_milestone_progress(milestone, documents)
-        status = calc_milestone_status(milestone, progress)
+        status = calc_milestone_status(milestone, len(documents))
 
         covered_topics = set()
         for doc in documents:
@@ -68,6 +81,7 @@ async def get_roadmap_progress(
                 "progress": progress,
                 "document_count": len(documents),
                 "covered_topics": list(covered_topics),
+                "document_ids": [doc.id for doc in documents],
             }
         )
 

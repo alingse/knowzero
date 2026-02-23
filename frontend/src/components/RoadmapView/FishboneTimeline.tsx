@@ -1,4 +1,5 @@
-import { Check, ChevronRight, Lock, Target } from "lucide-react";
+import { Check, ChevronRight, Lock, PlayCircle, Target } from "lucide-react";
+import { useCallback } from "react";
 
 import { cn } from "@/lib/utils";
 import {
@@ -8,12 +9,13 @@ import {
   getCompletedBadgeStyle,
 } from "@/utils/roadmapColors";
 
-import type { RoadmapProgress } from "@/types";
+import type { RoadmapProgress, RoadmapMilestoneProgress } from "@/types";
 
 interface FishboneTimelineProps {
   progress: RoadmapProgress;
   currentMilestoneId?: number;
   onMilestoneClick?: (milestoneId: number) => void;
+  onGenerateDocument?: (milestone: RoadmapMilestoneProgress, sessionTopic: string) => void;
   className?: string;
 }
 
@@ -21,9 +23,25 @@ export function FishboneTimeline({
   progress,
   currentMilestoneId,
   onMilestoneClick,
+  onGenerateDocument,
   className,
 }: FishboneTimelineProps) {
   const completedCount = progress.milestones.filter((m) => m.status === "completed").length;
+
+  // Memoized click handler to avoid recreating functions on each render
+  const handleMilestoneClick = useCallback(
+    (milestone: RoadmapMilestoneProgress) => {
+      const isLocked = milestone.status === "locked";
+      if (isLocked && onGenerateDocument) {
+        // Click on locked milestone triggers document generation
+        onGenerateDocument(milestone, progress.goal);
+      } else {
+        // Normal milestone click
+        onMilestoneClick?.(milestone.id);
+      }
+    },
+    [onGenerateDocument, onMilestoneClick, progress.goal]
+  );
 
   return (
     <div className={cn("flex flex-col gap-4", className)}>
@@ -45,6 +63,7 @@ export function FishboneTimeline({
             const isLast = index === progress.milestones.length - 1;
             const isCurrent = milestone.id === currentMilestoneId;
             const progressPercent = Math.round(milestone.progress * 100);
+            const isLocked = milestone.status === "locked";
 
             return (
               <div key={milestone.id} className="flex gap-3">
@@ -86,10 +105,12 @@ export function FishboneTimeline({
                 {/* Right: milestone card */}
                 <button
                   type="button"
-                  onClick={() => onMilestoneClick?.(milestone.id)}
+                  onClick={() => handleMilestoneClick(milestone)}
                   className={cn(
                     "mb-3 flex flex-1 items-center gap-3 rounded-lg border p-3 text-left transition-all",
-                    "hover:shadow-sm",
+                    isLocked
+                      ? "cursor-pointer hover:border-primary/30 hover:bg-primary/5 hover:shadow-sm"
+                      : "hover:shadow-sm",
                     milestone.status === "locked" &&
                       "border-muted-foreground/15 bg-muted/40 opacity-60",
                     milestone.status === "active" &&
@@ -112,6 +133,12 @@ export function FishboneTimeline({
                       </h4>
                       {milestone.status === "active" && (
                         <ChevronRight className="h-3.5 w-3.5 shrink-0 text-primary" />
+                      )}
+                      {isLocked && (
+                        <span className="flex items-center gap-1 shrink-0 text-xs text-muted-foreground">
+                          <PlayCircle className="h-3 w-3" />
+                          点击解锁
+                        </span>
                       )}
                     </div>
                     <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">

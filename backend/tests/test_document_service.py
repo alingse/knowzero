@@ -5,9 +5,8 @@ import uuid
 import pytest
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
-from app.models import Document, Session, User
+from app.models import Session, User
 from app.services import document_service
 
 

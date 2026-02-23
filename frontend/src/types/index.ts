@@ -101,6 +101,7 @@ export interface RoadmapMilestoneProgress {
   progress: number; // 0 to 1
   document_count: number;
   covered_topics: string[];
+  document_ids: number[];
 }
 
 export interface RoadmapProgress {

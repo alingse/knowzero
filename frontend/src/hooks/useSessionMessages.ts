@@ -3,7 +3,7 @@ import { useCallback } from "react";
 import type { AIInteractionContext } from "@/components/AIAssistant";
 import type { DisplayMessage } from "@/components/Chat/MessagesList";
 import { useSessionStore } from "@/stores/sessionStore";
-import type { ChatRequest, InputSource, MessageTypeValue, Roadmap } from "@/types";
+import type { ChatRequest, InputSource, MessageTypeValue, Roadmap, RoadmapMilestoneProgress } from "@/types";
 import { MessageType } from "@/types";
 
 interface UseSessionMessagesOptions {
@@ -122,11 +122,43 @@ export function useSessionMessages({
     [updateRoadmap]
   );
 
+  const handleMilestoneClick = useCallback(
+    (milestone: RoadmapMilestoneProgress, sessionTopic: string) => {
+      if (!sessionId || !isConnected) return;
+
+      // Create a message to generate document for this milestone
+      const message = `学习「${sessionTopic}」的「${milestone.title}」章节`;
+
+      const userMessage: DisplayMessage = {
+        id: Date.now(),
+        role: "user",
+        content: message,
+        message_type: MessageType.CHAT as MessageTypeValue,
+        timestamp: new Date().toISOString(),
+      };
+      addMessage(userMessage);
+
+      const requestData: ChatRequest = {
+        session_id: sessionId,
+        message,
+        source: "chat",
+        intent_hint: "milestone_learning",
+      };
+
+      sendMessage(requestData);
+
+      // Switch to document view to see the generated content
+      setViewMode("document");
+    },
+    [sessionId, isConnected, addMessage, sendMessage, setViewMode]
+  );
+
   return {
     handleSendMessage,
     handleFollowUpClick,
     handleEntityClick,
     handleDocumentClick,
     handleRoadmapUpdate,
+    handleMilestoneClick,
   };
 }

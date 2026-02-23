@@ -7,16 +7,17 @@ import { RoadmapMilestone } from "./RoadmapMilestone";
 import { roadmapsApi } from "@/api/client";
 import { cn } from "@/lib/utils";
 
-import type { Roadmap, RoadmapProgress } from "@/types";
+import type { Roadmap, RoadmapProgress, RoadmapMilestoneProgress } from "@/types";
 
 interface RoadmapViewProps {
   roadmap: Roadmap;
   progress?: RoadmapProgress;
   onUpdate?: (updated: Roadmap) => void;
+  onGenerateDocument?: (milestone: RoadmapMilestoneProgress, sessionTopic: string) => void;
   className?: string;
 }
 
-export function RoadmapView({ roadmap, progress, onUpdate, className }: RoadmapViewProps) {
+export function RoadmapView({ roadmap, progress, onUpdate, onGenerateDocument, className }: RoadmapViewProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [currentMilestoneId, setCurrentMilestoneId] = useState<number | undefined>(
     progress?.milestones.find((m) => m.status === "active")?.id
@@ -71,6 +72,7 @@ export function RoadmapView({ roadmap, progress, onUpdate, className }: RoadmapV
           progress={progress}
           currentMilestoneId={currentMilestoneId}
           onMilestoneClick={handleMilestoneClick}
+          onGenerateDocument={onGenerateDocument}
         />
       </div>
     );

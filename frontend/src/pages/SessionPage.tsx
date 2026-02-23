@@ -163,6 +163,7 @@ export function SessionPage() {
     handleEntityClick,
     handleDocumentClick,
     handleRoadmapUpdate,
+    handleMilestoneClick,
   } = useSessionMessages({
     sessionId,
     isConnected,
@@ -294,6 +295,7 @@ export function SessionPage() {
                   roadmap={roadmap}
                   progress={roadmapProgress ?? undefined}
                   onUpdate={handleRoadmapUpdate}
+                  onGenerateDocument={handleMilestoneClick}
                 />
               ) : (
                 <div className="flex h-full items-center justify-center text-muted-foreground">

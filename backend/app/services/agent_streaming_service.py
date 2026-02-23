@@ -264,7 +264,7 @@ class AgentStreamProcessor:
         parent_id: int | None = None
         if self.state.get("input_source") == "follow_up":
             parent_id = self.state.get("current_doc_id")
-        
+
         await send_document_complete(
             self.websocket,
             doc_id=doc_id,

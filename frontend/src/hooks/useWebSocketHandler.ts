@@ -190,6 +190,14 @@ export function useWebSocketHandler({
             if (placeholderIdRef.current) {
               updatePlaceholder(placeholderIdRef.current, `已生成《${doc.topic}》`);
             }
+            // Refresh roadmap progress after document generation
+            const currentRoadmap = useSessionStore.getState().roadmap;
+            if (currentRoadmap) {
+              roadmapsApi
+                .getProgress(currentRoadmap.id)
+                .then((progress) => setRoadmapProgress(progress))
+                .catch((error) => console.error("Failed to refresh roadmap progress:", error));
+            }
           }
           setStreamingContent("");
           break;
