@@ -11,10 +11,8 @@ logger = get_logger(__name__)
 async def intent_agent_node(state: AgentState) -> AgentState:
     """Analyze user intent from input.
 
-    Uses layered classification strategy:
-    1. Strong patterns (fast-track)
-    2. Fuzzy matching
-    3. LLM classification (if needed)
+    Uses LLM classification with full session context.
+    Special input sources (entity, comment, follow_up) use dedicated analyzers.
     """
     source = state.get("input_source", "chat")
     message = state.get("raw_message", "")
@@ -99,11 +97,28 @@ def _build_intent(
 
 
 async def _analyze_entity_intent(state: AgentState) -> dict[str, object]:
-    """Analyze entity click intent - always generate new document for deep dive."""
+    """Analyze entity click intent.
+
+    Entity clicks generate a deep-dive document. When a session topic exists,
+    the entity is treated as a subtopic (question) rather than a new topic.
+    """
     entity_data = state.get("entity_data") or {}
     entity_name = entity_data.get("entity_name", "")
+    session_topic = state.get("session_topic")
 
-    # Entity clicks always trigger deep dive to generate new focused document
+    # If session has a topic, entity is likely a subtopic → question (not new_topic)
+    # This lets the router decide roadmap_learning vs standard based on context
+    if session_topic:
+        return _build_intent(
+            "question",
+            entity_name,
+            confidence=0.95,
+            complexity="simple",
+            ambiguity="low",
+            reasoning=f"Entity deep dive within session topic '{session_topic}': '{entity_name}'",
+        )
+
+    # No session topic → treat as new topic
     return _build_intent(
         "new_topic",
         entity_name,

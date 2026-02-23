@@ -41,12 +41,6 @@ class RouteDecision(BaseModel):
 
 # Obvious routing decisions (no LLM needed)
 OBVIOUS_DECISIONS = {
-    # Simple new topic without roadmap
-    ("new_topic", False): {
-        "action": "generate_new",
-        "mode": "standard",
-        "reasoning": "New topic without roadmap, generate standalone document",
-    },
     # Follow-up: always generate new document (not update existing)
     ("follow_up", "has_current_doc"): {
         "action": "generate_new",
@@ -251,6 +245,7 @@ def _build_decision_context(state: AgentState) -> dict[str, Any]:
         "detected_intent": intent_val,
         "detected_target": intent_val.get("target"),
         # Session state
+        "session_topic": state.get("session_topic", ""),
         "has_roadmap": current_roadmap is not None,
         "current_roadmap_summary": _summarize_roadmap(current_roadmap),
         "current_doc_id": state.get("current_doc_id"),
@@ -307,51 +302,78 @@ async def _llm_route_decision(context: dict[str, Any], llm: Any) -> dict[str, An
     but a decision-maker based on full context.
     """
 
-    system_prompt = """你是 KnowZero 学习平台的路由决策 Agent。
+    system_prompt = """你是 KnowZero 学习平台的路由决策 Agent。根据用户输入和会话状态，决定下一步行动。
 
-你的任务是根据用户输入和会话状态，决定下一步的行动。
+## 可用行动
 
-**可用的行动**：
-1. **generate_new** - 生成新的学习文档
-2. **update_doc** - 更新/扩展现有文档
-3. **navigate** - 导航到现有文档
-4. **plan** - 生成/修改学习路线图
+| action | 含义 |
+|--------|------|
+| generate_new | 生成新的学习文档 |
+| update_doc | 更新/扩展现有文档 |
+| navigate | 导航到现有文档（必须指定 target_doc_id） |
+| plan | 生成/修改学习路线图 |
 
-**可用的模式**：
-- **standard**: 标准生成（无路线图上下文）
-- **roadmap_learning**: 在路线图内学习（生成文档并自动关联到里程碑）
-- **establish_topic**: 首次建立学习主题（设置主题 + 生成路线图 + 生成首个文档）
-- **roadmap_generate**: 在现有主题下重新生成路线图
-- **roadmap_modify**: 修改现有路线图（不生成文档）
-- **explain_selection**: 解释用户选中的文本
-- **comparison**: 对比分析
+## 可用模式
 
-**决策原则**（按优先级排列）：
-1. 用户首次表达系统性学习需求（new_topic），且没有路线图 → action=plan, mode=establish_topic
-2. 用户已有路线图，且表达调整意图（太简单、太基础、调整等）→ action=plan, mode=roadmap_modify
-3. 用户已有路线图，学习具体知识点 → action=generate_new, mode=roadmap_learning
-4. 用户没有路线图，学习具体知识点 → action=generate_new, mode=standard
-5. 用户选中文本并评论 → action=generate_new, mode=explain_selection
-6. 用户想对比概念 → action=generate_new, mode=comparison
-7. 用户问简单事实性问题（question）→ action=generate_new, mode=standard（生成简短文档）
-8. 用户问实践操作问题（question_practical）→ action=generate_new, mode=standard（生成实践指南）
+| mode | 含义 |
+|------|------|
+| standard | 标准生成（无路线图上下文） |
+| roadmap_learning | 在路线图内学习（生成文档并关联里程碑） |
+| establish_topic | 首次建立学习主题（设置主题 + 生成路线图 + 首个文档） |
+| roadmap_generate | 在现有主题下重新生成路线图 |
+| roadmap_modify | 修改现有路线图（不生成文档） |
+| explain_selection | 解释用户选中的文本 |
+| comparison | 对比分析 |
 
-**关于 navigate 行为**：
-- 只有在「可用文档」列表中存在与用户问题相关的文档时，才选择 navigate
-- 如果没有可用文档或现有文档与问题不相关，应选择 generate_new
-- 导航时必须在 target_doc_id 字段中指定要导航到的文档 ID
+## 决策原则（按优先级）
 
-**关于用户角色和应用场景**：
-- 注意用户的角色水平（beginner/intermediate/expert），影响内容深度
-- 注意用户的应用场景（如 backend、data science），影响内容方向
-- 将这些信息体现在 target 中，如 "TiDB（后端应用）"
+### P0：首次建立主题
+- 条件：intent_type=new_topic，且没有路线图
+- 决策：action=plan, mode=establish_topic
 
-**重要**：
-- 必须从用户输入中提取学习目标（target），如果检测到的意图有 target 则使用它
-- 如果无法从上下文确定 target，使用用户的原始输入作为 target
+### P1：主题内深入学习（关键规则，classifier 兜底）
+- 条件：已有路线图和学习主题，用户想学习当前主题下的子概念/子领域
+- 决策：action=generate_new, mode=roadmap_learning
+- 示例：
+  - 主题="Python3 asyncio"，输入"协作式多任务"/"事件循环"/"协程" → asyncio 子概念
+  - 主题="Redis"，输入"持久化机制"/"RDB vs AOF" → Redis 子概念
+  - 主题="React"，输入"虚拟DOM"/"Hooks原理" → React 子概念
+- 注意：即使 intent_type 被分类为 new_topic，只要内容属于当前主题的子概念，就应该走 roadmap_learning
+
+### P2：路线图调整
+- 条件：已有路线图，用户表达调整意图（太简单、太基础、调整难度等）
+- 决策：action=plan, mode=roadmap_modify
+
+### P3：无路线图学习
+- 条件：没有路线图，学习具体知识点
+- 决策：action=generate_new, mode=standard
+
+### P4：选中文本解释
+- 条件：用户选中文本并评论
+- 决策：action=generate_new, mode=explain_selection
+
+### P5：对比分析
+- 条件：用户想对比概念
+- 决策：action=generate_new, mode=comparison
+
+### P6：简单问答
+- 条件：事实性问题（question）
+- 决策：action=generate_new, mode=roadmap_learning（有路线图时）或 standard（无路线图时）
+
+### P7：实践问题
+- 条件：实践操作问题（question_practical）
+- 决策：action=generate_new, mode=roadmap_learning（有路线图时）或 standard（无路线图时）
+
+## navigate 规则
+- 仅当「可用文档」中存在匹配文档时才选择 navigate
+- 必须在 target_doc_id 中指定文档 ID
+
+## target 规则
+- 必须从用户输入中提取学习目标
 - target 字段不能为 null
+- 考虑用户角色和应用场景，如 "TiDB（后端应用）"
 
-返回 JSON 格式，包含 reasoning 字段解释你的决策逻辑。"""
+返回 JSON 格式，包含 reasoning 字段解释决策逻辑。"""
 
     user_prompt = _build_user_prompt(context)
 
@@ -388,6 +410,7 @@ def _build_user_prompt(context: dict[str, Any]) -> str:
         f"- 应用场景: {intent.get('context', '') or '无'}",
         "",
         "**会话状态**：",
+        f"- 当前学习主题: {context.get('session_topic') or '无'}",
         f"- 用户水平: {context['user_level']}",
         f"- 是否有路线图: {'是' if context['has_roadmap'] else '否'}",
         f"- 当前路线图: {context['current_roadmap_summary']}",
