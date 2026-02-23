@@ -73,9 +73,18 @@ export function useSessionMessages({
     (entityName: string, sourceDocId: number) => {
       if (!sessionId || !isConnected) return;
 
+      const userMessage: DisplayMessage = {
+        id: Date.now(),
+        role: "user",
+        content: `深度探索：${entityName}`,
+        message_type: MessageType.CHAT as MessageTypeValue,
+        timestamp: new Date().toISOString(),
+      };
+      addMessage(userMessage);
+
       const requestData: ChatRequest = {
         session_id: sessionId,
-        message: "",
+        message: `深度探索：${entityName}`,
         source: "entity",
         entity_data: {
           entity_name: entityName,
@@ -85,7 +94,7 @@ export function useSessionMessages({
 
       sendMessage(requestData);
     },
-    [sessionId, isConnected, sendMessage]
+    [sessionId, isConnected, addMessage, sendMessage]
   );
 
   const handleDocumentClick = useCallback(

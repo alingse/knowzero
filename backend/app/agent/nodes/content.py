@@ -400,9 +400,16 @@ def _build_generation_prompts(
 
     # explain_selection has a different signature (no target parameter)
     if mode == "explain_selection":
-        return builder(state, user_level, intent)
-    # All other modes use the same signature
-    return builder(state, target, user_level, intent)
+        system, user_prompt = builder(state, user_level, intent)
+    else:
+        system, user_prompt = builder(state, target, user_level, intent)
+
+    # 统一注入 session_topic 上下文，让 LLM 知道内容应在哪个主题下展开
+    session_topic = state.get("session_topic")
+    if session_topic:
+        user_prompt = f"当前学习主题是「{session_topic}」。\n\n{user_prompt}\n\n请确保内容在「{session_topic}」的语境下展开。"
+
+    return system, user_prompt
 
 
 async def _update_document(state: AgentState, mode: str) -> dict[str, object]:

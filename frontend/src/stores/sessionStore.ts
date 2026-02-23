@@ -140,6 +140,9 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   updateDocumentEntities: (entities) =>
     set((state) => ({
       currentDocument: state.currentDocument ? { ...state.currentDocument, entities } : null,
+      documents: state.documents.map((d) =>
+        d.id === state.currentDocument?.id ? { ...d, entities } : d
+      ),
     })),
   setAgentStatus: (status, startedAt) => set({ agentStatus: status, agentStartedAt: startedAt }),
   setRoadmap: (roadmap) => set({ roadmap }),

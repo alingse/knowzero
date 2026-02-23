@@ -70,7 +70,7 @@ async def query_entity(
             & (EntityDocumentLink.link_type == "explains")
         )
     )
-    main_link = link_result.scalar_one_or_none()
+    main_link = link_result.scalars().first()
     has_main_doc = main_link is not None
     main_doc_id = main_link.document_id if main_link else None
 

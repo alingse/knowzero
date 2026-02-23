@@ -263,6 +263,7 @@ class AgentStreamProcessor:
         await send_document_complete(
             self.websocket,
             doc_id=doc_id,
+            session_id=self.session_id,
             topic=doc_data.get("topic"),
             content=doc_data.get("content"),
             category_path=doc_data.get("category_path"),

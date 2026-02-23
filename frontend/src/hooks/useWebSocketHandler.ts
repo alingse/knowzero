@@ -223,6 +223,16 @@ export function useWebSocketHandler({
               is_clicked: q.is_clicked ?? false,
             }));
             setFollowUpQuestions(mapped);
+
+            // 同步更新 documents 数组中的 follow_up_questions
+            const docId = fuData.document_id;
+            if (docId) {
+              const { documents } = useSessionStore.getState();
+              const updatedDocs = documents.map((d) =>
+                d.id === docId ? { ...d, follow_up_questions: mapped } : d
+              );
+              useSessionStore.getState().setDocuments(updatedDocs);
+            }
           }
           break;
         }

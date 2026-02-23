@@ -33,6 +33,7 @@ export function EntityCard({
     data: entity,
     isLoading,
     error,
+    refetch,
   } = useQuery({
     queryKey: ["entity", "query", sessionId, entityName],
     queryFn: () => entitiesApi.query(entityName, sessionId),
@@ -51,7 +52,21 @@ export function EntityCard({
     );
   }
 
-  if (error || !entity) {
+  if (error) {
+    return (
+      <div className={cn("p-4", className)}>
+        <p className="mb-2 text-sm text-muted-foreground">无法加载实体详情</p>
+        <p className="mb-3 text-xs text-destructive/80">
+          {error instanceof Error ? error.message : "未知错误"}
+        </p>
+        <Button size="sm" variant="outline" className="w-full" onClick={() => refetch()}>
+          重试
+        </Button>
+      </div>
+    );
+  }
+
+  if (!entity) {
     return (
       <div className={cn("p-4 text-sm text-muted-foreground", className)}>无法加载实体详情</div>
     );

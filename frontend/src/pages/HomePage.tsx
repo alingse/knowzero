@@ -1,5 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
-import { Sparkles, BookOpen, Network, Route, ArrowRight, Compass, Feather } from "lucide-react";
+import { Sparkles, Network, Route, ArrowRight, Compass, Feather } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 

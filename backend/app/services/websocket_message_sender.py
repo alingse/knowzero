@@ -48,6 +48,7 @@ async def send_document_complete(
     websocket: WebSocket,
     *,
     doc_id: int,
+    session_id: str,
     topic: str | None,
     content: str | None,
     category_path: str | None = None,
@@ -58,6 +59,7 @@ async def send_document_complete(
         "document",
         {
             "id": doc_id,
+            "session_id": session_id,
             "topic": topic,
             "content": content,
             "category_path": category_path,

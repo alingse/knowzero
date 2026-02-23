@@ -197,6 +197,11 @@ function DocumentViewComponent({
           );
         }
 
+        // No entity matches - render as plain bold text
+        if (!fragments.some((f) => f.type === "entity")) {
+          return <strong>{children}</strong>;
+        }
+
         // Render mixed fragments (entity and text)
         return (
           <strong
