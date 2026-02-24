@@ -46,3 +46,17 @@ class DocumentResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class SessionCardResponse(BaseModel):
+    """首页会话卡片响应模型"""
+
+    session_id: str
+    session_title: str
+    document_id: int
+    document_topic: str
+    content: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True

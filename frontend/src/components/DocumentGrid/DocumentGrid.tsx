@@ -5,14 +5,14 @@ import { Button } from "@/components/ui/button";
 import { documentsApi } from "@/api/client";
 import { cn } from "@/lib/utils";
 import { EmptyState } from "@/components/EmptyState";
-import { DocumentCard } from "./DocumentCard";
+import { SessionCard } from "./SessionCard";
 import { DocumentGridSkeleton } from "./DocumentCardSkeleton";
 
 export function DocumentGrid() {
   const navigate = useNavigate();
   const { data, isLoading, refetch, isError } = useQuery({
-    queryKey: ["random-documents"],
-    queryFn: () => documentsApi.getRandom(8),
+    queryKey: ["random-session-cards"],
+    queryFn: () => documentsApi.getRandomCards(8),
   });
 
   return (
@@ -64,8 +64,8 @@ export function DocumentGrid() {
       ) : (
         // Data Display
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {data?.map((doc) => (
-            <DocumentCard key={doc.id} document={doc} />
+          {data?.map((card) => (
+            <SessionCard key={card.session_id} card={card} />
           ))}
         </div>
       )}

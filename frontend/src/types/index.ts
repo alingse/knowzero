@@ -71,6 +71,15 @@ export interface Document {
   updated_at: string;
 }
 
+export interface SessionCard {
+  session_id: string;
+  session_title: string;
+  document_id: number;
+  document_topic: string;
+  content: string;
+  created_at: string;
+}
+
 export interface Entity {
   id: number;
   name: string;

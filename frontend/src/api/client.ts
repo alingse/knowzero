@@ -6,6 +6,7 @@ import type {
   Roadmap,
   RoadmapProgress,
   Session,
+  SessionCard,
 } from "@/types";
 
 const API_BASE = import.meta.env.VITE_API_URL || "/api";
@@ -74,6 +75,9 @@ export const documentsApi = {
     }),
 
   getRandom: (limit: number = 8) => fetchJson<Document[]>(`/documents/random?limit=${limit}`),
+
+  getRandomCards: (limit: number = 8) =>
+    fetchJson<SessionCard[]>(`/documents/random/cards?limit=${limit}`),
 };
 
 // Entities

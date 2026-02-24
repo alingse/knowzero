@@ -5,6 +5,7 @@ from app.schemas.document import (
     DocumentResponse,
     DocumentUpdate,
     FollowUpQuestionResponse,
+    SessionCardResponse,
 )
 from app.schemas.entity import (
     EntityCreate,
@@ -40,6 +41,7 @@ __all__ = [
     "DocumentResponse",
     "DocumentUpdate",
     "FollowUpQuestionResponse",
+    "SessionCardResponse",
     "EntityCreate",
     "EntityResponse",
     "EntityQueryResponse",

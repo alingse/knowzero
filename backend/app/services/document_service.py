@@ -6,6 +6,8 @@ from sqlalchemy.orm import selectinload
 
 from app.core.logging import get_logger
 from app.models.document import Document, DocumentVersion, FollowUpQuestion
+from app.models.session import Session
+from app.schemas.document import SessionCardResponse
 
 logger = get_logger(__name__)
 
@@ -180,3 +182,71 @@ async def get_random_documents(
     )
     result = await db.execute(stmt)
     return list(result.scalars().all())
+
+
+async def get_random_session_cards(
+    db: AsyncSession,
+    *,
+    limit: int = 8,
+    user_id: int = 1,
+) -> list[SessionCardResponse]:
+    """Get random session cards for homepage display.
+
+    Each card represents a unique session with:
+    - session_id: unique session identifier
+    - session_title: the session's title
+    - document_id: first document's ID
+    - document_topic: first document's topic
+    - content: first document's content
+    - created_at: first document's creation time
+
+    Args:
+        db: Database session
+        limit: Maximum number of cards to return
+        user_id: User ID to filter sessions
+
+    Returns:
+        List of SessionCardResponse objects
+    """
+
+    # Subquery: find first document for each session
+    first_doc_subquery = (
+        select(Document.session_id, func.min(Document.id).label("first_doc_id"))
+        .where(Document.user_id == user_id)
+        .group_by(Document.session_id)
+        .subquery()
+    )
+
+    # Main query: join with Session and filter by first documents
+    stmt = (
+        select(
+            Document.id.label("document_id"),
+            Document.session_id,
+            Document.topic.label("document_topic"),
+            Document.content,
+            Document.created_at,
+            Session.title.label("session_title"),
+        )
+        .join(Session, Document.session_id == Session.id)
+        .join(first_doc_subquery, Document.id == first_doc_subquery.c.first_doc_id)
+        .order_by(func.random())
+        .limit(limit)
+    )
+
+    result = await db.execute(stmt)
+
+    # Convert Row objects to SessionCardResponse
+    cards = [
+        SessionCardResponse(
+            session_id=row.session_id,
+            session_title=row.session_title,
+            document_id=row.document_id,
+            document_topic=row.document_topic,
+            content=row.content,
+            created_at=row.created_at,
+        )
+        for row in result.all()
+    ]
+
+    logger.info("Retrieved random session cards", count=len(cards), limit=limit)
+    return cards

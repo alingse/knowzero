@@ -14,6 +14,7 @@ from app.schemas import (
     DocumentResponse,
     DocumentUpdate,
     FollowUpQuestionResponse,
+    SessionCardResponse,
 )
 from app.services import document_service
 
@@ -51,6 +52,19 @@ async def get_random_documents(
 ) -> list[Document]:
     """Get random documents for homepage grid display."""
     return await document_service.get_random_documents(db, limit=limit, user_id=user_id)
+
+
+@router.get("/random/cards", response_model=list[SessionCardResponse])
+async def get_random_session_cards(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user_id: CurrentUser,
+    limit: Annotated[int, Query(ge=1, le=20)] = 8,
+) -> list[SessionCardResponse]:
+    """Get random session cards for homepage grid display.
+
+    Returns one card per session, showing the first document of each session.
+    """
+    return await document_service.get_random_session_cards(db, limit=limit, user_id=user_id)
 
 
 @router.get("/{document_id}", response_model=DocumentResponse)
