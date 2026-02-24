@@ -54,6 +54,11 @@ class Message(Base):
     related_document_id: Mapped[int | None] = mapped_column(ForeignKey("documents.id"))
     agent_intent: Mapped[dict[str, object] | None] = mapped_column(JSON)
     agent_routing: Mapped[dict[str, object] | None] = mapped_column(JSON)
+    extra_data: Mapped[dict[str, object]] = mapped_column(
+        JSON,
+        nullable=False,
+        default=dict,
+    )  # For document_card metadata, etc.
 
     timestamp: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     tokens_used: Mapped[int] = mapped_column(Integer, default=0)

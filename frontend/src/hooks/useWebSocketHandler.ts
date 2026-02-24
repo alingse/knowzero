@@ -7,6 +7,15 @@ import { useSessionStore } from "@/stores/sessionStore";
 import type { Document, FollowUpQuestion, StreamResponse, Roadmap } from "@/types";
 import { MessageType } from "@/types";
 
+// Counter for generating unique temporary message IDs
+let tempMessageIdCounter = 0;
+
+/** Generate a unique temporary ID for messages that don't have a database ID yet. */
+function generateTempId(): number {
+  // Use negative timestamp + counter to avoid collision with database IDs (which are positive)
+  return -Date.now() + tempMessageIdCounter++;
+}
+
 interface UseWebSocketHandlerOptions {
   sessionId: string | undefined;
   queryClient: QueryClient;
@@ -23,6 +32,7 @@ interface UseWebSocketHandlerOptions {
   addPlaceholder: (content: string) => number;
   updatePlaceholder: (id: number, content: string) => void;
   removePlaceholder: () => void;
+  removePlaceholderById: (id: number) => void;
   // View
   setViewMode: (mode: "document" | "roadmap") => void;
 }
@@ -39,6 +49,7 @@ export function useWebSocketHandler({
   addPlaceholder,
   updatePlaceholder,
   removePlaceholder,
+  removePlaceholderById,
   setViewMode,
 }: UseWebSocketHandlerOptions) {
   const {
@@ -189,7 +200,7 @@ export function useWebSocketHandler({
           if (response.data?.content) {
             removePlaceholder();
             const assistantMessage: DisplayMessage = {
-              id: Date.now(),
+              id: generateTempId(),
               role: "assistant",
               content: response.data.content as string,
               message_type: MessageType.CHAT,
@@ -216,9 +227,7 @@ export function useWebSocketHandler({
             const doc = response.data as unknown as Document;
             setCurrentDocument(doc);
             addDocument(doc);
-            if (placeholderIdRef.current) {
-              updatePlaceholder(placeholderIdRef.current, `已生成《${doc.topic}》`);
-            }
+            // Note: Placeholder is now handled by document_card event for rich metadata
             // Refresh roadmap progress after document generation
             const currentRoadmap = useSessionStore.getState().roadmap;
             if (currentRoadmap) {
@@ -318,13 +327,76 @@ export function useWebSocketHandler({
           console.error("Agent error:", response.message);
           break;
 
+        case "system_message": {
+          // System messages are persisted notifications (e.g., processing started)
+          const msgData = response.data as
+            | { message?: string; message_type?: string; extra_data?: Record<string, unknown> }
+            | undefined;
+          if (msgData?.message) {
+            const systemMessage: DisplayMessage = {
+              id: generateTempId(),
+              role: "system",
+              content: msgData.message,
+              message_type: MessageType.NOTIFICATION,
+              timestamp: new Date().toISOString(),
+              extra_data: msgData.extra_data,
+            };
+            addMessage(systemMessage);
+          }
+          break;
+        }
+
+        case "document_card": {
+          // Document completion card with rich extra_data
+          // Capture placeholder ID immediately to avoid race condition with "done" event
+          const placeholderId = placeholderIdRef.current;
+
+          const cardData = response.data as
+            | {
+                document_id?: number;
+                title?: string;
+                excerpt?: string;
+                processing_time_seconds?: number;
+                stages_completed?: string[];
+              }
+            | undefined;
+          if (cardData?.document_id) {
+            const cardMessage: DisplayMessage = {
+              id: generateTempId(),
+              role: "assistant",
+              content: `📚 已生成学习文档：${cardData.title || "新文档"}`,
+              message_type: MessageType.DOCUMENT_CARD,
+              related_document_id: cardData.document_id,
+              timestamp: new Date().toISOString(),
+              extra_data: {
+                document_id: cardData.document_id,
+                title: cardData.title,
+                excerpt: cardData.excerpt,
+                processing_time_seconds: cardData.processing_time_seconds,
+                stages_completed: cardData.stages_completed,
+              },
+            };
+            addMessage(cardMessage);
+            // Remove placeholder using captured ID (don't rely on placeholderIdRef.current
+            // as it may have been reset by "done" event)
+            if (placeholderId) {
+              removePlaceholderById(placeholderId);
+            }
+          }
+          break;
+        }
+
         case "done":
           flushTokenBuffer();
           setLoading(false);
           setStreaming(false);
           setStreamingContent("");
           setStreamingTitle("");
-          placeholderIdRef.current = null;
+          // Note: Placeholder is removed by document_card event handler
+          // Only reset the ref if no document_card was received (e.g., for non-document responses)
+          if (placeholderIdRef.current) {
+            removePlaceholder();
+          }
           if (sessionId) {
             queryClient.invalidateQueries({ queryKey: ["session", sessionId, "messages"] });
           }
@@ -343,6 +415,7 @@ export function useWebSocketHandler({
       addPlaceholder,
       updatePlaceholder,
       removePlaceholder,
+      removePlaceholderById,
       setViewMode,
       addDocument,
       setCurrentDocument,

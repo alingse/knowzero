@@ -61,8 +61,13 @@ export function SessionPage() {
     appendTokenBatched,
   } = useStreamingContent();
 
-  const { placeholderIdRef, addPlaceholder, updatePlaceholder, removePlaceholder } =
-    usePlaceholderMessages();
+  const {
+    placeholderIdRef,
+    addPlaceholder,
+    updatePlaceholder,
+    removePlaceholder,
+    removePlaceholderById,
+  } = usePlaceholderMessages();
 
   const handleWebSocketMessage = useWebSocketHandler({
     sessionId,
@@ -76,6 +81,7 @@ export function SessionPage() {
     addPlaceholder,
     updatePlaceholder,
     removePlaceholder,
+    removePlaceholderById,
     setViewMode,
   });
 
@@ -131,7 +137,39 @@ export function SessionPage() {
     queryFn: async () => {
       if (!sessionId) return [];
       const msgs = await sessionsApi.getMessages(sessionId);
-      setMessages(msgs);
+
+      // Smart merge: remove temporary messages that have been persisted to database
+      setMessages((current) => {
+        // Build set of database message IDs and a lookup for content-based deduplication
+        const dbMsgIds = new Set(msgs.map((m) => m.id));
+        const dbMsgKeySet = new Set(
+          msgs.map((m) => `${m.message_type}:${m.content}:${m.timestamp}`)
+        );
+
+        // Keep local-only messages that don't exist in database
+        // Filter out temporary messages that have been persisted (matched by content)
+        const localOnly = current.filter((m) => {
+          // If message has DB ID, check if it's in the database result
+          if (dbMsgIds.has(m.id)) {
+            return false; // This message exists in DB, don't keep local copy
+          }
+
+          // For temporary messages (negative IDs), check if a similar message exists in DB
+          // This handles the case where WebSocket added a temporary message that was
+          // later persisted to database with a different ID
+          if (m.id < 0) {
+            const msgKey = `${m.message_type}:${m.content}:${m.timestamp}`;
+            return !dbMsgKeySet.has(msgKey);
+          }
+
+          // Keep messages that are truly local-only
+          return true;
+        });
+
+        // Merge: database messages + local-only messages
+        return [...msgs, ...localOnly];
+      });
+
       return msgs;
     },
     enabled: !!sessionId,
@@ -163,6 +201,22 @@ export function SessionPage() {
     sendMessage,
     setViewMode,
   });
+
+  // Handle document card click - switch to document view and load the document
+  const handleDocumentCardClick = (docId: number) => {
+    // Switch to document view mode
+    setViewMode("document");
+    // Set the current document
+    // Note: The document should already be in the documents list from session restore
+    // If not, we may need to fetch it separately
+    const targetDoc = useSessionStore.getState().documents.find((d) => d.id === docId);
+    if (targetDoc) {
+      setCurrentDocument(targetDoc);
+    } else {
+      // Fallback: Refresh the page data to get the latest documents
+      queryClient.invalidateQueries({ queryKey: ["session", sessionId, "restore"] });
+    }
+  };
 
   // Text selection for comment mode
   const { selectedText, setSelectedText, selectionPosition } = useTextSelection({
@@ -302,6 +356,7 @@ export function SessionPage() {
             isLoading={isAgentLoading}
             disabled={agentStatus === "running"}
             onSendMessage={handleSendMessage}
+            onDocumentClick={handleDocumentCardClick}
             className="h-80 border-t"
           />
         </div>

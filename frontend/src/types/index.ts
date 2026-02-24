@@ -51,6 +51,8 @@ export interface Message {
   timestamp: string;
   // Placeholder message fields for UI state
   isPlaceholder?: boolean;
+  // Extra data for rich message types (e.g., document_card with processing info)
+  extra_data?: Record<string, unknown>;
 }
 
 export interface Document {
@@ -207,7 +209,10 @@ export interface StreamResponse {
     | "node_end" // Agent node execution ended
     | "tool_start" // Tool call started
     | "tool_end" // Tool call ended
-    | "progress"; // Custom progress updates
+    | "progress" // Custom progress updates
+    // System message events (persisted)
+    | "system_message" // System notification (processing started, etc.)
+    | "document_card"; // Document completion card with metadata
   data?: Record<string, unknown>;
   message?: string;
 }

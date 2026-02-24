@@ -26,6 +26,7 @@ interface ChatPanelProps {
   isLoading?: boolean;
   disabled?: boolean; // External disabled state (e.g., from agent status)
   onSend: (message: string) => void;
+  onDocumentClick?: (docId: number) => void;
   className?: string;
 }
 
@@ -38,6 +39,7 @@ export function ChatPanel({
   isLoading = false,
   disabled = false,
   onSend,
+  onDocumentClick,
   className,
 }: ChatPanelProps) {
   const [input, setInput] = useState("");
@@ -74,6 +76,7 @@ export function ChatPanel({
               isLoading={isLoading}
               executionEvents={executionEvents}
               showAvatars={true}
+              onDocumentClick={onDocumentClick}
               emptyState={
                 <div className="py-8 text-center text-sm text-muted-foreground">
                   开始一个新的对话
@@ -149,6 +152,7 @@ export function ChatPanel({
           isLoading={isLoading}
           executionEvents={executionEvents}
           showAvatars={true}
+          onDocumentClick={onDocumentClick}
           emptyState={
             <div className="space-y-4 text-sm">
               <div className="text-muted-foreground">你可以问我：</div>

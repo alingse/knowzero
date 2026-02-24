@@ -42,10 +42,21 @@ export function usePlaceholderMessages() {
     placeholderIdRef.current = null;
   }, [setMessages]);
 
+  const removePlaceholderById = useCallback(
+    (id: number) => {
+      setMessages((prev: Message[]) => prev.filter((m) => m.id !== id));
+      if (placeholderIdRef.current === id) {
+        placeholderIdRef.current = null;
+      }
+    },
+    [setMessages]
+  );
+
   return {
     placeholderIdRef,
     addPlaceholder,
     updatePlaceholder,
     removePlaceholder,
+    removePlaceholderById,
   };
 }

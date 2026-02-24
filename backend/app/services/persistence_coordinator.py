@@ -62,6 +62,7 @@ async def update_placeholder_message(
     user_id: int,
     doc_id: int,
     topic: str,
+    metadata: dict[str, object] | None = None,
 ) -> None:
     doc_topic = topic or "学习文档"
     if message_id:
@@ -75,6 +76,12 @@ async def update_placeholder_message(
             message_id=message_id,
             related_document_id=doc_id,
         )
+        if metadata:
+            await message_service.update_message_metadata(
+                db,
+                message_id=message_id,
+                metadata=metadata,
+            )
         logger.info(
             "Placeholder message updated with completion",
             message_id=message_id,
@@ -88,6 +95,7 @@ async def update_placeholder_message(
             content=f"📚 已生成学习文档：{doc_topic}",
             message_type="document_card",
             related_document_id=doc_id,
+            extra_data=metadata,  # Save document card metadata
         )
         logger.info("Fallback message created", doc_id=doc_id, session_id=session_id)
 
@@ -255,3 +263,35 @@ async def persist_roadmap(
     )
     logger.info("Roadmap persisted", roadmap_id=roadmap_id, session_id=session_id)
     return roadmap_id
+
+
+async def persist_system_notification(
+    db: AsyncSession,
+    *,
+    session_id: str,
+    user_id: int,
+    content: str,
+    message_type: str = "notification",
+    metadata: dict[str, object] | None = None,
+) -> Message:
+    """Persist system notification message.
+
+    Used for important system events that should survive page refresh.
+    Examples: processing started, document generated, errors.
+    """
+    # System messages are stored as assistant messages with specific type
+    msg = await message_service.save_assistant_message(
+        db,
+        session_id=session_id,
+        user_id=user_id,
+        content=content,
+        message_type=message_type,
+        extra_data=metadata if metadata is not None else {},
+    )
+    logger.info(
+        "System notification persisted",
+        message_id=msg.id,
+        session_id=session_id,
+        message_type=message_type,
+    )
+    return msg

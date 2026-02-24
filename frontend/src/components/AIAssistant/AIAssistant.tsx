@@ -41,6 +41,9 @@ interface AIAssistantProps {
   selectedText?: string;
   selectionPosition?: { x: number; y: number };
 
+  // Document card click handler
+  onDocumentClick?: (docId: number) => void;
+
   className?: string;
 }
 
@@ -68,6 +71,7 @@ export function AIAssistant({
   context,
   selectedText,
   selectionPosition,
+  onDocumentClick,
   className,
 }: AIAssistantProps) {
   const [internalOpen, setInternalOpen] = useState(false);
@@ -99,6 +103,7 @@ export function AIAssistant({
           isLoading={isLoading}
           disabled={disabled}
           onSend={handleSend}
+          onDocumentClick={onDocumentClick}
           className={className}
         />
       );

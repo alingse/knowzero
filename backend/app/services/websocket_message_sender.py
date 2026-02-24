@@ -132,6 +132,62 @@ async def send_progress(websocket: WebSocket, *, stage: str, message: str) -> No
     logger.info("Progress sent", stage=stage, message=message)
 
 
+async def send_system_message(
+    websocket: WebSocket,
+    *,
+    message: str,
+    message_type: str = "notification",
+    metadata: dict[str, object] | None = None,
+) -> None:
+    """Send system notification message (will be persisted).
+
+    This is used for important system events that should survive page refresh.
+    Examples: processing started, document generated, errors.
+    """
+    data: dict[str, object] = {
+        "message": message,
+        "message_type": message_type,
+    }
+    if metadata:
+        data["metadata"] = metadata
+    await _send_event(websocket, "system_message", data)
+    logger.info("System message sent", message_type=message_type, message_preview=message[:50])
+
+
+async def send_document_card(
+    websocket: WebSocket,
+    *,
+    document_id: int,
+    title: str,
+    excerpt: str | None = None,
+    processing_time_seconds: float | None = None,
+    stages_completed: list[str] | None = None,
+) -> None:
+    """Send document completion card (will be persisted as a message).
+
+    This creates a clickable card in the chat showing document generation completion.
+    The card includes metadata like processing time and stages completed.
+    """
+    data: dict[str, object] = {
+        "document_id": document_id,
+        "title": title,
+    }
+    if excerpt:
+        data["excerpt"] = excerpt
+    if processing_time_seconds is not None:
+        data["processing_time_seconds"] = processing_time_seconds
+    if stages_completed:
+        data["stages_completed"] = stages_completed
+
+    await _send_event(websocket, "document_card", data)
+    logger.info(
+        "Document card sent",
+        doc_id=document_id,
+        title=title,
+        processing_time=processing_time_seconds,
+    )
+
+
 async def send_done(websocket: WebSocket) -> None:
     await _send_event(websocket, "done")
     logger.info("Done sent")

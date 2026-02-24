@@ -69,9 +69,9 @@ class MessageResponse(BaseModel):
     message_type: MessageType
     related_document_id: int | None
     timestamp: datetime
+    extra_data: dict[str, object] = Field(default_factory=dict)
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 
 class CommentData(BaseModel):

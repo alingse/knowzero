@@ -4,8 +4,9 @@ This module provides the main orchestration for agent response streaming.
 It coordinates persistence, WebSocket communication, and event processing.
 """
 
+import time
 from collections.abc import Callable, Coroutine
-from typing import Any
+from typing import Any, TypedDict
 
 from fastapi import WebSocket
 
@@ -25,6 +26,7 @@ from app.services.session_service import update_agent_status
 from app.services.websocket_event_handler import StreamContext
 from app.services.websocket_message_sender import (
     send_content,
+    send_document_card,
     send_document_complete,
     send_document_start,
     send_document_token,
@@ -37,12 +39,30 @@ from app.services.websocket_message_sender import (
     send_node_start,
     send_progress,
     send_roadmap,
+    send_system_message,
     send_thinking,
     send_tool_end,
     send_tool_start,
 )
 
 logger = get_logger(__name__)
+
+# Document card configuration
+DOCUMENT_CARD_EXCERPT_MAX_LENGTH = 150
+DOCUMENT_CARD_STAGES_COMPLETED = ["intent", "route", "roadmap", "content"]
+
+
+class DocumentCardMetadata(TypedDict, total=False):
+    """TypedDict for document card metadata.
+
+    total=False makes all fields optional by default, then we mark required ones.
+    """
+
+    document_id: int
+    title: str
+    excerpt: str | None
+    processing_time_seconds: float | None
+    stages_completed: list[str] | None
 
 
 class AgentStreamProcessor:
@@ -55,18 +75,29 @@ class AgentStreamProcessor:
         self.session_id = state["session_id"]
         self.user_id = state["user_id"]
         self.ctx = StreamContext()
+        self.start_time: float = 0.0
 
     async def initialize(self) -> None:
         """Initialize the streaming session.
 
-        Sets agent status to running and sends thinking indicator.
+        Sets agent status to running, sends system message, and sends thinking indicator.
         """
+        self.start_time = time.time()
+
         try:
             async with get_db_session() as db:
                 await update_agent_status(db, self.session_id, "running")
                 await db.commit()
         except Exception as e:
             logger.warning("Failed to set agent status to running", error=str(e))
+
+        # Send system message indicating processing started (will be persisted)
+        user_message = self.state.get("raw_message", "")
+        await send_system_message(
+            self.websocket,
+            message=f"正在处理: {user_message[:50]}{'...' if len(user_message) > 50 else ''}",
+            message_type="processing_start",
+        )
 
         await send_thinking(self.websocket)
 
@@ -222,6 +253,34 @@ class AgentStreamProcessor:
         await send_error(self.websocket, message=f"工具 {tool_name} 执行失败: {error_msg}")
         logger.error("Tool error", tool=tool_name, error=error_msg)
 
+    def _build_document_card_metadata(
+        self, doc_id: int, doc_topic: str | None, doc_data: dict[str, Any]
+    ) -> DocumentCardMetadata:
+        """Build metadata for document card message.
+
+        Args:
+            doc_id: The document ID
+            doc_topic: The document topic from persistence
+            doc_data: The document data dictionary
+
+        Returns:
+            A dictionary containing document card metadata
+        """
+        processing_time = time.time() - self.start_time if self.start_time > 0 else None
+        content = doc_data.get("content", "")
+        excerpt = (
+            content[:DOCUMENT_CARD_EXCERPT_MAX_LENGTH] + "..."
+            if len(content) > DOCUMENT_CARD_EXCERPT_MAX_LENGTH
+            else content
+        )
+        return {
+            "document_id": doc_id,
+            "title": doc_topic or doc_data.get("topic", "新文档"),
+            "excerpt": excerpt,
+            "processing_time_seconds": processing_time,
+            "stages_completed": DOCUMENT_CARD_STAGES_COMPLETED,
+        }
+
     async def _on_content_agent_end(self, output: dict[str, Any]) -> None:
         """Handle content_agent completion: persist document and send to client immediately."""
         doc_data = output["document"]
@@ -250,6 +309,9 @@ class AgentStreamProcessor:
                 agent_routing=output.get("routing_decision"),
             )
 
+            # Prepare metadata for document card
+            card_metadata = self._build_document_card_metadata(doc_id, doc_topic, doc_data)
+
             await update_placeholder_message(
                 db,
                 message_id=self.ctx.placeholder_message_id,
@@ -257,6 +319,7 @@ class AgentStreamProcessor:
                 user_id=self.user_id,
                 doc_id=doc_id,
                 topic=doc_topic,
+                metadata=card_metadata,
             )
 
         # Send document to client immediately (entities come later from post_process)
@@ -274,6 +337,17 @@ class AgentStreamProcessor:
             category_path=doc_data.get("category_path"),
             entities=[],
             parent_document_id=parent_id,
+        )
+
+        # Send document card message (will be persisted for refresh recovery)
+        card_metadata = self._build_document_card_metadata(doc_id, doc_topic, doc_data)
+        await send_document_card(
+            self.websocket,
+            document_id=card_metadata["document_id"],
+            title=card_metadata["title"],
+            excerpt=card_metadata["excerpt"],
+            processing_time_seconds=card_metadata["processing_time_seconds"],
+            stages_completed=card_metadata["stages_completed"],
         )
 
         # Save doc_id for post_process to use

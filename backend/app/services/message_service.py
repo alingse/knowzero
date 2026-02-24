@@ -41,6 +41,7 @@ async def save_assistant_message(
     related_document_id: int | None = None,
     agent_intent: dict[str, object] | None = None,
     agent_routing: dict[str, object] | None = None,
+    extra_data: dict[str, object] | None = None,
     tokens_used: int = 0,
 ) -> Message:
     msg = Message(
@@ -52,6 +53,7 @@ async def save_assistant_message(
         related_document_id=related_document_id,
         agent_intent=agent_intent,
         agent_routing=agent_routing,
+        extra_data=extra_data if extra_data is not None else {},
         tokens_used=tokens_used,
     )
     db.add(msg)
@@ -108,6 +110,23 @@ async def update_message_document(
             "Message document updated",
             message_id=message_id,
             document_id=related_document_id,
+        )
+    return msg
+
+
+async def update_message_metadata(
+    db: AsyncSession, *, message_id: int, metadata: dict[str, object]
+) -> Message | None:
+    stmt = select(Message).where(Message.id == message_id)
+    result = await db.execute(stmt)
+    msg = result.scalar_one_or_none()
+    if msg:
+        msg.extra_data = metadata
+        await db.flush()
+        logger.info(
+            "Message metadata updated",
+            message_id=message_id,
+            metadata_keys=list(metadata.keys()),
         )
     return msg
 

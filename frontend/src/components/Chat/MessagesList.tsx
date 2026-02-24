@@ -7,6 +7,7 @@ import type { Message } from "@/types";
 import { MessageType } from "@/types";
 import type { ExecutionEvent } from "./ExecutionProgress";
 import { CompactExecutionProgress } from "./CompactExecutionProgress";
+import { DocumentCardMessage } from "./DocumentCardMessage";
 
 // Re-export Message type as DisplayMessage for component usage
 export type DisplayMessage = Message;
@@ -18,12 +19,14 @@ interface MessagesListProps {
   className?: string;
   emptyState?: React.ReactNode;
   showAvatars?: boolean;
+  onDocumentClick?: (docId: number) => void;
 }
 
 interface MessageItemProps {
   message: DisplayMessage;
   executionEvents?: ExecutionEvent[];
   showAvatar?: boolean;
+  onDocumentClick?: (docId: number) => void;
 }
 
 interface PlaceholderMessageProps {
@@ -103,6 +106,7 @@ const MessageItem = memo(function MessageItem({
   message,
   executionEvents = [],
   showAvatar = true,
+  onDocumentClick,
 }: MessageItemProps) {
   const isUser = message.role === "user";
   const isSystem = message.role === "system";
@@ -112,7 +116,44 @@ const MessageItem = memo(function MessageItem({
     return null;
   }
 
-  // Document card messages (completion notifications from backend)
+  // Placeholder messages (transient UI state) - must be checked BEFORE DOCUMENT_CARD
+  // because placeholders use DOCUMENT_CARD type but have isPlaceholder flag
+  if (message.isPlaceholder) {
+    return (
+      <PlaceholderMessage
+        content={message.content}
+        executionEvents={executionEvents}
+        showAvatar={showAvatar}
+      />
+    );
+  }
+
+  // Document card messages with rich extra_data (from backend WebSocket event)
+  if (message.message_type === MessageType.DOCUMENT_CARD && message.extra_data) {
+    const extra_data = message.extra_data as {
+      document_id?: number;
+      title?: string;
+      excerpt?: string;
+      processing_time_seconds?: number;
+      stages_completed?: string[];
+    };
+
+    if (extra_data.document_id) {
+      return (
+        <DocumentCardMessage
+          documentId={extra_data.document_id}
+          title={extra_data.title || message.content}
+          excerpt={extra_data.excerpt}
+          processingTimeSeconds={extra_data.processing_time_seconds}
+          stagesCompleted={extra_data.stages_completed}
+          timestamp={message.timestamp}
+          onDocumentClick={onDocumentClick}
+        />
+      );
+    }
+  }
+
+  // Fallback for simple DOCUMENT_CARD without extra_data (should not happen with new flow)
   if (message.message_type === MessageType.DOCUMENT_CARD) {
     return (
       <div className="flex gap-3 py-2">
@@ -125,17 +166,6 @@ const MessageItem = memo(function MessageItem({
         )}
         <div className="max-w-[85%] rounded-lg bg-muted px-4 py-2.5 text-sm">{message.content}</div>
       </div>
-    );
-  }
-
-  // Placeholder messages (transient UI state)
-  if (message.isPlaceholder) {
-    return (
-      <PlaceholderMessage
-        content={message.content}
-        executionEvents={executionEvents}
-        showAvatar={showAvatar}
-      />
     );
   }
 
@@ -179,6 +209,7 @@ function MessagesListComponent({
   className,
   emptyState,
   showAvatars = true,
+  onDocumentClick,
 }: MessagesListProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const prevMessagesLengthRef = useRef(messages.length);
@@ -206,6 +237,7 @@ function MessagesListComponent({
           message={message}
           executionEvents={executionEvents}
           showAvatar={showAvatars}
+          onDocumentClick={onDocumentClick}
         />
       ))}
 
