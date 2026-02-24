@@ -301,7 +301,8 @@ def _is_roadmap_only_request(state: AgentState) -> bool:
     3. 系统行为更可预测、更一致
     """
     intent = state.get("intent") or {}
-    return intent.get("intent_type", "") == "plan"
+    intent_type = intent.get("intent_type", "")
+    return isinstance(intent_type, str) and intent_type == "plan"
 
 
 # ============================================================================
@@ -494,11 +495,12 @@ def _summarize_roadmap(roadmap: dict[str, Any]) -> str:
         desc += f"    知识点: {', '.join(str(t) for t in m_topics)}"
         descriptions.append(desc)
 
+    newline = "\n"
     return f"""目标: {roadmap.get("goal", "")}
 版本: {roadmap.get("version", 1)}
 
 阶段:
-{"\n".join(descriptions)}"""
+{newline.join(descriptions)}"""
 
 
 # 保持向后兼容的别名

@@ -6,7 +6,7 @@ It coordinates persistence, WebSocket communication, and event processing.
 
 import time
 from collections.abc import Callable, Coroutine
-from typing import Any, TypedDict
+from typing import Any, TypedDict, cast
 
 from fastapi import WebSocket
 
@@ -319,7 +319,7 @@ class AgentStreamProcessor:
                 user_id=self.user_id,
                 doc_id=doc_id,
                 topic=doc_topic,
-                metadata=card_metadata,
+                metadata=cast(dict[str, object] | None, card_metadata),
             )
 
         # Send document to client immediately (entities come later from post_process)

@@ -129,6 +129,11 @@ class IntentClassifier:
                 parsed = parse_llm_json_response(content)
             else:
                 parsed = {"intent_type": "question", "target": message[:50]}
+
+            # 确保 parsed 是 dict 类型（parse_llm_json_response 可能返回 list 或 None）
+            if not isinstance(parsed, dict):
+                parsed = {"intent_type": "question", "target": message[:50]}
+
             elapsed = int((time.monotonic() - start) * 1000)
             return {
                 "intent_type": parsed.get("intent_type", "question"),

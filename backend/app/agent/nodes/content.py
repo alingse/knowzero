@@ -455,9 +455,9 @@ def _build_generation_prompts(
 
     # explain_selection has a different signature (no target parameter)
     if mode == "explain_selection":
-        system, user_prompt = builder(state, user_level, intent)
+        system, user_prompt = builder(state, user_level, intent)  # type: ignore[no-untyped-call]
     else:
-        system, user_prompt = builder(state, target, user_level, intent)
+        system, user_prompt = builder(state, target, user_level, intent)  # type: ignore[no-untyped-call]
 
     # 统一注入 session_topic 上下文，让 LLM 知道内容应在哪个主题下展开
     session_topic = state.get("session_topic")

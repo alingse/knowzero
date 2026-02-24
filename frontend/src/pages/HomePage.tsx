@@ -262,7 +262,7 @@ export function HomePage() {
               <Feather className="h-4 w-4" />
               <span className="text-sm">书卷多情似故人，晨昏忧乐每相亲</span>
             </div>
-            <p className="text-sm text-muted-foreground/50">© 2025 KnowZero · AI 驱动的知识探索</p>
+            <p className="text-sm text-muted-foreground/50">© 2026 KnowZero · AI 驱动的知识探索</p>
           </div>
         </div>
       </footer>

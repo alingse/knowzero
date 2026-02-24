@@ -2,7 +2,7 @@
 
 import json
 import re
-from typing import Any
+from typing import Any, cast
 
 from app.core.logging import get_logger
 
@@ -35,7 +35,7 @@ def _try_parse_json(text: str) -> dict[str, Any] | list[Any] | None:
     try:
         cleaned = text.strip()
         cleaned = _fix_trailing_commas(cleaned)
-        return json.loads(cleaned)
+        return cast(dict[str, Any] | list[Any] | None, json.loads(cleaned))
     except (json.JSONDecodeError, ValueError):
         return None
 
