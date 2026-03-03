@@ -46,16 +46,16 @@ const LoadingIndicator = memo(function LoadingIndicator({
   executionEvents = [],
 }: LoadingIndicatorProps) {
   return (
-    <div className="flex gap-3 py-2">
+    <div className="flex gap-2 py-2 sm:gap-3">
       {showAvatar && (
-        <Avatar className="h-8 w-8 shrink-0 bg-muted">
+        <Avatar className="h-7 w-7 shrink-0 bg-muted sm:h-8 sm:w-8">
           <AvatarFallback>
-            <Bot className="h-4 w-4" />
+            <Bot className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
           </AvatarFallback>
         </Avatar>
       )}
       <div className="max-w-[85%]">
-        <div className="flex items-center gap-1 rounded-lg bg-muted px-4 py-2.5">
+        <div className="flex items-center gap-1 rounded-lg bg-muted px-3 py-2 sm:px-4 sm:py-2.5">
           <div className="h-2 w-2 animate-bounce rounded-full bg-primary" />
           <div
             className="h-2 w-2 animate-bounce rounded-full bg-primary"
@@ -79,18 +79,18 @@ const PlaceholderMessage = memo(function PlaceholderMessage({
   showAvatar = true,
 }: PlaceholderMessageProps) {
   return (
-    <div className="flex gap-3 py-2">
+    <div className="flex gap-2 py-2 sm:gap-3">
       {showAvatar && (
-        <Avatar className="h-8 w-8 shrink-0 bg-muted">
+        <Avatar className="h-7 w-7 shrink-0 bg-muted sm:h-8 sm:w-8">
           <AvatarFallback>
-            <Bot className="h-4 w-4" />
+            <Bot className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
           </AvatarFallback>
         </Avatar>
       )}
       <div className="max-w-[85%]">
-        <div className="rounded-lg bg-muted px-4 py-2.5 text-sm text-muted-foreground">
+        <div className="rounded-lg bg-muted px-3 py-2 text-xs text-muted-foreground sm:px-4 sm:py-2.5 sm:text-sm">
           <span className="inline-flex items-center gap-2">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            <Loader2 className="h-3 w-3 animate-spin sm:h-3.5 sm:w-3.5" />
             {content}
           </span>
         </div>
@@ -156,15 +156,15 @@ const MessageItem = memo(function MessageItem({
   // Fallback for simple DOCUMENT_CARD without extra_data (should not happen with new flow)
   if (message.message_type === MessageType.DOCUMENT_CARD) {
     return (
-      <div className="flex gap-3 py-2">
+      <div className="flex gap-2 py-2 sm:gap-3">
         {showAvatar && (
-          <Avatar className="h-8 w-8 shrink-0 bg-muted">
+          <Avatar className="h-7 w-7 shrink-0 bg-muted sm:h-8 sm:w-8">
             <AvatarFallback>
-              <Bot className="h-4 w-4" />
+              <Bot className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </AvatarFallback>
           </Avatar>
         )}
-        <div className="max-w-[85%] rounded-lg bg-muted px-4 py-2.5 text-sm">{message.content}</div>
+        <div className="max-w-[85%] rounded-lg bg-muted px-3 py-2 text-xs sm:px-4 sm:py-2.5 sm:text-sm">{message.content}</div>
       </div>
     );
   }
@@ -173,25 +173,25 @@ const MessageItem = memo(function MessageItem({
   if (isSystem) {
     return (
       <div className="flex justify-center py-1">
-        <span className="text-xs text-muted-foreground">{message.content}</span>
+        <span className="text-[10px] text-muted-foreground sm:text-xs">{message.content}</span>
       </div>
     );
   }
 
   // Regular messages
   return (
-    <div className={cn("flex gap-3 py-2", isUser ? "flex-row-reverse" : "flex-row")}>
+    <div className={cn("flex gap-2 py-2 sm:gap-3", isUser ? "flex-row-reverse" : "flex-row")}>
       {showAvatar && (
-        <Avatar className={cn("h-8 w-8 shrink-0", isUser ? "bg-primary" : "bg-muted")}>
+        <Avatar className={cn("h-7 w-7 shrink-0 sm:h-8 sm:w-8", isUser ? "bg-primary" : "bg-muted")}>
           <AvatarFallback>
-            {isUser ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
+            {isUser ? <User className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> : <Bot className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
           </AvatarFallback>
         </Avatar>
       )}
 
       <div
         className={cn(
-          "max-w-[85%] rounded-lg px-4 py-2.5 text-sm",
+          "max-w-[85%] rounded-lg px-3 py-2 text-xs sm:px-4 sm:py-2.5 sm:text-sm",
           isUser ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"
         )}
       >

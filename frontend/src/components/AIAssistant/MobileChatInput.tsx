@@ -114,6 +114,8 @@ export function MobileChatInput({
           className={cn(
             "fixed bottom-0 left-0 right-0 top-auto max-h-mobile-sheet w-full rounded-b-none rounded-t-2xl border-t",
             "flex flex-col p-0 animate-in slide-in-from-bottom",
+            // Override DialogContent's default centering styles
+            "!translate-x-0 !translate-y-0 !left-0 !top-auto",
             "[&>span:last-child]:hidden" // Hide the close button span from Radix
           )}
           onPointerDownOutside={() => {
@@ -137,7 +139,7 @@ export function MobileChatInput({
 
           {/* Messages */}
           <ScrollArea className="flex-1 px-4">
-            <div className="py-4">
+            <div className="py-4 w-full">
               <MessagesList
                 messages={messages}
                 isLoading={isLoading}

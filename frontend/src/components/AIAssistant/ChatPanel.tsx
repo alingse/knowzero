@@ -70,7 +70,7 @@ export function ChatPanel({
     return (
       <div className={cn("flex flex-col bg-card", className)}>
         <ScrollArea className="flex-1 px-4">
-          <div className="py-4">
+          <div className="py-4 w-full">
             <MessagesList
               messages={messages}
               isLoading={isLoading}
