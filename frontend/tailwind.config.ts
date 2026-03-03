@@ -1,4 +1,6 @@
-/** @type {import('tailwindcss').Config} */
+import type { Config } from "tailwindcss";
+import { LAYOUT_TOKENS } from "./src/constants/styles";
+
 export default {
   darkMode: ["class"],
   content: [
@@ -16,6 +18,24 @@ export default {
       },
     },
     extend: {
+      // Design system tokens - see src/constants/styles.ts for source of truth
+      spacing: {
+        "safe-bottom": "env(safe-area-inset-bottom, 0px)",
+        "safe-top": "env(safe-area-inset-top, 0px)",
+        "safe-left": "env(safe-area-inset-left, 0px)",
+        "safe-right": "env(safe-area-inset-right, 0px)",
+      },
+      // Layout tokens - imported from src/constants/styles.ts (single source of truth)
+      maxWidth: {
+        "mobile-drawer": LAYOUT_TOKENS.mobile.drawerWidth,
+      },
+      width: {
+        "mobile-drawer": LAYOUT_TOKENS.mobile.drawerWidth,
+      },
+      maxHeight: {
+        // Mobile bottom sheet: 85vh leaves room for keyboard (when open) and top navigation
+        "mobile-sheet": LAYOUT_TOKENS.mobile.sheetHeight,
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -73,4 +93,4 @@ export default {
     },
   },
   plugins: [require("tailwindcss-animate")],
-};
+} satisfies Config;

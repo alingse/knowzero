@@ -5,6 +5,7 @@ import remarkGfm from "remark-gfm";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { EntityMention } from "@/components/DocumentView/EntityMention";
 import { cn } from "@/lib/utils";
+import { DOCUMENT_PROSE_CLASSES } from "@/constants/styles";
 import type { Document, FollowUpQuestion } from "@/types";
 
 import { EmptyState } from "../Chat/EmptyState";
@@ -139,16 +140,16 @@ function DocumentViewComponent({
   const markdownComponents = useMemo(
     () => ({
       h1: ({ children }: { children?: React.ReactNode }) => (
-        <h1 className="mb-4 text-2xl font-bold">{children}</h1>
+        <h1 className="mb-4 text-xl font-bold md:text-2xl">{children}</h1>
       ),
       h2: ({ children }: { children?: React.ReactNode }) => (
-        <h2 className="mb-3 mt-6 text-xl font-semibold">{children}</h2>
+        <h2 className="mb-3 mt-6 text-lg font-semibold md:text-xl">{children}</h2>
       ),
       h3: ({ children }: { children?: React.ReactNode }) => (
-        <h3 className="mb-2 mt-4 text-lg font-medium">{children}</h3>
+        <h3 className="mb-2 mt-4 text-base font-medium md:text-lg">{children}</h3>
       ),
       p: ({ children }: { children?: React.ReactNode }) => (
-        <p className="mb-4 leading-relaxed">{children}</p>
+        <p className="mb-4 text-base leading-relaxed md:text-base">{children}</p>
       ),
       code: ({
         children,
@@ -280,16 +281,14 @@ function DocumentViewComponent({
   return (
     <div className={cn("flex flex-1 flex-col", className)}>
       {/* Header */}
-      <div className="border-b px-6 py-4">
-        <h1 className="text-2xl font-bold">{document.topic}</h1>
-        {document.category_path && (
-          <p className="mt-1 text-sm text-muted-foreground">{document.category_path}</p>
-        )}
+      <div className="doc-header">
+        <h1 className="doc-title">{document.topic}</h1>
+        {document.category_path && <p className="doc-subtitle">{document.category_path}</p>}
       </div>
 
       {/* Content */}
-      <ScrollArea ref={scrollAreaRef} className="scroll-area-viewport flex-1 px-6 py-6">
-        <article className="prose prose-stone document-content max-w-none">
+      <ScrollArea ref={scrollAreaRef} className={cn("scroll-area-viewport flex-1", "doc-content")}>
+        <article className={DOCUMENT_PROSE_CLASSES}>
           {/* Stable content - rendered as markdown */}
           {hasStableContent && (
             <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
@@ -310,14 +309,14 @@ function DocumentViewComponent({
 
         {/* Follow-up questions */}
         {followUpQuestions && followUpQuestions.length > 0 && (
-          <div className="mt-8">
-            <h3 className="mb-3 text-sm font-medium text-muted-foreground">继续探索</h3>
-            <div className="flex flex-col gap-2">
+          <div className="doc-followup-section">
+            <h3 className="doc-followup-title">继续探索</h3>
+            <div className="doc-followup-group">
               {followUpQuestions.map((q) => (
                 <button
                   key={q.id}
                   onClick={() => onFollowUpClick?.(q)}
-                  className="rounded-lg border px-4 py-2.5 text-left text-sm transition-colors hover:bg-accent hover:text-accent-foreground"
+                  className="doc-followup-btn"
                 >
                   {q.question}
                 </button>

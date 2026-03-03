@@ -25,7 +25,7 @@ function FeatureCard({
   return (
     <div
       className={cn(
-        "group relative rounded-xl border bg-card/80 p-6 backdrop-blur-sm",
+        "group relative rounded-xl border bg-card/80 p-4 backdrop-blur-sm md:p-6",
         "hover:shadow-soft-lg hover:bg-card",
         "card-lift transition-all duration-300",
         "animate-fade-in-up opacity-0"
@@ -41,8 +41,10 @@ function FeatureCard({
       <div className="bg-primary/8 group-hover:bg-primary/12 mb-4 inline-flex h-11 w-11 items-center justify-center rounded-xl text-primary transition-all duration-300 group-hover:scale-110">
         {icon}
       </div>
-      <h3 className="font-display mb-2.5 text-lg font-semibold text-foreground">{title}</h3>
-      <p className="text-sm leading-relaxed text-muted-foreground">{description}</p>
+      <h3 className="font-display mb-2.5 text-lg font-semibold text-foreground md:text-lg">
+        {title}
+      </h3>
+      <p className="text-base leading-relaxed text-muted-foreground md:text-sm">{description}</p>
     </div>
   );
 }
@@ -148,7 +150,7 @@ export function HomePage() {
       </header>
 
       {/* Main Content */}
-      <main className="relative px-6 py-16">
+      <main className="relative px-4 py-12 md:px-6 md:py-16">
         {/* Hero Section */}
         <div className="mx-auto max-w-4xl text-center">
           {/* Title - 更有书卷气的排版 */}
@@ -158,7 +160,7 @@ export function HomePage() {
             </h1>
           </div>
 
-          <p className="mx-auto mb-12 max-w-2xl text-lg leading-relaxed text-muted-foreground">
+          <p className="mx-auto mb-12 max-w-2xl text-base leading-relaxed text-muted-foreground md:text-lg">
             KnowZero 将 AI 的智慧与学习的艺术融为一体，
             <br className="hidden sm:block" />
             陪伴你在知识的海洋中从容探索
@@ -197,7 +199,7 @@ export function HomePage() {
                   size="lg"
                   disabled={!topic.trim() || createSession.isPending}
                   className={cn(
-                    "h-12 rounded-xl px-6 font-medium transition-all duration-300",
+                    "h-12 rounded-xl px-4 py-3 font-medium transition-all duration-300 md:px-6",
                     "bg-primary text-primary-foreground hover:bg-primary/90",
                     "shadow-soft disabled:opacity-50"
                   )}
@@ -237,7 +239,7 @@ export function HomePage() {
           <DecorativeLine className="mx-auto mb-12 max-w-xs opacity-60" />
 
           {/* Feature Cards */}
-          <div className="mb-20 grid grid-cols-1 gap-5 md:grid-cols-3">
+          <div className="mb-16 grid grid-cols-1 gap-4 md:mb-20 md:grid-cols-3 md:gap-5">
             {features.map((feature, i) => (
               <FeatureCard
                 key={feature.title}
@@ -255,14 +257,16 @@ export function HomePage() {
       </main>
 
       {/* Footer - 简洁优雅 */}
-      <footer className="relative border-t border-border/50 bg-secondary/20 py-10">
-        <div className="mx-auto max-w-6xl px-6">
+      <footer className="relative border-t border-border/50 bg-secondary/20 py-8 md:py-10">
+        <div className="mx-auto max-w-6xl px-4 md:px-6">
           <div className="flex flex-col items-center justify-between gap-4 md:flex-row">
             <div className="flex items-center gap-2 text-muted-foreground/60">
               <Feather className="h-4 w-4" />
-              <span className="text-sm">书卷多情似故人，晨昏忧乐每相亲</span>
+              <span className="text-xs md:text-sm">书卷多情似故人，晨昏忧乐每相亲</span>
             </div>
-            <p className="text-sm text-muted-foreground/50">© 2026 KnowZero · AI 驱动的知识探索</p>
+            <p className="text-xs text-muted-foreground/50 md:text-sm">
+              © 2026 KnowZero · AI 驱动的知识探索
+            </p>
           </div>
         </div>
       </footer>

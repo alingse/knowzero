@@ -1,5 +1,5 @@
 import { FileText, Plus, Wifi, WifiOff, Loader2, AlertCircle } from "lucide-react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/Logo";
@@ -7,6 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { useSessionStore } from "@/stores/sessionStore";
+import { useNavigation } from "@/hooks/useNavigation";
 import { DocumentTree } from "./DocumentTree";
 
 type ConnectionStatus = "connecting" | "connected" | "disconnected" | "error";
@@ -57,14 +58,10 @@ export function Sidebar({
   onDocumentSelect,
   connectionStatus = "disconnected",
 }: SidebarProps) {
-  const navigate = useNavigate();
+  const { handleNewSession } = useNavigation();
   const { sessionId } = useParams<{ sessionId: string }>();
 
   const { documents, selectedDocumentId, selectDocument, isStreaming } = useSessionStore();
-
-  const handleNewSession = () => {
-    navigate("/");
-  };
 
   const handleDocumentClick = (documentId: number) => {
     // Don't switch if currently streaming
@@ -76,7 +73,7 @@ export function Sidebar({
   const status = statusConfig[connectionStatus];
 
   return (
-    <aside className={cn("flex h-full w-72 flex-col border-r bg-card", className)}>
+    <aside className={cn("hidden h-full w-72 flex-col border-r bg-card md:flex", className)}>
       {/* Header */}
       <button
         onClick={handleNewSession}

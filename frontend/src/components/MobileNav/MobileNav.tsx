@@ -1,0 +1,154 @@
+import React from "react";
+import { FileText, Plus, Wifi, WifiOff, Loader2, AlertCircle, Menu, X } from "lucide-react";
+import { useParams } from "react-router-dom";
+
+import { Button } from "@/components/ui/button";
+import { Logo } from "@/components/Logo";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
+import { Dialog, DrawerContent, DialogClose } from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
+import { useSessionStore } from "@/stores/sessionStore";
+import { useNavigation } from "@/hooks/useNavigation";
+import { DocumentTree } from "@/components/Sidebar/DocumentTree";
+
+type ConnectionStatus = "connecting" | "connected" | "disconnected" | "error";
+
+interface MobileNavProps {
+  connectionStatus?: ConnectionStatus;
+  onDocumentSelect?: () => void;
+}
+
+const statusConfig: Record<
+  ConnectionStatus,
+  {
+    icon: React.ReactNode;
+    label: string;
+    color: string;
+    animate?: boolean;
+  }
+> = {
+  connected: {
+    icon: <Wifi className="h-3.5 w-3.5" />,
+    label: "已连接",
+    color: "text-green-600 dark:text-green-400",
+    animate: false,
+  },
+  connecting: {
+    icon: <Loader2 className="h-3.5 w-3.5 animate-spin" />,
+    label: "连接中...",
+    color: "text-amber-600 dark:text-amber-400",
+    animate: true,
+  },
+  disconnected: {
+    icon: <WifiOff className="h-3.5 w-3.5" />,
+    label: "未连接",
+    color: "text-muted-foreground",
+    animate: false,
+  },
+  error: {
+    icon: <AlertCircle className="h-3.5 w-3.5" />,
+    label: "连接错误",
+    color: "text-red-600 dark:text-red-400",
+    animate: false,
+  },
+};
+
+export function MobileNav({ connectionStatus = "disconnected", onDocumentSelect }: MobileNavProps) {
+  const { handleNewSession: navigateToNewSession } = useNavigation();
+  const { sessionId } = useParams<{ sessionId: string }>();
+  const { documents, selectedDocumentId, selectDocument, isStreaming } = useSessionStore();
+  const [isOpen, setIsOpen] = React.useState(false);
+
+  const handleNewSession = () => {
+    navigateToNewSession();
+    setIsOpen(false);
+  };
+
+  const handleDocumentClick = (documentId: number) => {
+    if (isStreaming) return;
+    selectDocument(documentId);
+    onDocumentSelect?.();
+    setIsOpen(false);
+  };
+
+  const status = statusConfig[connectionStatus];
+
+  return (
+    <>
+      {/* Hamburger Menu Button - Mobile Only */}
+      <div className="flex items-center md:hidden">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setIsOpen(true)}
+          className="h-11 w-11"
+          aria-label="打开菜单"
+        >
+          <Menu className="h-5 w-5" />
+        </Button>
+      </div>
+
+      {/* Mobile Drawer Sidebar */}
+      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        <DrawerContent className="w-mobile-drawer max-w-mobile-drawer p-0">
+          {/* Header with close button */}
+          <div className="flex h-14 items-center justify-between border-b px-4">
+            <button onClick={handleNewSession} className="flex items-center gap-3">
+              <Logo size="sm" />
+            </button>
+            <DialogClose asChild>
+              <Button variant="ghost" size="icon" className="h-9 w-9">
+                <X className="h-4 w-4" />
+              </Button>
+            </DialogClose>
+          </div>
+
+          {/* New Session Button */}
+          <div className="p-4">
+            <Button className="w-full" variant="outline" onClick={handleNewSession}>
+              <Plus className="mr-2 h-4 w-4" />
+              新会话
+            </Button>
+          </div>
+
+          <Separator />
+
+          {/* Documents Section */}
+          <ScrollArea className="flex-1">
+            {sessionId && (
+              <div className="px-3 py-4">
+                <div className="flex items-center gap-2 px-2 py-2 text-sm font-medium text-muted-foreground">
+                  <FileText className="h-4 w-4" />
+                  会话文档
+                  {documents.length > 0 && (
+                    <span className="ml-auto text-xs text-muted-foreground">
+                      {documents.length}
+                    </span>
+                  )}
+                </div>
+
+                <DocumentTree
+                  documents={documents}
+                  selectedDocumentId={selectedDocumentId}
+                  isStreaming={isStreaming}
+                  onDocumentSelect={handleDocumentClick}
+                />
+              </div>
+            )}
+          </ScrollArea>
+
+          <Separator />
+
+          {/* Footer - Connection Status */}
+          <div className="p-4">
+            <div className={cn("flex items-center gap-2 text-sm", status.color)}>
+              {status.icon}
+              <span>{status.label}</span>
+            </div>
+          </div>
+        </DrawerContent>
+      </Dialog>
+    </>
+  );
+}

@@ -2,12 +2,14 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useParams, useLocation } from "react-router-dom";
 
-import { AIAssistant, useAIAssistant } from "@/components/AIAssistant";
+import { AIAssistant, MobileChatInput, useAIAssistant } from "@/components/AIAssistant";
 import { DocumentView } from "@/components/DocumentView/DocumentView";
 import { Layout, MainContent } from "@/components/Layout/Layout";
 import { RoadmapBar } from "@/components/RoadmapView";
 import { RoadmapView } from "@/components/RoadmapView";
 import { Sidebar } from "@/components/Sidebar/Sidebar";
+import { MobileNav } from "@/components/MobileNav";
+import { Logo } from "@/components/Logo";
 import { useWebSocket } from "@/api/websocket";
 import { sessionsApi, roadmapsApi } from "@/api/client";
 import { useSessionStore } from "@/stores/sessionStore";
@@ -16,6 +18,7 @@ import { usePlaceholderMessages } from "@/hooks/usePlaceholderMessages";
 import { useStreamingContent } from "@/hooks/useStreamingContent";
 import { useTextSelection } from "@/hooks/useTextSelection";
 import { useWebSocketHandler } from "@/hooks/useWebSocketHandler";
+import { useNavigation } from "@/hooks/useNavigation";
 import { useSessionMessages } from "@/hooks/useSessionMessages";
 import type { DisplayMessage } from "@/components/Chat/MessagesList";
 import { MessageType } from "@/types";
@@ -23,6 +26,7 @@ import { MessageType } from "@/types";
 export function SessionPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const location = useLocation();
+  const { handleNewSession } = useNavigation();
   const queryClient = useQueryClient();
   const initialQuery = location.state?.initialQuery as string | undefined;
 
@@ -256,12 +260,27 @@ export function SessionPage() {
 
   return (
     <Layout>
+      {/* Desktop Sidebar - hidden on mobile */}
       <Sidebar
         onDocumentSelect={() => setViewMode("document")}
         connectionStatus={connectionStatus}
       />
-      <MainContent>
-        <div className="flex flex-1 flex-col">
+
+      <MainContent className="md:pt-0">
+        {/* Mobile Header - fixed at top on mobile */}
+        <header className="fixed left-0 right-0 top-0 z-50 flex h-14 items-center justify-between border-b bg-background px-4 md:hidden">
+          <button
+            onClick={handleNewSession}
+            className="flex items-center gap-2 transition-opacity hover:opacity-75"
+          >
+            <Logo size="sm" />
+          </button>
+          <MobileNav
+            connectionStatus={connectionStatus}
+            onDocumentSelect={() => setViewMode("document")}
+          />
+        </header>
+        <div className="flex flex-1 flex-col pt-14 md:pt-0">
           {/* Roadmap Bar */}
           {roadmap && roadmapProgress && (
             <RoadmapBar
@@ -320,6 +339,7 @@ export function SessionPage() {
                 onEntityClick={handleEntityClick}
                 onDocumentClick={handleDocumentClick}
                 isStreaming={true}
+                className="pb-20 md:pb-0"
               />
             ) : (
               <DocumentView
@@ -329,6 +349,7 @@ export function SessionPage() {
                 onEntityClick={handleEntityClick}
                 onDocumentClick={handleDocumentClick}
                 isStreaming={false}
+                className="pb-20 md:pb-0"
               />
             )
           ) : (
@@ -348,7 +369,7 @@ export function SessionPage() {
             </div>
           )}
 
-          {/* Bottom Chat Area */}
+          {/* Bottom Chat Area - Desktop */}
           <AIAssistant
             mode="chat"
             messages={displayMessages}
@@ -357,7 +378,19 @@ export function SessionPage() {
             disabled={agentStatus === "running"}
             onSendMessage={handleSendMessage}
             onDocumentClick={handleDocumentCardClick}
-            className="h-80 border-t"
+            className="hidden h-80 border-t md:flex"
+          />
+        </div>
+
+        {/* Mobile Chat Input - Fixed bottom bar on mobile only */}
+        <div className="md:hidden">
+          <MobileChatInput
+            messages={displayMessages}
+            executionEvents={executionEvents}
+            isLoading={isAgentLoading}
+            disabled={agentStatus === "running"}
+            onSend={handleSendMessage}
+            onDocumentClick={handleDocumentCardClick}
           />
         </div>
       </MainContent>

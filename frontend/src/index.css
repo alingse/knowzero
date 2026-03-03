@@ -175,6 +175,49 @@
   @apply bg-muted-foreground/35;
 }
 
+/* === 响应式组件类 === */
+@layer components {
+  /* Document header - 移动端/桌面端响应式内边距 */
+  .doc-header {
+    @apply border-b px-3 py-2.5 md:px-6 md:py-4;
+  }
+
+  /* Document title - 响应式字体大小 */
+  .doc-title {
+    @apply text-lg font-bold md:text-2xl;
+  }
+
+  /* Document subtitle - 响应式字体大小 */
+  .doc-subtitle {
+    @apply mt-1 text-xs text-muted-foreground md:text-sm;
+  }
+
+  /* Document content area - 响应式内边距 */
+  .doc-content {
+    @apply px-3 py-3 md:px-6 md:py-6;
+  }
+
+  /* Follow-up section - 响应式间距 */
+  .doc-followup-section {
+    @apply mt-6 md:mt-8;
+  }
+
+  /* Follow-up title - 响应式字体和间距 */
+  .doc-followup-title {
+    @apply mb-2 text-xs font-medium text-muted-foreground md:mb-3 md:text-sm;
+  }
+
+  /* Follow-up button - 响应式内边距和字体 */
+  .doc-followup-btn {
+    @apply min-h-[44px] rounded-lg border px-3 py-2.5 text-left text-xs transition-colors hover:bg-accent hover:text-accent-foreground md:px-4 md:py-3 md:text-sm;
+  }
+
+  /* Follow-up button组 - 响应式间距 */
+  .doc-followup-group {
+    @apply flex flex-col gap-1.5 md:gap-2;
+  }
+}
+
 /* Markdown content styles */
 .markdown-content h1 {
   @apply mb-5 text-2xl font-bold text-foreground;

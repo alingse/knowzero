@@ -31,8 +31,9 @@ export function RoadmapBar({
       {/* Compact Mode */}
       <div
         className={cn(
-          "flex cursor-pointer items-center gap-3 px-4 py-2 transition-colors hover:bg-muted/50",
-          !isExpanded && "h-12"
+          "flex cursor-pointer px-4 py-2 transition-colors hover:bg-muted/50",
+          "md:items-center md:gap-3",
+          "flex-col gap-2 items-start pb-4 md:h-12 md:py-2"
         )}
         onClick={() => {
           const next = !isExpanded;
@@ -40,56 +41,61 @@ export function RoadmapBar({
           onToggle?.(next);
         }}
       >
-        <Map className="h-4 w-4 shrink-0 text-primary" />
-        <Target className="h-4 w-4 shrink-0 text-muted-foreground" />
+        {/* Header: Icons + Progress (desktop: row, mobile: col) */}
+        <div className="flex w-full items-center gap-3 md:w-auto">
+          <Map className="h-4 w-4 shrink-0 text-primary" />
+          <Target className="h-4 w-4 shrink-0 text-muted-foreground" />
 
-        {/* Progress nodes */}
-        <div className="flex min-w-0 flex-1 items-center gap-1">
-          {progress.milestones.map((milestone, index) => {
-            const isCompleted = milestone.status === "completed";
-            const isActive = milestone.status === "active";
-            const isBeforeActive = index < activeIndex;
+          {/* Progress nodes */}
+          <div className="flex min-w-0 flex-1 items-center gap-1 md:flex-none">
+            {progress.milestones.map((milestone, index) => {
+              const isCompleted = milestone.status === "completed";
+              const isActive = milestone.status === "active";
+              const isBeforeActive = index < activeIndex;
 
-            return (
-              <div key={milestone.id} className="flex items-center">
-                {/* Node */}
-                <div
-                  className={cn(
-                    "h-2.5 w-2.5 shrink-0 rounded-full transition-colors",
-                    isCompleted && "bg-green-500",
-                    isActive && "bg-primary shadow shadow-primary/50",
-                    !isCompleted && !isActive && "border border-muted-foreground/30 bg-muted"
-                  )}
-                />
-                {/* Connector */}
-                {index < progress.milestones.length - 1 && (
+              return (
+                <div key={milestone.id} className="flex items-center">
+                  {/* Node */}
                   <div
                     className={cn(
-                      "h-0.5 w-6 shrink-0",
-                      isBeforeActive && "bg-primary",
-                      !(isBeforeActive || isActive) && "bg-muted"
+                      "h-2.5 w-2.5 shrink-0 rounded-full transition-colors",
+                      isCompleted && "bg-green-500",
+                      isActive && "bg-primary shadow shadow-primary/50",
+                      !isCompleted && !isActive && "border border-muted-foreground/30 bg-muted"
                     )}
                   />
-                )}
-              </div>
-            );
-          })}
+                  {/* Connector */}
+                  {index < progress.milestones.length - 1 && (
+                    <div
+                      className={cn(
+                        "h-0.5 w-6 shrink-0",
+                        isBeforeActive && "bg-primary",
+                        !(isBeforeActive || isActive) && "bg-muted"
+                      )}
+                    />
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
 
         {/* Goal and progress */}
-        <div className="flex shrink-0 items-center gap-3">
+        <div className="flex w-full shrink-0 items-center justify-between gap-3 md:w-auto md:shrink md:justify-end">
           <span className="max-w-[200px] truncate text-sm font-medium">{progress.goal}</span>
-          <div className="whitespace-nowrap text-xs text-muted-foreground">
-            {completedCount}/{progress.milestones.length}
+          <div className="flex items-center gap-3">
+            <div className="whitespace-nowrap text-xs text-muted-foreground">
+              {completedCount}/{progress.milestones.length}
+            </div>
+            <div className="whitespace-nowrap text-xs font-medium text-primary">
+              {progressPercent}%
+            </div>
+            {isExpanded ? (
+              <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+            ) : (
+              <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+            )}
           </div>
-          <div className="whitespace-nowrap text-xs font-medium text-primary">
-            {progressPercent}%
-          </div>
-          {isExpanded ? (
-            <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
-          ) : (
-            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-          )}
         </div>
       </div>
 
