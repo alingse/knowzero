@@ -49,7 +49,7 @@ const LoadingIndicator = memo(function LoadingIndicator({
     <div className="flex gap-2 py-2 sm:gap-3">
       {showAvatar && (
         <Avatar className="h-7 w-7 shrink-0 bg-muted sm:h-8 sm:w-8">
-          <AvatarFallback>
+          <AvatarFallback className="bg-muted">
             <Bot className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
           </AvatarFallback>
         </Avatar>
@@ -82,7 +82,7 @@ const PlaceholderMessage = memo(function PlaceholderMessage({
     <div className="flex gap-2 py-2 sm:gap-3">
       {showAvatar && (
         <Avatar className="h-7 w-7 shrink-0 bg-muted sm:h-8 sm:w-8">
-          <AvatarFallback>
+          <AvatarFallback className="bg-muted">
             <Bot className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
           </AvatarFallback>
         </Avatar>
@@ -164,7 +164,9 @@ const MessageItem = memo(function MessageItem({
             </AvatarFallback>
           </Avatar>
         )}
-        <div className="max-w-[85%] rounded-lg bg-muted px-3 py-2 text-xs sm:px-4 sm:py-2.5 sm:text-sm">{message.content}</div>
+        <div className="max-w-[85%] rounded-lg bg-muted px-3 py-2 text-xs sm:px-4 sm:py-2.5 sm:text-sm">
+          {message.content}
+        </div>
       </div>
     );
   }
@@ -182,9 +184,15 @@ const MessageItem = memo(function MessageItem({
   return (
     <div className={cn("flex gap-2 py-2 sm:gap-3", isUser ? "flex-row-reverse" : "flex-row")}>
       {showAvatar && (
-        <Avatar className={cn("h-7 w-7 shrink-0 sm:h-8 sm:w-8", isUser ? "bg-primary" : "bg-muted")}>
-          <AvatarFallback>
-            {isUser ? <User className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> : <Bot className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
+        <Avatar
+          className={cn("h-7 w-7 shrink-0 sm:h-8 sm:w-8", isUser ? "bg-primary" : "bg-muted")}
+        >
+          <AvatarFallback className={cn(isUser ? "bg-primary" : "bg-muted")}>
+            {isUser ? (
+              <User className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+            ) : (
+              <Bot className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+            )}
           </AvatarFallback>
         </Avatar>
       )}

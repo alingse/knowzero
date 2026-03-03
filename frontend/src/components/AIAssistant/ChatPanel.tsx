@@ -69,8 +69,8 @@ export function ChatPanel({
   if (variant === "embedded") {
     return (
       <div className={cn("flex flex-col bg-card", className)}>
-        <ScrollArea className="flex-1 px-4">
-          <div className="py-4 w-full">
+        <ScrollArea className="min-h-0 flex-1 px-4">
+          <div className="w-full py-4">
             <MessagesList
               messages={messages}
               isLoading={isLoading}
@@ -96,7 +96,7 @@ export function ChatPanel({
               onKeyDown={handleKeyPress}
               placeholder={disabled ? "正在生成文档，请稍候..." : "输入你的问题..."}
               disabled={isLoading || disabled}
-              className="flex-1"
+              className="min-w-0 flex-1"
             />
             <Button
               onClick={handleSend}
@@ -146,7 +146,7 @@ export function ChatPanel({
       </div>
 
       {/* Messages */}
-      <ScrollArea className="flex-1 px-4 py-3">
+      <ScrollArea className="min-h-0 flex-1 px-4 py-3">
         <MessagesList
           messages={messages}
           isLoading={isLoading}

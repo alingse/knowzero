@@ -73,7 +73,7 @@ export function MobileChatInput({
   return (
     <>
       {/* Fixed Bottom Input Bar */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="fixed bottom-0 left-0 right-0 z-40 border-t bg-background/95 pl-safe-left pr-safe-right backdrop-blur supports-[backdrop-filter]:bg-background/60" data-testid="mobile-chat-input-bar">
         <div className="flex items-center gap-2 p-3">
           {/* Expand button with message history */}
           <button
@@ -112,10 +112,10 @@ export function MobileChatInput({
       <Dialog open={isExpanded} onOpenChange={setIsExpanded}>
         <DialogContent
           className={cn(
-            "fixed bottom-0 left-0 right-0 top-auto max-h-mobile-sheet w-full rounded-b-none rounded-t-2xl border-t",
-            "flex flex-col p-0 animate-in slide-in-from-bottom",
+            "fixed bottom-0 left-0 right-0 top-auto z-[60] max-h-mobile-sheet w-full rounded-b-none rounded-t-2xl border-t",
+            "flex flex-col overflow-hidden p-0 animate-in slide-in-from-bottom",
             // Override DialogContent's default centering styles
-            "!translate-x-0 !translate-y-0 !left-0 !top-auto",
+            "!left-0 !top-auto !translate-x-0 !translate-y-0",
             "[&>span:last-child]:hidden" // Hide the close button span from Radix
           )}
           onPointerDownOutside={() => {
@@ -138,8 +138,8 @@ export function MobileChatInput({
           </div>
 
           {/* Messages */}
-          <ScrollArea className="flex-1 px-4">
-            <div className="py-4 w-full">
+          <ScrollArea className="min-h-0 flex-1 px-4 pl-safe-left pr-safe-right">
+            <div className="w-full py-4">
               <MessagesList
                 messages={messages}
                 isLoading={isLoading}
@@ -171,7 +171,7 @@ export function MobileChatInput({
           </ScrollArea>
 
           {/* Input inside expanded panel */}
-          <div className="flex-shrink-0 border-t p-4">
+          <div className="flex-shrink-0 border-t p-4 pl-safe-left pr-safe-right">
             <div className="flex gap-2">
               <Input
                 ref={inputRef}
@@ -182,7 +182,7 @@ export function MobileChatInput({
                   disabled ? "正在生成文档，请稍候..." : "输入你的问题... (Shift+Enter 换行)"
                 }
                 disabled={isLoading || disabled}
-                className="flex-1"
+                className="min-w-0 flex-1"
               />
               <Button
                 type="button"

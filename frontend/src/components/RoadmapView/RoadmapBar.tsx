@@ -33,7 +33,7 @@ export function RoadmapBar({
         className={cn(
           "flex cursor-pointer px-4 py-2 transition-colors hover:bg-muted/50",
           "md:items-center md:gap-3",
-          "flex-col gap-2 items-start pb-4 md:h-12 md:py-2"
+          "flex-col items-start gap-2 pb-4 md:h-12 md:py-2"
         )}
         onClick={() => {
           const next = !isExpanded;

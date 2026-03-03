@@ -57,8 +57,14 @@ export function DocumentCardMessage({
           <div className="mb-2 rounded-md border border-border/50 bg-background p-2.5 transition-colors group-hover:border-primary/30 sm:p-3">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0 flex-1">
-                <h4 className="mb-1 truncate text-xs font-medium text-foreground sm:text-sm">{title}</h4>
-                {excerpt && <p className="line-clamp-2 text-[10px] text-muted-foreground sm:text-xs">{excerpt}</p>}
+                <h4 className="mb-1 truncate text-xs font-medium text-foreground sm:text-sm">
+                  {title}
+                </h4>
+                {excerpt && (
+                  <p className="line-clamp-2 text-[10px] text-muted-foreground sm:text-xs">
+                    {excerpt}
+                  </p>
+                )}
               </div>
               <ChevronRight className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground transition-all group-hover:translate-x-0.5 group-hover:text-primary sm:h-4 sm:w-4" />
             </div>

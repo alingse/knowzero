@@ -268,7 +268,7 @@ export function SessionPage() {
 
       <MainContent className="md:pt-0">
         {/* Mobile Header - fixed at top on mobile */}
-        <header className="fixed left-0 right-0 top-0 z-50 flex h-14 items-center justify-between border-b bg-background px-4 md:hidden">
+        <header className="fixed left-0 right-0 top-0 z-50 flex h-14 items-center justify-between border-b bg-background px-4 pl-safe-left pr-safe-right md:hidden">
           <button
             onClick={handleNewSession}
             className="flex items-center gap-2 transition-opacity hover:opacity-75"
