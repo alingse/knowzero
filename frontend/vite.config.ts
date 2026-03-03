@@ -41,5 +41,24 @@ export default defineConfig({
   build: {
     outDir: "dist",
     sourcemap: true,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          // Split lucide-react into separate chunk
+          if (id.includes("lucide-react")) {
+            return "lucide-react";
+          }
+          // Split markdown-related packages
+          if (id.includes("react-markdown") || id.includes("remark-gfm") || id.includes("unified") ||
+              id.includes("mdast") || id.includes("micromark") || id.includes("hast")) {
+            return "markdown";
+          }
+          // Split TanStack Query
+          if (id.includes("@tanstack/react-query")) {
+            return "tanstack";
+          }
+        },
+      },
+    },
   },
 });

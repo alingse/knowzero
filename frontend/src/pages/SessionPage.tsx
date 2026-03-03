@@ -95,7 +95,7 @@ export function SessionPage() {
   }, [sessionId, clearSession]);
 
   // Restore session on load
-  const { isLoading } = useQuery({
+  const { isLoading, isError, error } = useQuery({
     queryKey: ["session", sessionId, "restore"],
     queryFn: async () => {
       if (!sessionId) return null;
@@ -253,6 +253,25 @@ export function SessionPage() {
         <div className="text-center">
           <div className="mb-4 h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
           <p className="text-muted-foreground">加载中...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="text-center">
+          <p className="mb-4 text-destructive">加载会话失败</p>
+          <p className="mb-4 text-sm text-muted-foreground">
+            {error instanceof Error ? error.message : "未知错误"}
+          </p>
+          <button
+            onClick={handleNewSession}
+            className="rounded-md bg-primary px-4 py-2 text-primary-foreground hover:opacity-90"
+          >
+            返回首页
+          </button>
         </div>
       </div>
     );

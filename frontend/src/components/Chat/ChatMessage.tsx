@@ -1,10 +1,15 @@
 import { Bot, User } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
-import { zhCN } from "date-fns/locale";
+import dayjs from "dayjs";
+import "dayjs/locale/zh-cn";
+import relativeTime from "dayjs/plugin/relativeTime";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import type { Message } from "@/types";
+
+// Extend dayjs with relativeTime plugin
+dayjs.extend(relativeTime);
+dayjs.locale("zh-cn");
 
 interface ChatMessageProps {
   message: Message;
@@ -13,10 +18,9 @@ interface ChatMessageProps {
 
 function formatTimestamp(timestamp: string): string {
   try {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
+    const date = dayjs(timestamp);
+    const now = dayjs();
+    const diffMins = now.diff(date, "minute");
 
     if (diffMins < 1) {
       return "刚刚";
@@ -26,7 +30,7 @@ function formatTimestamp(timestamp: string): string {
       const hours = Math.floor(diffMins / 60);
       return `${hours} 小时前`;
     } else {
-      return formatDistanceToNow(date, { locale: zhCN, addSuffix: true });
+      return date.fromNow();
     }
   } catch {
     return "";

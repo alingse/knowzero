@@ -1,8 +1,8 @@
 /* eslint-disable react-refresh/only-export-components */
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { FileText, ChevronRight, ChevronDown, Clock } from "lucide-react";
-import { format } from "date-fns";
-import { zhCN } from "date-fns/locale";
+import dayjs from "dayjs";
+import "dayjs/locale/zh-cn";
 import { cn } from "@/lib/utils";
 import type { Document } from "@/types";
 
@@ -148,8 +148,7 @@ export function DocumentTree({
   // 格式化日期
   const formatDate = useCallback((dateString: string) => {
     try {
-      const normalized = dateString.endsWith("Z") ? dateString : dateString + "Z";
-      return format(new Date(normalized), "MM-dd HH:mm", { locale: zhCN });
+      return dayjs(dateString).locale("zh-cn").format("MM-DD HH:mm");
     } catch {
       return "";
     }
