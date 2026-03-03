@@ -12,6 +12,15 @@ import type { Document, FollowUpQuestion } from "@/types";
 
 import { EmptyState } from "../Chat/EmptyState";
 
+// Constants for Mermaid diagram validation
+const MIN_MERMAID_CODE_LENGTH = 10;
+
+// Helper function to validate Mermaid code
+function isValidMermaidCode(code: string): boolean {
+  const trimmedCode = code.trim();
+  return !!(trimmedCode && trimmedCode.length >= MIN_MERMAID_CODE_LENGTH);
+}
+
 // Mermaid diagram component
 interface MermaidDiagramProps {
   code: string;
@@ -31,8 +40,7 @@ function MermaidDiagram({ code, isStreaming = false }: MermaidDiagramProps) {
     const loadMermaid = async () => {
       if (isStreaming || !code) return;
 
-      const trimmedCode = code.trim();
-      if (!trimmedCode || trimmedCode.length < 10) return;
+      if (!isValidMermaidCode(code)) return;
 
       setIsLoading(true);
 
@@ -69,17 +77,17 @@ function MermaidDiagram({ code, isStreaming = false }: MermaidDiagramProps) {
     const renderDiagram = async () => {
       if (!code || !containerRef.current || isStreaming || !mermaidModule) return;
 
-      const trimmedCode = code.trim();
-      if (!trimmedCode || trimmedCode.length < 10) return;
+      if (!isValidMermaidCode(code)) return;
 
       try {
+        const trimmedCode = code.trim();
         const normalizedCode = trimmedCode
           .replace(/[\u201C\u201D]/g, '"')
           .replace(/[\u2018\u2019]/g, "'")
           .replace(/\u3000/g, " ")
           .trim();
 
-        const id = `mermaid-${Math.random().toString(36).substr(2, 9)}`;
+        const id = `mermaid-${Math.random().toString(36).slice(2, 11)}`;
         const { svg: renderedSvg } = await mermaidModule.default.render(id, normalizedCode);
         setSvg(renderedSvg);
         setError("");
