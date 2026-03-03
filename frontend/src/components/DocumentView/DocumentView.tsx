@@ -1,6 +1,9 @@
 import ReactMarkdown from "react-markdown";
 import React, { useMemo, useRef, useEffect, useState } from "react";
 import remarkGfm from "remark-gfm";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
+import mermaid from "mermaid";
 
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { EntityMention } from "@/components/DocumentView/EntityMention";
@@ -9,6 +12,64 @@ import { DOCUMENT_PROSE_CLASSES } from "@/constants/styles";
 import type { Document, FollowUpQuestion } from "@/types";
 
 import { EmptyState } from "../Chat/EmptyState";
+
+// Mermaid diagram component
+function MermaidDiagram({ code }: { code: string }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [svg, setSvg] = useState<string>("");
+  const [error, setError] = useState<string>("");
+
+  useEffect(() => {
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: "default",
+      securityLevel: "strict",
+    });
+  }, []);
+
+  useEffect(() => {
+    const renderDiagram = async () => {
+      if (!code || !containerRef.current) return;
+      
+      try {
+        // Normalize quotes and whitespace for Mermaid compatibility
+        // Convert Chinese quotes to English quotes, normalize spaces
+        const normalizedCode = code
+          .replace(/[\u201C\u201D]/g, '"') // Chinese double quotes “ ” -> "
+          .replace(/[\u2018\u2019]/g, "'") // Chinese single quotes ' ' -> '
+          .replace(/\u3000/g, " ") // Full-width space -> half-width
+          .trim();
+        
+        const id = `mermaid-${Math.random().toString(36).substr(2, 9)}`;
+        const { svg: renderedSvg } = await mermaid.render(id, normalizedCode);
+        setSvg(renderedSvg);
+        setError("");
+      } catch (err) {
+        console.error("Mermaid render error:", err);
+        setError("无法渲染图表");
+      }
+    };
+
+    renderDiagram();
+  }, [code]);
+
+  if (error) {
+    return (
+      <div className="mb-4 rounded-lg border border-destructive/30 bg-destructive/10 p-4">
+        <p className="text-sm text-destructive">{error}</p>
+        <pre className="mt-2 text-xs text-muted-foreground">{code}</pre>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      ref={containerRef}
+      className="mb-4 flex justify-center overflow-x-auto rounded-lg bg-white p-4 dark:bg-gray-900"
+      dangerouslySetInnerHTML={{ __html: svg }}
+    />
+  );
+}
 
 // Memoized DocumentView component to prevent unnecessary re-renders
 
@@ -159,12 +220,41 @@ function DocumentViewComponent({
         className?: string;
       }) => {
         const isInline = !codeClass;
+        const match = /language-(\w+)/.exec(codeClass || "");
+        const language = match ? match[1] : "";
+        const codeString = String(children).replace(/\n$/, "");
+
+        // Handle Mermaid diagrams
+        if (language === "mermaid") {
+          return <MermaidDiagram code={codeString} />;
+        }
+
         return isInline ? (
           <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-sm">{children}</code>
         ) : (
-          <pre className="mb-4 overflow-x-auto rounded-lg bg-muted p-4">
-            <code className="font-mono text-sm">{children}</code>
-          </pre>
+          <div className="mb-4 overflow-hidden rounded-lg">
+            <div className="flex items-center justify-between bg-[#1e1e1e] px-4 py-2">
+              <span className="text-xs text-gray-400">{language || "code"}</span>
+              <button
+                onClick={() => navigator.clipboard.writeText(codeString)}
+                className="text-xs text-gray-400 hover:text-white transition-colors"
+              >
+                复制
+              </button>
+            </div>
+            <SyntaxHighlighter
+              language={language || "text"}
+              style={vscDarkPlus}
+              customStyle={{
+                margin: 0,
+                borderRadius: "0 0 0.5rem 0.5rem",
+                fontSize: "0.875rem",
+              }}
+              showLineNumbers
+            >
+              {codeString}
+            </SyntaxHighlighter>
+          </div>
         );
       },
       ul: ({ children }: { children?: React.ReactNode }) => (
