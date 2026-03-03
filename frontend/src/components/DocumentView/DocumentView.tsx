@@ -3,7 +3,6 @@ import React, { useMemo, useRef, useEffect, useState } from "react";
 import remarkGfm from "remark-gfm";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
-import mermaid from "mermaid";
 
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { EntityMention } from "@/components/DocumentView/EntityMention";
@@ -23,53 +22,83 @@ function MermaidDiagram({ code, isStreaming = false }: MermaidDiagramProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [svg, setSvg] = useState<string>("");
   const [error, setError] = useState<string>("");
+  const [mermaidModule, setMermaidModule] = useState<typeof import("mermaid") | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    mermaid.initialize({
-      startOnLoad: false,
-      theme: "default",
-      securityLevel: "strict",
-    });
-  }, []);
+    let cancelled = false;
+
+    const loadMermaid = async () => {
+      if (isStreaming || !code) return;
+
+      const trimmedCode = code.trim();
+      if (!trimmedCode || trimmedCode.length < 10) return;
+
+      setIsLoading(true);
+
+      try {
+        const mermaid = await import("mermaid");
+        if (!cancelled) {
+          mermaid.default.initialize({
+            startOnLoad: false,
+            theme: "default",
+            securityLevel: "strict",
+          });
+          setMermaidModule(mermaid);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          console.debug("Mermaid load error:", err);
+          setError("load_failed");
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    loadMermaid();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [code, isStreaming]);
 
   useEffect(() => {
     const renderDiagram = async () => {
-      if (!code || !containerRef.current || isStreaming) return;
+      if (!code || !containerRef.current || isStreaming || !mermaidModule) return;
 
-      // Check if the code block looks complete (has closing markers if applicable)
       const trimmedCode = code.trim();
       if (!trimmedCode || trimmedCode.length < 10) return;
 
       try {
-        // Normalize quotes and whitespace for Mermaid compatibility
-        // Convert Chinese quotes to English quotes, normalize spaces
         const normalizedCode = trimmedCode
-          .replace(/[\u201C\u201D]/g, '"') // Chinese double quotes -> "
-          .replace(/[\u2018\u2019]/g, "'") // Chinese single quotes -> '
-          .replace(/\u3000/g, " ") // Full-width space -> half-width
+          .replace(/[\u201C\u201D]/g, '"')
+          .replace(/[\u2018\u2019]/g, "'")
+          .replace(/\u3000/g, " ")
           .trim();
 
         const id = `mermaid-${Math.random().toString(36).substr(2, 9)}`;
-        const { svg: renderedSvg } = await mermaid.render(id, normalizedCode);
+        const { svg: renderedSvg } = await mermaidModule.default.render(id, normalizedCode);
         setSvg(renderedSvg);
         setError("");
       } catch (err) {
-        // Silently handle errors - don't show error to user during generation
         console.debug("Mermaid render error (silently handled):", err);
         setError("render_failed");
       }
     };
 
     renderDiagram();
-  }, [code, isStreaming]);
+  }, [code, isStreaming, mermaidModule]);
 
   // During streaming, show a placeholder
-  if (isStreaming) {
+  if (isStreaming || isLoading) {
     return (
       <div className="mb-4 flex justify-center rounded-lg border border-dashed border-muted-foreground/30 bg-muted/30 p-8">
         <div className="flex items-center gap-2 text-muted-foreground">
           <div className="h-4 w-4 animate-pulse rounded-full bg-primary" />
-          <span className="text-sm">图表生成中...</span>
+          <span className="text-sm">图表加载中...</span>
         </div>
       </div>
     );
