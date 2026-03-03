@@ -1,6 +1,6 @@
 // Document prose classes for markdown rendering
 export const DOCUMENT_PROSE_CLASSES =
-  "prose prose-stone document-content prose-p:text-sm prose-p:leading-relaxed md:prose-p:text-base prose-headings:font-semibold prose-h1:text-lg prose-h2:text-base prose-h3:text-sm md:prose-h1:text-2xl md:prose-h2:text-xl md:prose-h3:text-lg prose-pre:text-xs md:prose-pre:text-sm prose-code:text-xs md:prose-code:text-sm prose-li:text-sm md:prose-li:text-base max-w-none md:max-w-3xl";
+  "prose prose-stone document-content prose-p:text-sm prose-p:leading-relaxed md:prose-p:text-base prose-headings:font-semibold prose-h1:text-lg prose-h2:text-base prose-h3:text-sm md:prose-h1:text-2xl md:prose-h2:text-xl md:prose-h3:text-lg prose-pre:text-xs md:prose-pre:text-sm prose-code:text-xs md:prose-code:text-sm prose-li:text-sm md:prose-li:text-base max-w-full md:max-w-3xl";
 
 /**
  * Design System Tokens

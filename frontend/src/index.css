@@ -333,6 +333,14 @@
   contain: layout style;
 }
 
+/* Fix for Radix UI ScrollArea: ensure content doesn't overflow on mobile */
+/* The internal div with display: table needs to be constrained to viewport width */
+[data-radix-scroll-area-viewport] > div {
+  display: block !important;
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
 /* Document list item hover effect */
 .document-list-item {
   transition: all 0.2s ease;
