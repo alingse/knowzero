@@ -14,7 +14,12 @@ import type { Document, FollowUpQuestion } from "@/types";
 import { EmptyState } from "../Chat/EmptyState";
 
 // Mermaid diagram component
-function MermaidDiagram({ code }: { code: string }) {
+interface MermaidDiagramProps {
+  code: string;
+  isStreaming?: boolean;
+}
+
+function MermaidDiagram({ code, isStreaming = false }: MermaidDiagramProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [svg, setSvg] = useState<string>("");
   const [error, setError] = useState<string>("");
@@ -29,37 +34,50 @@ function MermaidDiagram({ code }: { code: string }) {
 
   useEffect(() => {
     const renderDiagram = async () => {
-      if (!code || !containerRef.current) return;
-      
+      if (!code || !containerRef.current || isStreaming) return;
+
+      // Check if the code block looks complete (has closing markers if applicable)
+      const trimmedCode = code.trim();
+      if (!trimmedCode || trimmedCode.length < 10) return;
+
       try {
         // Normalize quotes and whitespace for Mermaid compatibility
         // Convert Chinese quotes to English quotes, normalize spaces
-        const normalizedCode = code
-          .replace(/[\u201C\u201D]/g, '"') // Chinese double quotes “ ” -> "
-          .replace(/[\u2018\u2019]/g, "'") // Chinese single quotes ' ' -> '
+        const normalizedCode = trimmedCode
+          .replace(/[\u201C\u201D]/g, '"') // Chinese double quotes -> "
+          .replace(/[\u2018\u2019]/g, "'") // Chinese single quotes -> '
           .replace(/\u3000/g, " ") // Full-width space -> half-width
           .trim();
-        
+
         const id = `mermaid-${Math.random().toString(36).substr(2, 9)}`;
         const { svg: renderedSvg } = await mermaid.render(id, normalizedCode);
         setSvg(renderedSvg);
         setError("");
       } catch (err) {
-        console.error("Mermaid render error:", err);
-        setError("无法渲染图表");
+        // Silently handle errors - don't show error to user during generation
+        console.debug("Mermaid render error (silently handled):", err);
+        setError("render_failed");
       }
     };
 
     renderDiagram();
-  }, [code]);
+  }, [code, isStreaming]);
 
-  if (error) {
+  // During streaming, show a placeholder
+  if (isStreaming) {
     return (
-      <div className="mb-4 rounded-lg border border-destructive/30 bg-destructive/10 p-4">
-        <p className="text-sm text-destructive">{error}</p>
-        <pre className="mt-2 text-xs text-muted-foreground">{code}</pre>
+      <div className="mb-4 flex justify-center rounded-lg border border-dashed border-muted-foreground/30 bg-muted/30 p-8">
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <div className="h-4 w-4 animate-pulse rounded-full bg-primary" />
+          <span className="text-sm">图表生成中...</span>
+        </div>
       </div>
     );
+  }
+
+  // If rendering failed, silently show nothing (or show the code as plain text)
+  if (error || !svg) {
+    return null;
   }
 
   return (
@@ -226,7 +244,7 @@ function DocumentViewComponent({
 
         // Handle Mermaid diagrams
         if (language === "mermaid") {
-          return <MermaidDiagram code={codeString} />;
+          return <MermaidDiagram code={codeString} isStreaming={isStreaming} />;
         }
 
         return isInline ? (
@@ -237,7 +255,7 @@ function DocumentViewComponent({
               <span className="text-xs text-gray-400">{language || "code"}</span>
               <button
                 onClick={() => navigator.clipboard.writeText(codeString)}
-                className="text-xs text-gray-400 hover:text-white transition-colors"
+                className="text-xs text-gray-400 transition-colors hover:text-white"
               >
                 复制
               </button>
@@ -315,7 +333,7 @@ function DocumentViewComponent({
         );
       },
     }),
-    [entitySet, document, onEntityClick, onDocumentClick]
+    [entitySet, document, onEntityClick, onDocumentClick, isStreaming]
   );
 
   // Handle scroll events to detect user scrolling

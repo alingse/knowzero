@@ -73,7 +73,10 @@ export function MobileChatInput({
   return (
     <>
       {/* Fixed Bottom Input Bar */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 border-t bg-background/95 pl-safe-left pr-safe-right backdrop-blur supports-[backdrop-filter]:bg-background/60" data-testid="mobile-chat-input-bar">
+      <div
+        className="fixed bottom-0 left-0 right-0 z-40 border-t bg-background/95 pl-safe-left pr-safe-right backdrop-blur supports-[backdrop-filter]:bg-background/60"
+        data-testid="mobile-chat-input-bar"
+      >
         <div className="flex items-center gap-2 p-3">
           {/* Expand button with message history */}
           <button
